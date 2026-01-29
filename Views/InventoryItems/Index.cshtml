@@ -1,0 +1,53 @@
+@model IEnumerable<InvenTrack.Models.InventoryItem>
+
+@{
+    ViewData["Title"] = "Inventory";
+}
+
+<h1>Inventory</h1>
+
+<p>
+    <a asp-action="Create">Add New Item</a>
+</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Photo</th>
+            <th>@Html.DisplayNameFor(model => model.ItemName)</th>
+            <th>@Html.DisplayNameFor(model => model.SKU)</th>
+            <th>@Html.DisplayNameFor(model => model.QuantityOnHand)</th>
+            <th>Category</th>
+            <th>Location</th>
+            <th>@Html.DisplayNameFor(model => model.IsActive)</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td style="width:140px;">
+                @{
+                    if (item.ItemThumbnail?.Content != null)
+                    {
+                        string imageBase64 = Convert.ToBase64String(item.ItemThumbnail.Content);
+                        string imageSrc = string.Format("data:" + item.ItemThumbnail.MimeType + ";base64,{0}", imageBase64);
+                        <img src="@imageSrc" alt="Thumbnail of @item.ItemName" class="img-thumbnail" style="max-height:80px;" />
+                    }
+                }
+            </td>
+            <td>@Html.DisplayFor(modelItem => item.ItemName)</td>
+            <td>@Html.DisplayFor(modelItem => item.SKU)</td>
+            <td>@Html.DisplayFor(modelItem => item.QuantityOnHand)</td>
+            <td>@(item.Category?.Name ?? "-")</td>
+            <td>@(item.StorageLocation?.Name ?? "-")</td>
+            <td>@Html.DisplayFor(modelItem => item.IsActive)</td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.ID">Edit</a> |
+                <a asp-action="Details" asp-route-id="@item.ID">Details</a> |
+                <a asp-action="Delete" asp-route-id="@item.ID">Delete</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>
