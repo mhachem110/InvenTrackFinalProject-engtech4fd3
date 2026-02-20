@@ -6,47 +6,49 @@ namespace InvenTrack.Models
     {
         public InventoryItem()
         {
-            this.StockTransactions = new HashSet<StockTransaction>();
+            StockTransactions = new HashSet<StockTransaction>();
         }
 
         public int ID { get; set; }
 
         [Display(Name = "Item Name")]
-        [Required]
-        [StringLength(120)]
-        public string ItemName { get; set; }
+        [Required(ErrorMessage = "Item name is required.")]
+        [StringLength(120, MinimumLength = 2, ErrorMessage = "Item name must be between 2 and 120 characters.")]
+        public string ItemName { get; set; } = string.Empty;
 
         [Display(Name = "SKU / Asset Tag")]
-        [StringLength(50)]
-        public string SKU { get; set; }
+        [Required(ErrorMessage = "SKU / Asset Tag is required.")]
+        [StringLength(50, ErrorMessage = "SKU / Asset Tag cannot exceed 50 characters.")]
+        public string SKU { get; set; } = string.Empty;
 
         [Display(Name = "Description")]
-        [StringLength(500)]
-        public string Description { get; set; }
+        [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters.")]
+        public string? Description { get; set; }
 
         [Display(Name = "Quantity On Hand")]
-        [Range(0, int.MaxValue)]
+        [Range(0, int.MaxValue, ErrorMessage = "Quantity On Hand must be 0 or greater.")]
         public int QuantityOnHand { get; set; }
 
         [Display(Name = "Reorder Level")]
-        [Range(0, int.MaxValue)]
+        [Range(0, int.MaxValue, ErrorMessage = "Reorder Level must be 0 or greater.")]
         public int ReorderLevel { get; set; }
 
         [Display(Name = "Is Active")]
         public bool IsActive { get; set; } = true;
 
         [Display(Name = "Category")]
+        [Required(ErrorMessage = "Please select a category.")]
         public int? CategoryID { get; set; }
-        public Category Category { get; set; }
+        public Category? Category { get; set; }
 
         [Display(Name = "Location")]
+        [Required(ErrorMessage = "Please select a location.")]
         public int? StorageLocationID { get; set; }
-        public StorageLocation StorageLocation { get; set; }
+        public StorageLocation? StorageLocation { get; set; }
 
         public ICollection<StockTransaction> StockTransactions { get; set; }
 
-        // Optional: reuse existing image pattern (full photo + thumbnail)
-        public ItemPhoto ItemPhoto { get; set; }
-        public ItemThumbnail ItemThumbnail { get; set; }
+        public ItemPhoto? ItemPhoto { get; set; }
+        public ItemThumbnail? ItemThumbnail { get; set; }
     }
 }
