@@ -13,6 +13,9 @@ builder.Services.AddDbContext<InvenTrackContext>(options =>
         builder.Configuration.GetConnectionString("InvenTrackContext")));
 
 // Add services to the container.
+
+builder.Services.AddScoped<InvenTrackFinalProject.Services.StockService>();
+
 builder.Services.AddControllersWithViews();
 var app = builder.Build();
 
