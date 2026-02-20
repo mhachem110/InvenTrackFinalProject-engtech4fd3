@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace InvenTrack.Models
@@ -7,12 +8,14 @@ namespace InvenTrack.Models
         public int ID { get; set; }
 
         [ScaffoldColumn(false)]
-        public byte[] Content { get; set; }
+        [Required]
+        public byte[] Content { get; set; } = Array.Empty<byte>();
 
         [StringLength(255)]
-        public string MimeType { get; set; }
+        [Required]
+        public string MimeType { get; set; } = "image/webp";
 
         public int InventoryItemID { get; set; }
-        public InventoryItem InventoryItem { get; set; }
+        public InventoryItem? InventoryItem { get; set; }
     }
 }

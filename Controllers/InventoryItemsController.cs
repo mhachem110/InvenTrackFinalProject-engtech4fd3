@@ -16,7 +16,108 @@ namespace InvenTrack.Controllers
             _context = context;
         }
 
+        // ---------------------------
+        // Helpers
+        // ---------------------------
+
+        private static string NormalizeSku(string? sku)
+            => (sku ?? string.Empty).Trim();
+
+        private async Task<bool> SkuExistsAsync(string sku, int? excludeId = null)
+        {
+            sku = NormalizeSku(sku);
+            if (string.IsNullOrWhiteSpace(sku)) return false;
+
+            return await _context.InventoryItems.AnyAsync(i =>
+                i.SKU == sku && (!excludeId.HasValue || i.ID != excludeId.Value));
+        }
+
+        private void PopulateDropDowns(int? categoryID = null, int? locationID = null)
+        {
+            ViewData["CategoryID"] = new SelectList(_context.Categories.OrderBy(c => c.Name), "ID", "Name", categoryID);
+            ViewData["StorageLocationID"] = new SelectList(_context.StorageLocations.OrderBy(l => l.Name), "ID", "Name", locationID);
+        }
+
+        private async Task<byte[]?> ResizeWebpWithTimeoutAsync(byte[] bytes, int w, int h, int timeoutMs)
+        {
+            // Run resize on a background thread and enforce a timeout to prevent "hangs"
+            var resizeTask = Task.Run(() => ResizeImage.shrinkImageWebp(bytes, w, h));
+            var done = await Task.WhenAny(resizeTask, Task.Delay(timeoutMs));
+
+            if (done != resizeTask)
+                return null; // timed out (avoid freezing request)
+
+            return await resizeTask; // may still throw — caller handles
+        }
+
+        // Safe image handler: never hangs forever. Returns a user-friendly error message if anything fails.
+        private async Task<string?> TryAddPictureAsync(InventoryItem item, IFormFile? thePicture)
+        {
+            if (thePicture == null || thePicture.Length == 0)
+                return null;
+
+            if (string.IsNullOrWhiteSpace(thePicture.ContentType) || !thePicture.ContentType.StartsWith("image/"))
+                return "Please upload a valid image file (JPG/PNG/WEBP).";
+
+            const long maxBytes = 5 * 1024 * 1024; // 5MB
+            if (thePicture.Length > maxBytes)
+                return "Image is too large. Please upload an image under 5 MB.";
+
+            byte[] pictureArray;
+            try
+            {
+                using var ms = new MemoryStream();
+                await thePicture.CopyToAsync(ms);
+                pictureArray = ms.ToArray();
+            }
+            catch
+            {
+                return "Could not read the uploaded file. Please try again.";
+            }
+
+            try
+            {
+                // Timeout values (tune if needed)
+                const int fullTimeoutMs = 2500;
+                const int thumbTimeoutMs = 1500;
+
+                var full = await ResizeWebpWithTimeoutAsync(pictureArray, 500, 600, fullTimeoutMs);
+                if (full == null)
+                    return "Image processing took too long. Try a smaller image.";
+
+                var thumb = await ResizeWebpWithTimeoutAsync(pictureArray, 100, 120, thumbTimeoutMs);
+                if (thumb == null)
+                    return "Thumbnail processing took too long. Try a smaller image.";
+
+                // Only create entities AFTER successful processing
+                item.ItemPhoto = item.ItemPhoto ?? new ItemPhoto();
+                item.ItemThumbnail = item.ItemThumbnail ?? new ItemThumbnail();
+
+                // Link to parent (helps EF set FK cleanly)
+                item.ItemPhoto.InventoryItem = item;
+                item.ItemThumbnail.InventoryItem = item;
+
+                item.ItemPhoto.MimeType = "image/webp";
+                item.ItemThumbnail.MimeType = "image/webp";
+
+                item.ItemPhoto.Content = full;
+                item.ItemThumbnail.Content = thumb;
+
+                return null;
+            }
+            catch
+            {
+                // Ensure we don't leave half-baked objects attached
+                item.ItemPhoto = null;
+                item.ItemThumbnail = null;
+
+                return "Image processing failed. Try a different JPG/PNG image.";
+            }
+        }
+
+        // ---------------------------
         // GET: InventoryItems
+        // ---------------------------
         public async Task<IActionResult> Index()
         {
             var items = _context.InventoryItems
@@ -53,15 +154,40 @@ namespace InvenTrack.Controllers
         // POST: InventoryItems/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("ID,ItemName,SKU,Description,QuantityOnHand,ReorderLevel,IsActive,CategoryID,StorageLocationID")] InventoryItem item,
-                                               IFormFile thePicture)
+        public async Task<IActionResult> Create(
+            [Bind("ID,ItemName,SKU,Description,QuantityOnHand,ReorderLevel,IsActive,CategoryID,StorageLocationID")] InventoryItem item,
+            IFormFile? thePicture)
         {
+            item.SKU = NormalizeSku(item.SKU);
+
+            // Friendly uniqueness check before DB insert
+            if (await SkuExistsAsync(item.SKU))
+                ModelState.AddModelError(nameof(InventoryItem.SKU), "SKU / Asset Tag must be unique. This value already exists.");
+
+            // Only process image if the rest of the form is already valid
             if (ModelState.IsValid)
             {
-                await AddPicture(item, thePicture);
-                _context.Add(item);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                var imgError = await TryAddPictureAsync(item, thePicture);
+                if (imgError != null)
+                {
+                    // show it in summary AND under file input
+                    ModelState.AddModelError(string.Empty, imgError);
+                    ModelState.AddModelError("thePicture", imgError);
+                }
+            }
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    _context.Add(item);
+                    await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (DbUpdateException)
+                {
+                    ModelState.AddModelError(string.Empty, "Unable to save changes. Please try again (SKU must be unique).");
+                }
             }
 
             PopulateDropDowns(item.CategoryID, item.StorageLocationID);
@@ -75,6 +201,7 @@ namespace InvenTrack.Controllers
 
             var item = await _context.InventoryItems
                 .Include(p => p.ItemPhoto)
+                .Include(p => p.ItemThumbnail)
                 .FirstOrDefaultAsync(m => m.ID == id);
 
             if (item == null) return NotFound();
@@ -86,10 +213,11 @@ namespace InvenTrack.Controllers
         // POST: InventoryItems/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id,
+        public async Task<IActionResult> Edit(
+            int id,
             [Bind("ID,ItemName,SKU,Description,QuantityOnHand,ReorderLevel,IsActive,CategoryID,StorageLocationID")] InventoryItem item,
             string chkRemoveImage,
-            IFormFile thePicture)
+            IFormFile? thePicture)
         {
             if (id != item.ID) return NotFound();
 
@@ -100,45 +228,60 @@ namespace InvenTrack.Controllers
 
             if (itemToUpdate == null) return NotFound();
 
+            item.SKU = NormalizeSku(item.SKU);
+
+            // Friendly uniqueness check (exclude current item)
+            if (await SkuExistsAsync(item.SKU, excludeId: item.ID))
+                ModelState.AddModelError(nameof(InventoryItem.SKU), "SKU / Asset Tag must be unique. This value already exists.");
+
+            // Apply scalar updates to tracked entity
+            itemToUpdate.ItemName = item.ItemName;
+            itemToUpdate.SKU = item.SKU;
+            itemToUpdate.Description = item.Description;
+            itemToUpdate.QuantityOnHand = item.QuantityOnHand;
+            itemToUpdate.ReorderLevel = item.ReorderLevel;
+            itemToUpdate.IsActive = item.IsActive;
+            itemToUpdate.CategoryID = item.CategoryID;
+            itemToUpdate.StorageLocationID = item.StorageLocationID;
+
+            // Remove image if requested
+            if (!string.IsNullOrEmpty(chkRemoveImage) && chkRemoveImage == "on")
+            {
+                if (itemToUpdate.ItemPhoto != null)
+                {
+                    _context.ItemPhotos.Remove(itemToUpdate.ItemPhoto);
+                    itemToUpdate.ItemPhoto = null;
+                }
+
+                if (itemToUpdate.ItemThumbnail != null)
+                {
+                    _context.ItemThumbnails.Remove(itemToUpdate.ItemThumbnail);
+                    itemToUpdate.ItemThumbnail = null;
+                }
+            }
+
+            // Only process image if base form is valid
+            if (ModelState.IsValid)
+            {
+                var imgError = await TryAddPictureAsync(itemToUpdate, thePicture);
+                if (imgError != null)
+                {
+                    ModelState.AddModelError(string.Empty, imgError);
+                    ModelState.AddModelError("thePicture", imgError);
+                }
+            }
+
             if (ModelState.IsValid)
             {
                 try
                 {
-                    // Update scalar fields
-                    itemToUpdate.ItemName = item.ItemName;
-                    itemToUpdate.SKU = item.SKU;
-                    itemToUpdate.Description = item.Description;
-                    itemToUpdate.QuantityOnHand = item.QuantityOnHand;
-                    itemToUpdate.ReorderLevel = item.ReorderLevel;
-                    itemToUpdate.IsActive = item.IsActive;
-                    itemToUpdate.CategoryID = item.CategoryID;
-                    itemToUpdate.StorageLocationID = item.StorageLocationID;
-
-                    // Remove image if requested
-                    if (!string.IsNullOrEmpty(chkRemoveImage) && chkRemoveImage == "on")
-                    {
-                        if (itemToUpdate.ItemPhoto != null)
-                        {
-                            _context.ItemPhotos.Remove(itemToUpdate.ItemPhoto);
-                        }
-                        if (itemToUpdate.ItemThumbnail != null)
-                        {
-                            _context.ItemThumbnails.Remove(itemToUpdate.ItemThumbnail);
-                        }
-                    }
-
-                    await AddPicture(itemToUpdate, thePicture);
-
                     await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
                 }
                 catch (DbUpdateException)
                 {
-                    // likely a unique index conflict (SKU/ReferenceNumber)
-                    ModelState.AddModelError("", "Unable to save changes. Make sure the SKU is unique.");
-                    PopulateDropDowns(item.CategoryID, item.StorageLocationID);
-                    return View(itemToUpdate);
+                    ModelState.AddModelError(string.Empty, "Unable to save changes. Please try again (SKU must be unique).");
                 }
-                return RedirectToAction(nameof(Index));
             }
 
             PopulateDropDowns(item.CategoryID, item.StorageLocationID);
@@ -172,58 +315,6 @@ namespace InvenTrack.Controllers
                 await _context.SaveChangesAsync();
             }
             return RedirectToAction(nameof(Index));
-        }
-
-        private void PopulateDropDowns(int? categoryID = null, int? locationID = null)
-        {
-            ViewData["CategoryID"] = new SelectList(_context.Categories.OrderBy(c => c.Name), "ID", "Name", categoryID);
-            ViewData["StorageLocationID"] = new SelectList(_context.StorageLocations.OrderBy(l => l.Name), "ID", "Name", locationID);
-        }
-
-        private async Task AddPicture(InventoryItem item, IFormFile thePicture)
-        {
-            // Reuse existing image logic: store a full WebP + a thumbnail WebP
-            if (thePicture != null)
-            {
-                string mimeType = thePicture.ContentType;
-                long fileLength = thePicture.Length;
-
-                if (!(mimeType == "" || fileLength == 0) && mimeType.Contains("image"))
-                {
-                    using var memoryStream = new MemoryStream();
-                    await thePicture.CopyToAsync(memoryStream);
-                    var pictureArray = memoryStream.ToArray();
-
-                    if (item.ItemPhoto != null)
-                    {
-                        item.ItemPhoto.Content = ResizeImage.shrinkImageWebp(pictureArray, 500, 600);
-
-                        // ensure thumbnail loaded/exists
-                        item.ItemThumbnail = _context.ItemThumbnails
-                            .Where(p => p.InventoryItemID == item.ID)
-                            .FirstOrDefault() ?? item.ItemThumbnail;
-
-                        if (item.ItemThumbnail == null)
-                        {
-                            item.ItemThumbnail = new ItemThumbnail { MimeType = "image/webp" };
-                        }
-                        item.ItemThumbnail.Content = ResizeImage.shrinkImageWebp(pictureArray, 100, 120);
-                    }
-                    else
-                    {
-                        item.ItemPhoto = new ItemPhoto
-                        {
-                            Content = ResizeImage.shrinkImageWebp(pictureArray, 500, 600),
-                            MimeType = "image/webp"
-                        };
-                        item.ItemThumbnail = new ItemThumbnail
-                        {
-                            Content = ResizeImage.shrinkImageWebp(pictureArray, 100, 120),
-                            MimeType = "image/webp"
-                        };
-                    }
-                }
-            }
         }
     }
 }

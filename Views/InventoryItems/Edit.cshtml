@@ -11,7 +11,7 @@
 <div class="row">
     <div class="col-md-6">
         <form asp-action="Edit" method="post" enctype="multipart/form-data">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div asp-validation-summary="All" class="text-danger"></div>
             <input type="hidden" asp-for="ID" />
 
             <div class="form-group">
@@ -49,6 +49,7 @@
                 <select asp-for="CategoryID" class="form-control" asp-items="ViewBag.CategoryID">
                     <option value="">-- Select Category --</option>
                 </select>
+                <span asp-validation-for="CategoryID" class="text-danger"></span>
             </div>
 
             <div class="form-group">
@@ -56,6 +57,7 @@
                 <select asp-for="StorageLocationID" class="form-control" asp-items="ViewBag.StorageLocationID">
                     <option value="">-- Select Location --</option>
                 </select>
+                <span asp-validation-for="StorageLocationID" class="text-danger"></span>
             </div>
 
             <div class="form-group form-check">
@@ -64,7 +66,7 @@
             </div>
 
             @{
-                @if (Model.ItemThumbnail?.Content != null)
+                if (Model.ItemThumbnail?.Content != null && Model.ItemThumbnail.Content.Length > 0)
                 {
                     var imageBase64 = Convert.ToBase64String(Model.ItemThumbnail.Content);
                     var imageSrc = $"data:{Model.ItemThumbnail.MimeType};base64,{imageBase64}";
@@ -81,12 +83,12 @@
                         <label class="form-check-label" for="chkRemoveImage">Remove current image</label>
                     </div>
                 }
-
             }
 
             <div class="form-group">
                 <label class="control-label">Replace Photo (optional)</label>
                 <input type="file" name="thePicture" class="form-control" accept="image/*" />
+                <span class="text-danger">@Html.ValidationMessage("thePicture")</span>
             </div>
 
             <div class="form-group mt-2">
@@ -98,5 +100,7 @@
 </div>
 
 @section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
 }

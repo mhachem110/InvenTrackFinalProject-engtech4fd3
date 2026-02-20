@@ -11,7 +11,7 @@
 <div class="row">
     <div class="col-md-6">
         <form asp-action="Create" method="post" enctype="multipart/form-data">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div asp-validation-summary="All" class="text-danger"></div>
 
             <div class="form-group">
                 <label asp-for="ItemName" class="control-label"></label>
@@ -48,6 +48,7 @@
                 <select asp-for="CategoryID" class="form-control" asp-items="ViewBag.CategoryID">
                     <option value="">-- Select Category --</option>
                 </select>
+                <span asp-validation-for="CategoryID" class="text-danger"></span>
             </div>
 
             <div class="form-group">
@@ -55,6 +56,7 @@
                 <select asp-for="StorageLocationID" class="form-control" asp-items="ViewBag.StorageLocationID">
                     <option value="">-- Select Location --</option>
                 </select>
+                <span asp-validation-for="StorageLocationID" class="text-danger"></span>
             </div>
 
             <div class="form-group form-check">
@@ -65,6 +67,7 @@
             <div class="form-group">
                 <label class="control-label">Item Photo (optional)</label>
                 <input type="file" name="thePicture" class="form-control" accept="image/*" />
+                <span class="text-danger">@Html.ValidationMessage("thePicture")</span>
             </div>
 
             <div class="form-group mt-2">
@@ -76,5 +79,7 @@
 </div>
 
 @section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
 }
