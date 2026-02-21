@@ -7,13 +7,11 @@ namespace InvenTrack.Data
     {
         public static void Seed(IApplicationBuilder applicationBuilder)
         {
-            InvenTrackContext context = applicationBuilder.ApplicationServices.CreateScope()
-                .ServiceProvider.GetRequiredService<InvenTrackContext>();
+            using var scope = applicationBuilder.ApplicationServices.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<InvenTrackContext>();
 
-            // Stage 1: Use EnsureCreated for quick setup.
-            // Once you add migrations, you can switch to:
-            //     context.Database.Migrate();
-            context.Database.EnsureCreated();
+            // Use migrations so schema changes work without deleting DB
+            context.Database.Migrate();
 
             if (!context.Categories.Any())
             {

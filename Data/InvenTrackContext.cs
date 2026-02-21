@@ -19,33 +19,48 @@ namespace InvenTrack.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // InventoryItem -> StockTransaction (restrict delete to keep history)
-            modelBuilder.Entity<InventoryItem>()
-                .HasMany(i => i.StockTransactions)
-                .WithOne(t => t.InventoryItem)
+            // StockTransaction -> InventoryItem (keep history)
+            modelBuilder.Entity<StockTransaction>()
+                .HasOne(t => t.InventoryItem)
+                .WithMany(i => i.StockTransactions)
                 .HasForeignKey(t => t.InventoryItemID)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Category -> InventoryItem
-            modelBuilder.Entity<Category>()
-                .HasMany(c => c.InventoryItems)
-                .WithOne(i => i.Category)
+            // InventoryItem -> Category
+            // FIX: SetNull is invalid when FK is required (NOT NULL). Use Restrict instead.
+            modelBuilder.Entity<InventoryItem>()
+                .HasOne(i => i.Category)
+                .WithMany(c => c.InventoryItems)
                 .HasForeignKey(i => i.CategoryID)
-                .OnDelete(DeleteBehavior.SetNull);
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Restrict);
 
-            // StorageLocation -> InventoryItem
-            modelBuilder.Entity<StorageLocation>()
-                .HasMany(l => l.InventoryItems)
-                .WithOne(i => i.StorageLocation)
+            // InventoryItem -> StorageLocation
+            modelBuilder.Entity<InventoryItem>()
+                .HasOne(i => i.StorageLocation)
+                .WithMany(l => l.InventoryItems)
                 .HasForeignKey(i => i.StorageLocationID)
-                .OnDelete(DeleteBehavior.SetNull);
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Restrict);
 
-            // SKU should be unique (ignore nulls in SQLite by keeping it optional but indexed)
+            // InventoryItem -> ItemPhoto (1:1)
+            modelBuilder.Entity<InventoryItem>()
+                .HasOne(i => i.ItemPhoto)
+                .WithOne(p => p.InventoryItem)
+                .HasForeignKey<ItemPhoto>(p => p.InventoryItemID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // InventoryItem -> ItemThumbnail (1:1)
+            modelBuilder.Entity<InventoryItem>()
+                .HasOne(i => i.ItemThumbnail)
+                .WithOne(t => t.InventoryItem)
+                .HasForeignKey<ItemThumbnail>(t => t.InventoryItemID)
+                .OnDelete(DeleteBehavior.Cascade);
+
             modelBuilder.Entity<InventoryItem>()
                 .HasIndex(i => i.SKU)
                 .IsUnique();
 
-            // Optional unique reference number (only if provided)
             modelBuilder.Entity<StockTransaction>()
                 .HasIndex(t => t.ReferenceNumber)
                 .IsUnique();
