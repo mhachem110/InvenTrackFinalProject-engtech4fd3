@@ -37,13 +37,13 @@ namespace InvenTrack.Models
         public bool IsActive { get; set; } = true;
 
         [Display(Name = "Category")]
-        [Required(ErrorMessage = "Please select a category.")]
-        public int? CategoryID { get; set; }
+        [Range(1, int.MaxValue, ErrorMessage = "Please select a category.")]
+        public int CategoryID { get; set; }
         public Category? Category { get; set; }
 
         [Display(Name = "Location")]
-        [Required(ErrorMessage = "Please select a location.")]
-        public int? StorageLocationID { get; set; }
+        [Range(1, int.MaxValue, ErrorMessage = "Please select a location.")]
+        public int StorageLocationID { get; set; }
         public StorageLocation? StorageLocation { get; set; }
 
         public ICollection<StockTransaction> StockTransactions { get; set; }

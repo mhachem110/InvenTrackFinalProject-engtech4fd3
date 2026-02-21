@@ -31,7 +31,7 @@ namespace InvenTrackFinalProject.Services
             {
                 StockActionType.CheckIn => Math.Abs(quantityChange),
                 StockActionType.CheckOut => -Math.Abs(quantityChange),
-                StockActionType.Adjustment => quantityChange, // can be +/- for adjustments
+                StockActionType.Adjustment => quantityChange,
                 _ => 0
             };
 
@@ -43,17 +43,16 @@ namespace InvenTrackFinalProject.Services
             if (newQty < 0)
                 return (false, $"Insufficient stock. Current QOH = {item.QuantityOnHand}.");
 
-            using var dbTx = await _context.Database.BeginTransactionAsync();
-
             try
             {
+                // EF Core will automatically use a transaction for SaveChanges when multiple commands are executed.
                 item.QuantityOnHand = newQty;
 
                 var tx = new StockTransaction
                 {
                     InventoryItemID = inventoryItemId,
                     ActionType = actionType,
-                    QuantityChange = delta,                 // store signed delta
+                    QuantityChange = delta,
                     Notes = notes,
                     PerformedBy = string.IsNullOrWhiteSpace(performedBy) ? "System" : performedBy,
                     DateCreated = DateTime.UtcNow
@@ -62,13 +61,10 @@ namespace InvenTrackFinalProject.Services
                 _context.StockTransactions.Add(tx);
 
                 await _context.SaveChangesAsync();
-                await dbTx.CommitAsync();
-
                 return (true, null);
             }
             catch (Exception ex)
             {
-                await dbTx.RollbackAsync();
                 return (false, ex.Message);
             }
         }

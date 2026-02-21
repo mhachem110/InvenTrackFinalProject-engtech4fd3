@@ -1,7 +1,41 @@
-﻿Add-Migration -Context ApplicationDbContext -OutputDir Data\Migrations Initial
-Update-Database -Context ApplicationDbContext
--------------------------------------------------------------------------------
-Add-Migration -Context EbookContext -o Data\EBMigrations Initial
-Update-Database -Context EbookContext
+﻿INVENTRACK – DATABASE COMMANDS (AZURE SQL)
 
-ExtraMigration.Steps(migrationBuilder);
+WE DO NOT USE SQLITE ANYMORE.
+NO MORE deleting .db files, EnsureCreated, or old SQLite migration commands.
+
+-----------------------------------------
+FIRST TIME SETUP (each teammate)
+-----------------------------------------
+
+
+
+1) Create the tables in Azure SQL (run migrations)
+
+- Go to the Package Manager Console and enter this command: 
+															Update-Database -Context InvenTrackContext
+
+
+-----------------------------------------
+WHEN YOU CHANGE MODELS / TABLES / FIELDS
+-----------------------------------------
+
+1) Create a migration (pick a name that matches what you changed)
+
+Add-Migration <MigrationName> -Context InvenTrackContext -OutputDir Data\Migrations\InvenTrack
+
+Example:
+Add-Migration AddSupplierField -Context InvenTrackContext -OutputDir Data\Migrations\InvenTrack
+
+2) Apply it to Azure SQL
+
+Update-Database -Context InvenTrackContext
+
+
+-----------------------------------------
+IF SOMETHING FAILS
+-----------------------------------------
+
+Database not available / paused:
+- wait 30 seconds
+- run Update-Database again
+- check Azure SQL firewall has your IP allowed
