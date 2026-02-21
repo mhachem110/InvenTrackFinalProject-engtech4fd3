@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using InvenTrack.Data;
 using InvenTrack.Models;
 
-namespace InvenTrackFinalProject.Controllers
+namespace InvenTrack.Controllers
 {
     public class CategoriesController : Controller
     {
@@ -19,26 +14,42 @@ namespace InvenTrackFinalProject.Controllers
             _context = context;
         }
 
+        // ---------------------------
+        // Helpers
+        // ---------------------------
+
+        private static string Clean(string? s) => (s ?? string.Empty).Trim();
+
+        private async Task<bool> CategoryNameExistsAsync(string name, int? excludeId = null)
+        {
+            name = Clean(name);
+            if (string.IsNullOrWhiteSpace(name)) return false;
+
+            return await _context.Categories.AnyAsync(c =>
+                c.Name == name && (!excludeId.HasValue || c.ID != excludeId.Value));
+        }
+
         // GET: Categories
         public async Task<IActionResult> Index()
         {
-              return View(await _context.Categories.ToListAsync());
+            var categories = await _context.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            return View(categories);
         }
 
         // GET: Categories/Details/5
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null || _context.Categories == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             var category = await _context.Categories
+                .AsNoTracking()
                 .FirstOrDefaultAsync(m => m.ID == id);
-            if (category == null)
-            {
-                return NotFound();
-            }
+
+            if (category == null) return NotFound();
 
             return View(category);
         }
@@ -50,86 +61,102 @@ namespace InvenTrackFinalProject.Controllers
         }
 
         // POST: Categories/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("ID,Name,Description")] Category category)
+        public async Task<IActionResult> Create([Bind("Name,Description")] Category category)
         {
-            if (ModelState.IsValid)
-            {
-                _context.Add(category);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
-            return View(category);
-        }
+            // Normalize inputs
+            category.Name = Clean(category.Name);
+            category.Description = Clean(category.Description);
 
-        // GET: Categories/Edit/5
-        public async Task<IActionResult> Edit(int? id)
-        {
-            if (id == null || _context.Categories == null)
+            // Friendly uniqueness check
+            if (await CategoryNameExistsAsync(category.Name))
             {
-                return NotFound();
-            }
-
-            var category = await _context.Categories.FindAsync(id);
-            if (category == null)
-            {
-                return NotFound();
-            }
-            return View(category);
-        }
-
-        // POST: Categories/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("ID,Name,Description")] Category category)
-        {
-            if (id != category.ID)
-            {
-                return NotFound();
+                ModelState.AddModelError(nameof(Category.Name), "Category name must be unique. This category already exists.");
             }
 
             if (ModelState.IsValid)
             {
                 try
                 {
-                    _context.Update(category);
+                    _context.Add(category);
                     await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (DbUpdateException)
+                {
+                    ModelState.AddModelError(string.Empty, "Unable to save category. Please try again.");
+                }
+            }
+
+            return View(category);
+        }
+
+        // GET: Categories/Edit/5
+        public async Task<IActionResult> Edit(int? id)
+        {
+            if (id == null) return NotFound();
+
+            var category = await _context.Categories.FindAsync(id);
+            if (category == null) return NotFound();
+
+            return View(category);
+        }
+
+        // POST: Categories/Edit/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id)
+        {
+            var categoryToUpdate = await _context.Categories.FirstOrDefaultAsync(c => c.ID == id);
+            if (categoryToUpdate == null) return NotFound();
+
+            // Update only allowed fields (prevents overposting)
+            if (await TryUpdateModelAsync(categoryToUpdate, "",
+                c => c.Name, c => c.Description))
+            {
+                // Normalize
+                categoryToUpdate.Name = Clean(categoryToUpdate.Name);
+                categoryToUpdate.Description = Clean(categoryToUpdate.Description);
+
+                // Friendly uniqueness check (exclude current category)
+                if (await CategoryNameExistsAsync(categoryToUpdate.Name, excludeId: id))
+                {
+                    ModelState.AddModelError(nameof(Category.Name), "Category name must be unique. This category already exists.");
+                    return View(categoryToUpdate);
+                }
+
+                try
+                {
+                    await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!CategoryExists(category.ID))
-                    {
+                    if (!await _context.Categories.AnyAsync(e => e.ID == id))
                         return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
+
+                    throw;
                 }
-                return RedirectToAction(nameof(Index));
+                catch (DbUpdateException)
+                {
+                    ModelState.AddModelError(string.Empty, "Unable to save changes. Please try again.");
+                }
             }
-            return View(category);
+
+            return View(categoryToUpdate);
         }
 
         // GET: Categories/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null || _context.Categories == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             var category = await _context.Categories
+                .AsNoTracking()
                 .FirstOrDefaultAsync(m => m.ID == id);
-            if (category == null)
-            {
-                return NotFound();
-            }
+
+            if (category == null) return NotFound();
 
             return View(category);
         }
@@ -139,23 +166,23 @@ namespace InvenTrackFinalProject.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            if (_context.Categories == null)
-            {
-                return Problem("Entity set 'InvenTrackContext.Categories'  is null.");
-            }
             var category = await _context.Categories.FindAsync(id);
-            if (category != null)
+            if (category == null) return RedirectToAction(nameof(Index));
+
+            try
             {
                 _context.Categories.Remove(category);
+                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
             }
-            
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
-        }
+            catch (DbUpdateException)
+            {
+                // Common: FK constraint if InventoryItems reference this category
+                ModelState.AddModelError(string.Empty,
+                    "Unable to delete this category because it is being used by one or more inventory items.");
 
-        private bool CategoryExists(int id)
-        {
-          return _context.Categories.Any(e => e.ID == id);
+                return View("Delete", category);
+            }
         }
     }
 }
