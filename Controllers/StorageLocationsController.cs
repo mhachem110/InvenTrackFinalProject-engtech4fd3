@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using InvenTrack.Data;
 using InvenTrack.Models;
 
-namespace InvenTrackFinalProject.Controllers
+namespace InvenTrack.Controllers
 {
     public class StorageLocationsController : Controller
     {
@@ -19,26 +14,42 @@ namespace InvenTrackFinalProject.Controllers
             _context = context;
         }
 
+        // ---------------------------
+        // Helpers
+        // ---------------------------
+
+        private static string Clean(string? s) => (s ?? string.Empty).Trim();
+
+        private async Task<bool> LocationNameExistsAsync(string name, int? excludeId = null)
+        {
+            name = Clean(name);
+            if (string.IsNullOrWhiteSpace(name)) return false;
+
+            return await _context.StorageLocations.AnyAsync(l =>
+                l.Name == name && (!excludeId.HasValue || l.ID != excludeId.Value));
+        }
+
         // GET: StorageLocations
         public async Task<IActionResult> Index()
         {
-              return View(await _context.StorageLocations.ToListAsync());
+            var locations = await _context.StorageLocations
+                .AsNoTracking()
+                .OrderBy(l => l.Name)
+                .ToListAsync();
+
+            return View(locations);
         }
 
         // GET: StorageLocations/Details/5
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null || _context.StorageLocations == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             var storageLocation = await _context.StorageLocations
+                .AsNoTracking()
                 .FirstOrDefaultAsync(m => m.ID == id);
-            if (storageLocation == null)
-            {
-                return NotFound();
-            }
+
+            if (storageLocation == null) return NotFound();
 
             return View(storageLocation);
         }
@@ -50,86 +61,105 @@ namespace InvenTrackFinalProject.Controllers
         }
 
         // POST: StorageLocations/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("ID,Name,Building,Room")] StorageLocation storageLocation)
+        public async Task<IActionResult> Create([Bind("Name,Building,Room")] StorageLocation storageLocation)
         {
-            if (ModelState.IsValid)
-            {
-                _context.Add(storageLocation);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
-            return View(storageLocation);
-        }
+            // Normalize text inputs
+            storageLocation.Name = Clean(storageLocation.Name);
+            storageLocation.Building = Clean(storageLocation.Building);
+            storageLocation.Room = Clean(storageLocation.Room);
 
-        // GET: StorageLocations/Edit/5
-        public async Task<IActionResult> Edit(int? id)
-        {
-            if (id == null || _context.StorageLocations == null)
+            // Friendly uniqueness check (Name)
+            if (await LocationNameExistsAsync(storageLocation.Name))
             {
-                return NotFound();
-            }
-
-            var storageLocation = await _context.StorageLocations.FindAsync(id);
-            if (storageLocation == null)
-            {
-                return NotFound();
-            }
-            return View(storageLocation);
-        }
-
-        // POST: StorageLocations/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("ID,Name,Building,Room")] StorageLocation storageLocation)
-        {
-            if (id != storageLocation.ID)
-            {
-                return NotFound();
+                ModelState.AddModelError(nameof(StorageLocation.Name), "Location name must be unique. This location already exists.");
             }
 
             if (ModelState.IsValid)
             {
                 try
                 {
-                    _context.Update(storageLocation);
+                    _context.Add(storageLocation);
                     await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (DbUpdateException)
+                {
+                    ModelState.AddModelError(string.Empty, "Unable to save location. Please try again.");
+                }
+            }
+
+            return View(storageLocation);
+        }
+
+        // GET: StorageLocations/Edit/5
+        public async Task<IActionResult> Edit(int? id)
+        {
+            if (id == null) return NotFound();
+
+            var storageLocation = await _context.StorageLocations.FindAsync(id);
+            if (storageLocation == null) return NotFound();
+
+            return View(storageLocation);
+        }
+
+        // POST: StorageLocations/Edit/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id)
+        {
+            var storageLocationToUpdate = await _context.StorageLocations.FirstOrDefaultAsync(l => l.ID == id);
+            if (storageLocationToUpdate == null) return NotFound();
+
+            // Update only allowed fields (prevents overposting)
+            if (await TryUpdateModelAsync(storageLocationToUpdate, "",
+                l => l.Name, l => l.Building, l => l.Room))
+            {
+                // Normalize
+                storageLocationToUpdate.Name = Clean(storageLocationToUpdate.Name);
+                storageLocationToUpdate.Building = Clean(storageLocationToUpdate.Building);
+                storageLocationToUpdate.Room = Clean(storageLocationToUpdate.Room);
+
+                // Friendly uniqueness check (exclude self)
+                if (await LocationNameExistsAsync(storageLocationToUpdate.Name, excludeId: id))
+                {
+                    ModelState.AddModelError(nameof(StorageLocation.Name), "Location name must be unique. This location already exists.");
+                    return View(storageLocationToUpdate);
+                }
+
+                try
+                {
+                    await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!StorageLocationExists(storageLocation.ID))
-                    {
+                    // Another user deleted/changed it
+                    if (!await _context.StorageLocations.AnyAsync(e => e.ID == id))
                         return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
+
+                    throw;
                 }
-                return RedirectToAction(nameof(Index));
+                catch (DbUpdateException)
+                {
+                    ModelState.AddModelError(string.Empty, "Unable to save changes. Please try again.");
+                }
             }
-            return View(storageLocation);
+
+            return View(storageLocationToUpdate);
         }
 
         // GET: StorageLocations/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null || _context.StorageLocations == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             var storageLocation = await _context.StorageLocations
+                .AsNoTracking()
                 .FirstOrDefaultAsync(m => m.ID == id);
-            if (storageLocation == null)
-            {
-                return NotFound();
-            }
+
+            if (storageLocation == null) return NotFound();
 
             return View(storageLocation);
         }
@@ -139,23 +169,23 @@ namespace InvenTrackFinalProject.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            if (_context.StorageLocations == null)
-            {
-                return Problem("Entity set 'InvenTrackContext.StorageLocations'  is null.");
-            }
             var storageLocation = await _context.StorageLocations.FindAsync(id);
-            if (storageLocation != null)
+            if (storageLocation == null) return RedirectToAction(nameof(Index));
+
+            try
             {
                 _context.StorageLocations.Remove(storageLocation);
+                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
             }
-            
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
-        }
+            catch (DbUpdateException)
+            {
+                // Common: FK constraint if InventoryItems reference this location
+                ModelState.AddModelError(string.Empty,
+                    "Unable to delete this location because it is being used by one or more inventory items.");
 
-        private bool StorageLocationExists(int id)
-        {
-          return _context.StorageLocations.Any(e => e.ID == id);
+                return View("Delete", storageLocation);
+            }
         }
     }
 }

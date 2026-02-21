@@ -1,53 +1,90 @@
-﻿<!DOCTYPE html>
+﻿@{
+    var controller = (ViewContext.RouteData.Values["controller"]?.ToString() ?? "").ToLowerInvariant();
+    bool IsActive(string c) => controller == (c ?? "").ToLowerInvariant();
+}
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - InvenTrack</title>
+
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/InvenTrack.styles.css" asp-append-version="true" />
 </head>
-<body>
+
+<body class="bg-light d-flex flex-column min-vh-100">
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">InvenTrack</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
+        <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
+            <div class="container">
+                <!-- Brand -->
+                <a class="navbar-brand d-flex align-items-center gap-2" asp-area="" asp-controller="Home" asp-action="Index">
+                    <span class="badge bg-primary rounded-pill px-3 py-2">IT</span>
+                    <span class="fw-semibold">InvenTrack</span>
+                </a>
+
+                <!-- Mobile toggle -->
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
+                        aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
+
+                <div class="collapse navbar-collapse" id="mainNavbar">
+                    <!-- Nav -->
+                    <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="InventoryItems" asp-action="Index">Inventory</a>
+                            <a class="nav-link @(IsActive("Home") ? "active fw-semibold" : "")"
+                               asp-area="" asp-controller="Home" asp-action="Index">
+                                Home
+                            </a>
                         </li>
 
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Categories" asp-action="Index">Categories</a>
+                            <a class="nav-link @(IsActive("InventoryItems") ? "active fw-semibold" : "")"
+                               asp-area="" asp-controller="InventoryItems" asp-action="Index">
+                                Inventory
+                            </a>
                         </li>
+
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="StorageLocations" asp-action="Index">Locations</a>
+                            <a class="nav-link @(IsActive("Categories") ? "active fw-semibold" : "")"
+                               asp-area="" asp-controller="Categories" asp-action="Index">
+                                Categories
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a class="nav-link @(IsActive("StorageLocations") ? "active fw-semibold" : "")"
+                               asp-area="" asp-controller="StorageLocations" asp-action="Index">
+                                Locations
+                            </a>
                         </li>
                     </ul>
                 </div>
             </div>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2023 - InvenTrack - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+    <!-- Main content grows to push footer down -->
+    <main role="main" class="flex-grow-1">
+        <div class="container py-4">
+            @RenderBody()
+        </div>
+    </main>
+
+    <footer class="border-top bg-white mt-auto">
+        <div class="container py-3 d-flex flex-wrap justify-content-between align-items-center">
+            <div class="text-muted small">
+                &copy; 2026 <span class="fw-semibold">InvenTrack</span> — Inventory Management Platform
+            </div>
+            <div class="small">
+                <a class="text-decoration-none" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            </div>
         </div>
     </footer>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>

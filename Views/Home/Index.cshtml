@@ -1,8 +1,113 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Home";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container py-4">
+    <!-- Hero -->
+    <div class="p-4 p-md-5 mb-4 rounded-4 bg-light border shadow-sm">
+        <div class="row align-items-center">
+            <div class="col-lg-7">
+                <h1 class="display-5 fw-bold mb-2">InvenTrack</h1>
+                <p class="lead text-muted mb-4">
+                    Cloud-ready inventory management with clean tracking, reporting, and future low-stock prediction.
+                </p>
+
+                <div class="d-flex flex-wrap gap-2">
+                    <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-primary btn-lg">
+                        Go to Inventory
+                    </a>
+                    <a asp-controller="InventoryItems" asp-action="Create" class="btn btn-outline-primary btn-lg">
+                        Add Item
+                    </a>
+                    <a asp-controller="Categories" asp-action="Index" class="btn btn-outline-secondary btn-lg">
+                        Categories
+                    </a>
+                    <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-outline-secondary btn-lg">
+                        Locations
+                    </a>
+                </div>
+
+                <div class="mt-4 small text-muted">
+                    Tip: Use Categories & Locations to keep your inventory organized and easy to search.
+                </div>
+            </div>
+
+            <div class="col-lg-5 mt-4 mt-lg-0">
+                <div class="bg-white rounded-4 border p-4">
+                    <h5 class="fw-semibold mb-3">What you can do right now</h5>
+                    <ul class="list-unstyled mb-0">
+                        <li class="d-flex align-items-start mb-3">
+                            <span class="badge bg-primary me-2 mt-1">1</span>
+                            <div>
+                                <div class="fw-semibold">Create & manage items</div>
+                                <div class="text-muted small">Add inventory items with quantity and reorder levels.</div>
+                            </div>
+                        </li>
+                        <li class="d-flex align-items-start mb-3">
+                            <span class="badge bg-primary me-2 mt-1">2</span>
+                            <div>
+                                <div class="fw-semibold">Organize by category/location</div>
+                                <div class="text-muted small">Keep storage and classification consistent.</div>
+                            </div>
+                        </li>
+                        <li class="d-flex align-items-start">
+                            <span class="badge bg-primary me-2 mt-1">3</span>
+                            <div>
+                                <div class="fw-semibold">Stay ready for reporting</div>
+                                <div class="text-muted small">Designed for low-stock alerts and exports.</div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature cards -->
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title fw-semibold">Inventory Visibility</h5>
+                    <p class="card-text text-muted">
+                        Quickly view items, quantities, and status in a clean table layout.
+                    </p>
+                    <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-sm btn-outline-primary">
+                        View Inventory
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title fw-semibold">Organized Structure</h5>
+                    <p class="card-text text-muted">
+                        Categories and locations help prevent messy, duplicated entries.
+                    </p>
+                    <div class="d-flex gap-2">
+                        <a asp-controller="Categories" asp-action="Index" class="btn btn-sm btn-outline-secondary">
+                            Categories
+                        </a>
+                        <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-sm btn-outline-secondary">
+                            Locations
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title fw-semibold">Next: Low-Stock Intelligence</h5>
+                    <p class="card-text text-muted">
+                        Built to support tracking history and predicting reorder urgency.
+                    </p>
+                    <span class="badge bg-success">Coming Soon</span>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

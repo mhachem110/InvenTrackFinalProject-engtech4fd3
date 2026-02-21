@@ -1,6 +1,51 @@
 ﻿@{
     ViewData["Title"] = "Privacy Policy";
 }
-<h1>@ViewData["Title"]</h1>
 
-<p>Use this page to detail your site's privacy policy.</p>
+<div class="text-center">
+    <h1 class="display-5 fw-semibold">Privacy Policy</h1>
+    <p class="text-muted">How InvenTrack handles data in this prototype.</p>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h5 class="fw-semibold mb-3">Overview</h5>
+        <p class="text-muted">
+            InvenTrack is a course prototype intended for inventory tracking. This application stores inventory-related
+            information (e.g., item names, SKUs, quantities, categories, and locations) to support basic management and reporting.
+        </p>
+
+        <hr />
+
+        <h5 class="fw-semibold mb-3">What data we store</h5>
+        <ul class="text-muted">
+            <li><strong>Inventory data:</strong> item name, SKU/asset tag, description, quantity, reorder level, and active status.</li>
+            <li><strong>Organizational data:</strong> categories and storage locations.</li>
+            <li><strong>Optional images:</strong> item photos/thumbnails if uploaded.</li>
+        </ul>
+
+        <hr />
+
+        <h5 class="fw-semibold mb-3">How we use the data</h5>
+        <ul class="text-muted">
+            <li>To display and manage inventory records through the web interface.</li>
+            <li>To support validation and reduce duplicate/invalid entries.</li>
+            <li>To enable future features such as reporting and low-stock insights.</li>
+        </ul>
+
+        <hr />
+
+        <h5 class="fw-semibold mb-3">Access & security</h5>
+        <p class="text-muted">
+            This prototype is designed to be used by authorized users in a controlled environment. In future stages,
+            authentication and role-based access (e.g., Admin vs Viewer) can be added to limit access appropriately.
+        </p>
+
+        <hr />
+
+        <h5 class="fw-semibold mb-3">Contact</h5>
+        <p class="text-muted mb-0">
+            If you have questions about this prototype’s data handling, contact the project team.
+        </p>
+    </div>
+</div>
