@@ -1,0 +1,176 @@
+﻿@model InvenTrack.ViewModels.StockTransactionCreateVM
+@using InvenTrack.Models
+
+@{
+    ViewData["Title"] = "New Transaction";
+}
+
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">New Transaction</h1>
+        </div>
+        <div class="text-muted small">Check in, check out, adjust, or transfer inventory for this item.</div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a asp-controller="InventoryItems" asp-action="Details" asp-route-id="@Model.InventoryItemID" class="btn btn-outline-secondary">
+            Back
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 g-lg-4">
+    <!-- Left: Transaction form -->
+    <div class="col-lg-8">
+        <div class="it-panel">
+            <div class="it-panel-header">
+                <div class="fw-bold">Transaction</div>
+                <div class="text-muted small">Choose an action and apply the change.</div>
+            </div>
+
+            <div class="it-panel-body">
+                <form asp-action="Create" method="post">
+                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+                    <input type="hidden" asp-for="InventoryItemID" />
+                    <input type="hidden" asp-for="ItemName" />
+                    <input type="hidden" asp-for="SKU" />
+                    <input type="hidden" asp-for="CurrentLocationID" />
+                    <input type="hidden" asp-for="CurrentLocationName" />
+                    <input type="hidden" asp-for="CurrentQuantityOnHand" id="qohHidden" />
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="ActionType" class="form-label"></label>
+                            <select asp-for="ActionType"
+                                    class="form-select"
+                                    asp-items="Html.GetEnumSelectList<StockActionType>()"
+                                    id="actionSelect"></select>
+                            <span asp-validation-for="ActionType" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="Quantity" class="form-label"></label>
+                            <input asp-for="Quantity" class="form-control" id="qtyInput" />
+                            <span asp-validation-for="Quantity" class="text-danger small"></span>
+                            <div class="form-text" id="qtyHelp"></div>
+                        </div>
+
+                        <!-- Transfer block -->
+                        <div class="col-12" id="transferBlock" style="display:none;">
+                            <label asp-for="TargetLocationID" class="form-label"></label>
+                            <select asp-for="TargetLocationID" class="form-select" asp-items="Model.LocationOptions">
+                                <option value="">-- Select Target Location --</option>
+                            </select>
+                            <span asp-validation-for="TargetLocationID" class="text-danger small"></span>
+                            <div class="form-text">
+                                Transfer moves the entire stock to the selected location (single-location item design).
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="Notes" class="form-label"></label>
+                            <input asp-for="Notes" class="form-control" placeholder="Optional (required for Adjustment)" />
+                            <span asp-validation-for="Notes" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="PerformedBy" class="form-label"></label>
+                            <input asp-for="PerformedBy" class="form-control" placeholder="Optional (e.g., Moayed)" />
+                            <span asp-validation-for="PerformedBy" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="d-flex gap-2 mt-2">
+                                <button type="submit" class="btn btn-primary">Apply Transaction</button>
+                                <a asp-controller="InventoryItems" asp-action="Details" asp-route-id="@Model.InventoryItemID" class="btn btn-outline-secondary">
+                                    Cancel
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Item summary -->
+    <div class="col-lg-4">
+        <div class="it-panel">
+            <div class="it-panel-header">
+                <div class="fw-bold">Item summary</div>
+                <div class="text-muted small">Current state before applying changes.</div>
+            </div>
+
+            <div class="it-panel-body">
+                <div class="it-field mb-3">
+                    <div class="label">Item</div>
+                    <div class="value fw-semibold">@Model.ItemName</div>
+                    <div class="text-muted small">SKU: <span class="fw-semibold">@Model.SKU</span></div>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-12">
+                        <div class="it-field">
+                            <div class="label">Current location</div>
+                            <div class="value">@Model.CurrentLocationName</div>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="it-field">
+                            <div class="label">Quantity on hand</div>
+                            <div class="value"><span class="it-qty">@Model.CurrentQuantityOnHand</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="it-hint mt-3">
+                    Tip: Use <strong>Transfer</strong> to change location. Use <strong>Adjustment</strong> for corrections (notes required).
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    <script>
+        (function () {
+            const action = document.getElementById('actionSelect');
+            const transferBlock = document.getElementById('transferBlock');
+            const qty = document.getElementById('qtyInput');
+            const qoh = parseInt(document.getElementById('qohHidden').value || "0", 10);
+            const help = document.getElementById('qtyHelp');
+
+            // Enum values: CheckIn=1, CheckOut=2, Adjustment=3, Transfer=4
+            function refresh() {
+                const v = action.value;
+
+                if (v === "4") { // Transfer
+                    transferBlock.style.display = "";
+                    qty.value = qoh;
+                    qty.readOnly = true;
+                    help.innerText = "Transfer moves ALL stock (auto-filled).";
+                } else {
+                    transferBlock.style.display = "none";
+                    qty.readOnly = false;
+
+                    if (v === "3") { // Adjustment
+                        help.innerText = "Adjustment can be positive or negative (e.g., -2 or 5). Notes required.";
+                    } else {
+                        help.innerText = "Enter a positive quantity.";
+                    }
+                }
+            }
+
+            action.addEventListener('change', refresh);
+            refresh();
+        })();
+    </script>
+}

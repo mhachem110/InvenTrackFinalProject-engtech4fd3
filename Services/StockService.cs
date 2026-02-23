@@ -2,7 +2,7 @@
 using InvenTrack.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace InvenTrackFinalProject.Services
+namespace InvenTrack.Services
 {
     public class StockService
     {
@@ -16,52 +16,98 @@ namespace InvenTrackFinalProject.Services
         public async Task<(bool ok, string? error)> ApplyTransactionAsync(
             int inventoryItemId,
             StockActionType actionType,
-            int quantityChange,
+            int quantity,
+            int? targetLocationId = null,
             string? notes = null,
             string? performedBy = null)
         {
-            var item = await _context.InventoryItems
-                .FirstOrDefaultAsync(i => i.ID == inventoryItemId);
+            if (quantity == 0)
+                return (false, "Quantity cannot be 0.");
 
-            if (item == null)
-                return (false, "Inventory item not found.");
-
-            // Convert to signed delta:
-            int delta = actionType switch
-            {
-                StockActionType.CheckIn => Math.Abs(quantityChange),
-                StockActionType.CheckOut => -Math.Abs(quantityChange),
-                StockActionType.Adjustment => quantityChange,
-                _ => 0
-            };
-
-            if (delta == 0)
-                return (false, "Invalid transaction: quantity change cannot be 0.");
-
-            int newQty = item.QuantityOnHand + delta;
-
-            if (newQty < 0)
-                return (false, $"Insufficient stock. Current QOH = {item.QuantityOnHand}.");
+            var strategy = _context.Database.CreateExecutionStrategy();
 
             try
             {
-                // EF Core will automatically use a transaction for SaveChanges when multiple commands are executed.
-                item.QuantityOnHand = newQty;
-
-                var tx = new StockTransaction
+                return await strategy.ExecuteAsync(async () =>
                 {
-                    InventoryItemID = inventoryItemId,
-                    ActionType = actionType,
-                    QuantityChange = delta,
-                    Notes = notes,
-                    PerformedBy = string.IsNullOrWhiteSpace(performedBy) ? "System" : performedBy,
-                    DateCreated = DateTime.UtcNow
-                };
+                    var item = await _context.InventoryItems
+                        .FirstOrDefaultAsync(i => i.ID == inventoryItemId);
 
-                _context.StockTransactions.Add(tx);
+                    if (item == null)
+                        return (false, "Inventory item not found.");
 
-                await _context.SaveChangesAsync();
-                return (true, null);
+                    int normalizedQty = (actionType == StockActionType.Adjustment) ? quantity : Math.Abs(quantity);
+
+                    int delta = actionType switch
+                    {
+                        StockActionType.CheckIn => normalizedQty,
+                        StockActionType.CheckOut => -normalizedQty,
+                        StockActionType.Adjustment => quantity,
+                        StockActionType.Transfer => 0,
+                        _ => 0
+                    };
+
+                    if (actionType == StockActionType.Transfer)
+                    {
+                        if (!targetLocationId.HasValue || targetLocationId.Value < 1)
+                            return (false, "Target location is required for a transfer.");
+
+                        if (targetLocationId.Value == item.StorageLocationID)
+                            return (false, "Target location must be different from current location.");
+
+                        if (item.QuantityOnHand != normalizedQty)
+                            return (false, $"Transfer must move the full stock. Set quantity to {item.QuantityOnHand}.");
+
+                        bool exists = await _context.StorageLocations.AnyAsync(l => l.ID == targetLocationId.Value);
+                        if (!exists)
+                            return (false, "Target location not found.");
+                    }
+
+                    int newQty = item.QuantityOnHand + delta;
+                    if (newQty < 0)
+                        return (false, $"Insufficient stock. Current QOH = {item.QuantityOnHand}.");
+
+                    if (actionType == StockActionType.Adjustment && string.IsNullOrWhiteSpace(notes))
+                        return (false, "Notes are required for an Adjustment.");
+
+                    performedBy = string.IsNullOrWhiteSpace(performedBy) ? "System" : performedBy.Trim();
+                    notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+
+                    int fromLocationId = item.StorageLocationID;
+                    int? toLocationId = actionType == StockActionType.Transfer ? targetLocationId : null;
+
+                    await using var dbTx = await _context.Database.BeginTransactionAsync();
+                    try
+                    {
+                        item.QuantityOnHand = newQty;
+
+                        if (actionType == StockActionType.Transfer && toLocationId.HasValue)
+                            item.StorageLocationID = toLocationId.Value;
+
+                        var tx = new StockTransaction
+                        {
+                            InventoryItemID = inventoryItemId,
+                            ActionType = actionType,
+                            DateCreated = DateTime.UtcNow,
+                            PerformedBy = performedBy,
+                            Notes = notes,
+                            QuantityChange = actionType == StockActionType.Transfer ? normalizedQty : delta,
+                            FromStorageLocationID = actionType == StockActionType.Transfer ? fromLocationId : null,
+                            ToStorageLocationID = actionType == StockActionType.Transfer ? toLocationId : null
+                        };
+
+                        _context.StockTransactions.Add(tx);
+                        await _context.SaveChangesAsync();
+
+                        await dbTx.CommitAsync();
+                        return (true, null);
+                    }
+                    catch (Exception ex)
+                    {
+                        await dbTx.RollbackAsync();
+                        return (false, ex.Message);
+                    }
+                });
             }
             catch (Exception ex)
             {

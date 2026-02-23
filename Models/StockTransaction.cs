@@ -9,10 +9,9 @@ namespace InvenTrack.Models
         [Display(Name = "Reference #")]
         public int? ReferenceNumber { get; set; }
 
-        [DataType(DataType.Date)]
         [Display(Name = "Date")]
-        [DisplayFormat(DataFormatString = "{0:yyyy-MM-dd}", ApplyFormatInEditMode = true)]
-        public DateTime DateCreated { get; set; } = DateTime.Today;
+        [DataType(DataType.DateTime)]
+        public DateTime DateCreated { get; set; } = DateTime.UtcNow;
 
         [Display(Name = "Action")]
         public StockActionType ActionType { get; set; } = StockActionType.Adjustment;
@@ -27,11 +26,19 @@ namespace InvenTrack.Models
         [StringLength(120)]
         public string? PerformedBy { get; set; }
 
+        // The item this transaction belongs to
         public int InventoryItemID { get; set; }
-        public InventoryItem InventoryItem { get; set; }
+        public InventoryItem InventoryItem { get; set; } = null!;
+
+        public int? FromStorageLocationID { get; set; }
+        public StorageLocation? FromStorageLocation { get; set; }
+
+        public int? ToStorageLocationID { get; set; }
+        public StorageLocation? ToStorageLocation { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
+            // Quantity cannot be zero
             if (QuantityChange == 0)
             {
                 yield return new ValidationResult(
@@ -40,8 +47,6 @@ namespace InvenTrack.Models
                 );
             }
 
-            // For CheckIn/CheckOut, user input should be positive.
-            // We will handle the sign in the StockService.
             if ((ActionType == StockActionType.CheckIn || ActionType == StockActionType.CheckOut) && QuantityChange < 0)
             {
                 yield return new ValidationResult(
@@ -50,7 +55,6 @@ namespace InvenTrack.Models
                 );
             }
 
-            // Optional but recommended: require notes for Adjustment
             if (ActionType == StockActionType.Adjustment && string.IsNullOrWhiteSpace(Notes))
             {
                 yield return new ValidationResult(
@@ -58,14 +62,23 @@ namespace InvenTrack.Models
                     new[] { nameof(Notes) }
                 );
             }
+
+            // Transfer requires target location
+            if (ActionType == StockActionType.Transfer && (!ToStorageLocationID.HasValue || ToStorageLocationID.Value < 1))
+            {
+                yield return new ValidationResult(
+                    "Please select a target location for a transfer.",
+                    new[] { nameof(ToStorageLocationID) }
+                );
+            }
         }
     }
 
-
     public enum StockActionType
     {
-        CheckIn = 1,     // Stock added
-        CheckOut = 2,    // Stock removed
-        Adjustment = 3   // Manual correction
+        CheckIn = 1,
+        CheckOut = 2,
+        Adjustment = 3,
+        Transfer = 4
     }
 }

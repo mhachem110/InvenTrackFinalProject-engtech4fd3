@@ -1,5 +1,6 @@
 ﻿@model InvenTrack.Models.InventoryItem
 @using System
+@using System.Linq
 
 @{
     ViewData["Title"] = "Item Details";
@@ -11,7 +12,7 @@
             <div class="it-page-dot"></div>
             <h1 class="h3 mb-0 fw-bold">Item Details</h1>
         </div>
-        <div class="text-muted small">View item information.</div>
+        <div class="text-muted small">View item information and transaction history.</div>
     </div>
 
     <div class="d-flex gap-2">
@@ -20,6 +21,7 @@
     </div>
 </div>
 
+<!-- Item overview panel -->
 <div class="it-panel">
     <div class="it-panel-body">
         <div class="row g-4">
@@ -72,7 +74,13 @@
                     <div class="col-md-3">
                         <div class="it-field">
                             <div class="label">Quantity On Hand</div>
-                            <div class="value">@Model.QuantityOnHand</div>
+                            <div class="value">
+                                <span class="it-qty">@Model.QuantityOnHand</span>
+                                @if (Model.QuantityOnHand <= Model.ReorderLevel)
+                                {
+                                    <span class="badge text-bg-warning ms-2">Low</span>
+                                }
+                            </div>
                         </div>
                     </div>
 
@@ -103,6 +111,110 @@
                     <a asp-action="Delete" asp-route-id="@Model.ID" class="btn btn-outline-danger">Delete</a>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction history panel (THEMED) -->
+<div class="it-panel mt-3">
+    <div class="it-panel-header">
+        <div>
+            <div class="fw-bold">Transaction History</div>
+            <div class="text-muted small">Check In, Check Out, Adjustment, and Transfer activity.</div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <a asp-controller="StockTransactions"
+               asp-action="Create"
+               asp-route-inventoryItemId="@Model.ID"
+               class="btn btn-sm btn-primary">
+                + New Transaction
+            </a>
+        </div>
+    </div>
+
+    <div class="it-panel-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 it-table">
+                <thead>
+                    <tr>
+                        <th style="width:170px;">Date</th>
+                        <th style="width:140px;">Action</th>
+                        <th style="width:90px;">Qty</th>
+                        <th style="width:190px;">From</th>
+                        <th style="width:190px;">To</th>
+                        <th style="width:150px;">By</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @{
+                        var history = (Model.StockTransactions ?? new List<InvenTrack.Models.StockTransaction>())
+                        .OrderByDescending(t => t.DateCreated)
+                        .Take(25)
+                        .ToList();
+                    }
+
+                    @if (!history.Any())
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-5">
+                                <div class="fw-semibold mb-1">No transactions yet</div>
+                                <div class="small mb-3">Create a transaction to start tracking inventory changes.</div>
+                                <a asp-controller="StockTransactions"
+                                   asp-action="Create"
+                                   asp-route-inventoryItemId="@Model.ID"
+                                   class="btn btn-primary btn-sm">
+                                    + New Transaction
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var t in history)
+                        {
+                            <tr>
+                                <td class="text-muted">@t.DateCreated.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+
+                                <td>
+                                    @if (t.ActionType.ToString() == "CheckIn")
+                                    {
+                                        <span class="badge bg-success-subtle text-success border it-badge">Check In</span>
+                                    }
+                                    else if (t.ActionType.ToString() == "CheckOut")
+                                    {
+                                        <span class="badge bg-danger-subtle text-danger border it-badge">Check Out</span>
+                                    }
+                                    else if (t.ActionType.ToString() == "Transfer")
+                                    {
+                                        <span class="badge bg-primary-subtle text-primary border it-badge">Transfer</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border it-badge">Adjustment</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <span class="it-qty">@t.QuantityChange</span>
+                                </td>
+
+                                <td class="text-muted">@(t.FromStorageLocation?.Name ?? "—")</td>
+                                <td class="text-muted">@(t.ToStorageLocation?.Name ?? "—")</td>
+
+                                <td class="text-muted">@(t.PerformedBy ?? "—")</td>
+
+                                <td class="text-muted">
+                                    @(!string.IsNullOrWhiteSpace(t.Notes) ? t.Notes : "—")
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+
+            </table>
         </div>
     </div>
 </div>

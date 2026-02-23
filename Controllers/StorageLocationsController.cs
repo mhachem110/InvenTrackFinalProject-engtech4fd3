@@ -70,7 +70,6 @@ namespace InvenTrack.Controllers
             storageLocation.Building = Clean(storageLocation.Building);
             storageLocation.Room = Clean(storageLocation.Room);
 
-            // Friendly uniqueness check (Name)
             if (await LocationNameExistsAsync(storageLocation.Name))
             {
                 ModelState.AddModelError(nameof(StorageLocation.Name), "Location name must be unique. This location already exists.");
@@ -112,7 +111,7 @@ namespace InvenTrack.Controllers
             var storageLocationToUpdate = await _context.StorageLocations.FirstOrDefaultAsync(l => l.ID == id);
             if (storageLocationToUpdate == null) return NotFound();
 
-            // Update only allowed fields (prevents overposting)
+            // Update only allowed fields
             if (await TryUpdateModelAsync(storageLocationToUpdate, "",
                 l => l.Name, l => l.Building, l => l.Room))
             {
@@ -121,7 +120,6 @@ namespace InvenTrack.Controllers
                 storageLocationToUpdate.Building = Clean(storageLocationToUpdate.Building);
                 storageLocationToUpdate.Room = Clean(storageLocationToUpdate.Room);
 
-                // Friendly uniqueness check (exclude self)
                 if (await LocationNameExistsAsync(storageLocationToUpdate.Name, excludeId: id))
                 {
                     ModelState.AddModelError(nameof(StorageLocation.Name), "Location name must be unique. This location already exists.");
@@ -135,7 +133,6 @@ namespace InvenTrack.Controllers
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    // Another user deleted/changed it
                     if (!await _context.StorageLocations.AnyAsync(e => e.ID == id))
                         return NotFound();
 
@@ -180,7 +177,6 @@ namespace InvenTrack.Controllers
             }
             catch (DbUpdateException)
             {
-                // Common: FK constraint if InventoryItems reference this location
                 ModelState.AddModelError(string.Empty,
                     "Unable to delete this location because it is being used by one or more inventory items.");
 

@@ -40,17 +40,15 @@ namespace InvenTrack.Controllers
 
         private async Task<byte[]?> ResizeWebpWithTimeoutAsync(byte[] bytes, int w, int h, int timeoutMs)
         {
-            // Run resize on a background thread and enforce a timeout to prevent "hangs"
             var resizeTask = Task.Run(() => ResizeImage.shrinkImageWebp(bytes, w, h));
             var done = await Task.WhenAny(resizeTask, Task.Delay(timeoutMs));
 
             if (done != resizeTask)
-                return null; // timed out (avoid freezing request)
+                return null;
 
-            return await resizeTask; // may still throw — caller handles
+            return await resizeTask;
         }
 
-        // Safe image handler: never hangs forever. Returns a user-friendly error message if anything fails.
         private async Task<string?> TryAddPictureAsync(InventoryItem item, IFormFile? thePicture)
         {
             if (thePicture == null || thePicture.Length == 0)
@@ -59,7 +57,7 @@ namespace InvenTrack.Controllers
             if (string.IsNullOrWhiteSpace(thePicture.ContentType) || !thePicture.ContentType.StartsWith("image/"))
                 return "Please upload a valid image file (JPG/PNG/WEBP).";
 
-            const long maxBytes = 5 * 1024 * 1024; // 5MB
+            const long maxBytes = 5 * 1024 * 1024;
             if (thePicture.Length > maxBytes)
                 return "Image is too large. Please upload an image under 5 MB.";
 
@@ -77,7 +75,6 @@ namespace InvenTrack.Controllers
 
             try
             {
-                // Timeout values (tune if needed)
                 const int fullTimeoutMs = 2500;
                 const int thumbTimeoutMs = 1500;
 
@@ -89,11 +86,9 @@ namespace InvenTrack.Controllers
                 if (thumb == null)
                     return "Thumbnail processing took too long. Try a smaller image.";
 
-                // Only create entities AFTER successful processing
                 item.ItemPhoto = item.ItemPhoto ?? new ItemPhoto();
                 item.ItemThumbnail = item.ItemThumbnail ?? new ItemThumbnail();
 
-                // Link to parent (helps EF set FK cleanly)
                 item.ItemPhoto.InventoryItem = item;
                 item.ItemThumbnail.InventoryItem = item;
 
@@ -107,10 +102,8 @@ namespace InvenTrack.Controllers
             }
             catch
             {
-                // Ensure we don't leave half-baked objects attached
                 item.ItemPhoto = null;
                 item.ItemThumbnail = null;
-
                 return "Image processing failed. Try a different JPG/PNG image.";
             }
         }
@@ -128,15 +121,20 @@ namespace InvenTrack.Controllers
             return View(await items.ToListAsync());
         }
 
-        // GET: InventoryItems/Details/5
+        // GET: InventoryItems/Details/5  (UPDATED: includes transaction history + From/To locations)
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null) return NotFound();
 
             var item = await _context.InventoryItems
                 .Include(i => i.ItemPhoto)
+                .Include(i => i.ItemThumbnail)
                 .Include(i => i.Category)
                 .Include(i => i.StorageLocation)
+                .Include(i => i.StockTransactions)
+                    .ThenInclude(t => t.FromStorageLocation)
+                .Include(i => i.StockTransactions)
+                    .ThenInclude(t => t.ToStorageLocation)
                 .FirstOrDefaultAsync(m => m.ID == id);
 
             if (item == null) return NotFound();
@@ -160,17 +158,14 @@ namespace InvenTrack.Controllers
         {
             item.SKU = NormalizeSku(item.SKU);
 
-            // Friendly uniqueness check before DB insert
             if (await SkuExistsAsync(item.SKU))
                 ModelState.AddModelError(nameof(InventoryItem.SKU), "SKU / Asset Tag must be unique. This value already exists.");
 
-            // Only process image if the rest of the form is already valid
             if (ModelState.IsValid)
             {
                 var imgError = await TryAddPictureAsync(item, thePicture);
                 if (imgError != null)
                 {
-                    // show it in summary AND under file input
                     ModelState.AddModelError(string.Empty, imgError);
                     ModelState.AddModelError("thePicture", imgError);
                 }
@@ -230,11 +225,16 @@ namespace InvenTrack.Controllers
 
             item.SKU = NormalizeSku(item.SKU);
 
-            // Friendly uniqueness check (exclude current item)
             if (await SkuExistsAsync(item.SKU, excludeId: item.ID))
                 ModelState.AddModelError(nameof(InventoryItem.SKU), "SKU / Asset Tag must be unique. This value already exists.");
 
-            // Apply scalar updates to tracked entity
+            if (item.StorageLocationID != itemToUpdate.StorageLocationID)
+            {
+                ModelState.AddModelError(nameof(InventoryItem.StorageLocationID),
+                    "Use Stock Transactions (Transfer) to change an item’s location.");
+            }
+
+            // Apply scalar updates
             itemToUpdate.ItemName = item.ItemName;
             itemToUpdate.SKU = item.SKU;
             itemToUpdate.Description = item.Description;
@@ -242,9 +242,8 @@ namespace InvenTrack.Controllers
             itemToUpdate.ReorderLevel = item.ReorderLevel;
             itemToUpdate.IsActive = item.IsActive;
             itemToUpdate.CategoryID = item.CategoryID;
-            itemToUpdate.StorageLocationID = item.StorageLocationID;
+            // StorageLocationID stays unchanged unless transfer is used
 
-            // Remove image if requested
             if (!string.IsNullOrEmpty(chkRemoveImage) && chkRemoveImage == "on")
             {
                 if (itemToUpdate.ItemPhoto != null)
@@ -260,7 +259,6 @@ namespace InvenTrack.Controllers
                 }
             }
 
-            // Only process image if base form is valid
             if (ModelState.IsValid)
             {
                 var imgError = await TryAddPictureAsync(itemToUpdate, thePicture);
@@ -284,7 +282,7 @@ namespace InvenTrack.Controllers
                 }
             }
 
-            PopulateDropDowns(item.CategoryID, item.StorageLocationID);
+            PopulateDropDowns(item.CategoryID, itemToUpdate.StorageLocationID);
             return View(itemToUpdate);
         }
 

@@ -27,7 +27,7 @@ builder.Services.AddDbContext<InvenTrackContext>(options =>
             sql.CommandTimeout(60);
         }));
 
-builder.Services.AddScoped<InvenTrackFinalProject.Services.StockService>();
+builder.Services.AddScoped<InvenTrack.Services.StockService>(); 
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();

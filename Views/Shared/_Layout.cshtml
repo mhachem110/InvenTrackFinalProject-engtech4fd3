@@ -49,19 +49,26 @@
                     <a class="it-nav-link @(IsActive("Home") ? "active" : "")" asp-controller="Home" asp-action="Index">
                         <span class="it-nav-ico">🏠</span> Home
                     </a>
+
                     <a class="it-nav-link @(IsActive("InventoryItems") ? "active" : "")" asp-controller="InventoryItems" asp-action="Index">
                         <span class="it-nav-ico">📦</span> Inventory
                     </a>
+
+                    <a class="it-nav-link @(IsActive("StockTransactions") ? "active" : "")" asp-controller="StockTransactions" asp-action="Index">
+                        <span class="it-nav-ico">🧾</span> Transactions
+                    </a>
+
                     <a class="it-nav-link @(IsActive("Categories") ? "active" : "")" asp-controller="Categories" asp-action="Index">
                         <span class="it-nav-ico">🗂️</span> Categories
                     </a>
+
                     <a class="it-nav-link @(IsActive("StorageLocations") ? "active" : "")" asp-controller="StorageLocations" asp-action="Index">
                         <span class="it-nav-ico">📍</span> Locations
                     </a>
 
                     <div class="it-nav-divider"></div>
 
-                    <a class="it-nav-link" asp-controller="Home" asp-action="Privacy">
+                    <a class="it-nav-link @(IsActive("Home") ? "" : "")" asp-controller="Home" asp-action="Privacy">
                         <span class="it-nav-ico">🔒</span> Privacy
                     </a>
                 </nav>
@@ -121,19 +128,33 @@
             </div>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
+
         <div class="offcanvas-body">
             <nav class="it-nav">
                 <a class="it-nav-link @(IsActive("Home") ? "active" : "")" asp-controller="Home" asp-action="Index">
                     <span class="it-nav-ico">🏠</span> Home
                 </a>
+
                 <a class="it-nav-link @(IsActive("InventoryItems") ? "active" : "")" asp-controller="InventoryItems" asp-action="Index">
                     <span class="it-nav-ico">📦</span> Inventory
                 </a>
+
+                <a class="it-nav-link @(IsActive("StockTransactions") ? "active" : "")" asp-controller="StockTransactions" asp-action="Index">
+                    <span class="it-nav-ico">🧾</span> Transactions
+                </a>
+
                 <a class="it-nav-link @(IsActive("Categories") ? "active" : "")" asp-controller="Categories" asp-action="Index">
                     <span class="it-nav-ico">🗂️</span> Categories
                 </a>
+
                 <a class="it-nav-link @(IsActive("StorageLocations") ? "active" : "")" asp-controller="StorageLocations" asp-action="Index">
                     <span class="it-nav-ico">📍</span> Locations
+                </a>
+
+                <div class="it-nav-divider"></div>
+
+                <a class="it-nav-link" asp-controller="Home" asp-action="Privacy">
+                    <span class="it-nav-ico">🔒</span> Privacy
                 </a>
             </nav>
         </div>

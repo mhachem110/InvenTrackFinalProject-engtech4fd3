@@ -1,0 +1,173 @@
+﻿@model IEnumerable<InvenTrack.Models.StockTransaction>
+@using System
+
+@{
+    ViewData["Title"] = "Stock Transactions";
+}
+
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">Stock Transactions</h1>
+        </div>
+        <div class="text-muted small">Recent inventory changes and transfers.</div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-secondary">Back to Inventory</a>
+    </div>
+</div>
+
+<!-- Filter/Search panel -->
+<div class="it-panel mb-3">
+    <div class="it-panel-body">
+        <div class="row g-2 align-items-center">
+            <div class="col-lg-6">
+                <div class="it-input">
+                    <span class="it-input-ico">🔎</span>
+                    <input id="txSearch" type="search" class="form-control it-input-field"
+                           placeholder="Search item, action, notes, user, location..." />
+                </div>
+            </div>
+
+            <div class="col-lg-3">
+                <select id="txAction" class="form-select">
+                    <option value="all" selected>All actions</option>
+                    <option value="checkin">Check In</option>
+                    <option value="checkout">Check Out</option>
+                    <option value="adjustment">Adjustment</option>
+                    <option value="transfer">Transfer</option>
+                </select>
+            </div>
+
+            <div class="col-lg-3 text-lg-end">
+                <span class="text-muted small" id="txCount"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Table panel -->
+<div class="it-panel">
+    <div class="it-panel-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 it-table" id="txTable">
+                <thead>
+                    <tr>
+                        <th style="width:170px;">Date</th>
+                        <th>Item</th>
+                        <th style="width:140px;">Action</th>
+                        <th style="width:90px;">Qty</th>
+                        <th style="width:190px;">From</th>
+                        <th style="width:190px;">To</th>
+                        <th style="width:150px;">By</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if (Model == null || !Model.Any())
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-5">
+                                <div class="fw-semibold mb-1">No transactions recorded yet</div>
+                                <div class="small">Create a transaction from an item’s details page.</div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var t in Model)
+                        {
+                            var actionKey = t.ActionType.ToString().ToLowerInvariant(); // checkin/checkout/adjustment/transfer
+                            var itemName = t.InventoryItem?.ItemName ?? "-";
+                            var actionLabel = t.ActionType.ToString();
+
+                            <tr class="tx-row" data-action="@actionKey">
+                                <td class="text-muted">
+                                    @t.DateCreated.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                </td>
+
+                                <td>
+                                    <div class="fw-semibold">@itemName</div>
+                                    <div class="text-muted small">
+                                        SKU: <span class="fw-semibold">@(t.InventoryItem?.SKU ?? "-")</span>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @if (t.ActionType.ToString() == "CheckIn")
+                                    {
+                                        <span class="badge bg-success-subtle text-success border it-badge">Check In</span>
+                                    }
+                                    else if (t.ActionType.ToString() == "CheckOut")
+                                    {
+                                        <span class="badge bg-danger-subtle text-danger border it-badge">Check Out</span>
+                                    }
+                                    else if (t.ActionType.ToString() == "Transfer")
+                                    {
+                                        <span class="badge bg-primary-subtle text-primary border it-badge">Transfer</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border it-badge">Adjustment</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <span class="it-qty">@t.QuantityChange</span>
+                                </td>
+
+                                <td class="text-muted">@(t.FromStorageLocation?.Name ?? "—")</td>
+                                <td class="text-muted">@(t.ToStorageLocation?.Name ?? "—")</td>
+
+                                <td class="text-muted">@(t.PerformedBy ?? "—")</td>
+
+                                <td class="text-muted">
+                                    @(!string.IsNullOrWhiteSpace(t.Notes) ? t.Notes : "—")
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const search = document.getElementById('txSearch');
+            const action = document.getElementById('txAction');
+            const rows = Array.from(document.querySelectorAll('.tx-row'));
+            const count = document.getElementById('txCount');
+
+            function apply() {
+                const q = (search.value || '').toLowerCase().trim();
+                const a = action.value;
+
+                let visible = 0;
+
+                rows.forEach(r => {
+                    const text = r.innerText.toLowerCase();
+                    const okText = !q || text.includes(q);
+
+                    const rowAction = r.getAttribute('data-action') || '';
+                    const okAction = (a === 'all') || (rowAction === a);
+
+                    const show = okText && okAction;
+                    r.style.display = show ? '' : 'none';
+                    if (show) visible++;
+                });
+
+                count.textContent = rows.length ? `${visible} of ${rows.length} transactions` : '';
+            }
+
+            if (search) search.addEventListener('input', apply);
+            if (action) action.addEventListener('change', apply);
+            apply();
+        })();
+    </script>
+}
