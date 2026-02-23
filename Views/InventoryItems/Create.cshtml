@@ -4,79 +4,113 @@
     ViewData["Title"] = "Add Item";
 }
 
-<h1>Add Item</h1>
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">Add Item</h1>
+        </div>
+        <div class="text-muted small">Create a new inventory item.</div>
+    </div>
 
-<h4>Inventory Item</h4>
-<hr />
-<div class="row">
-    <div class="col-md-6">
-        <form asp-action="Create" method="post" enctype="multipart/form-data">
-            <div asp-validation-summary="All" class="text-danger"></div>
-
-            <div class="form-group">
-                <label asp-for="ItemName" class="control-label"></label>
-                <input asp-for="ItemName" class="form-control" />
-                <span asp-validation-for="ItemName" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="SKU" class="control-label"></label>
-                <input asp-for="SKU" class="form-control" />
-                <span asp-validation-for="SKU" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="Description" class="control-label"></label>
-                <input asp-for="Description" class="form-control" />
-                <span asp-validation-for="Description" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="QuantityOnHand" class="control-label"></label>
-                <input asp-for="QuantityOnHand" class="form-control" />
-                <span asp-validation-for="QuantityOnHand" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="ReorderLevel" class="control-label"></label>
-                <input asp-for="ReorderLevel" class="form-control" />
-                <span asp-validation-for="ReorderLevel" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="CategoryID" class="control-label"></label>
-                <select asp-for="CategoryID" class="form-control" asp-items="ViewBag.CategoryID">
-                    <option value="0">-- Select Category --</option>
-                </select>
-                <span asp-validation-for="CategoryID" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="StorageLocationID" class="control-label"></label>
-                <select asp-for="StorageLocationID" class="form-control" asp-items="ViewBag.StorageLocationID">
-                    <option value="0">-- Select Location --</option>
-                </select>
-                <span asp-validation-for="StorageLocationID" class="text-danger"></span>
-            </div>
-
-            <div class="form-group form-check">
-                <input class="form-check-input" asp-for="IsActive" />
-                <label class="form-check-label" asp-for="IsActive"></label>
-            </div>
-
-            <div class="form-group">
-                <label class="control-label">Item Photo (optional)</label>
-                <input type="file" name="thePicture" class="form-control" accept="image/*" />
-                <span class="text-danger">@Html.ValidationMessage("thePicture")</span>
-            </div>
-
-            <div class="form-group mt-2">
-                <input type="submit" value="Create" class="btn btn-primary" />
-                <a asp-action="Index" class="btn btn-link">Back</a>
-            </div>
-        </form>
+    <div class="d-flex gap-2">
+        <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
     </div>
 </div>
+
+<form asp-action="Create" method="post" enctype="multipart/form-data">
+    <div class="row g-3 g-lg-4">
+        <div class="col-lg-8">
+            <div class="it-panel">
+                <div class="it-panel-header">
+                    <div class="fw-bold">Item details</div>
+                    <div class="text-muted small">Name, SKU, quantity and classification.</div>
+                </div>
+
+                <div class="it-panel-body">
+                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label asp-for="ItemName" class="form-label"></label>
+                            <input asp-for="ItemName" class="form-control" placeholder="e.g., Dell Laptop" />
+                            <span asp-validation-for="ItemName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label asp-for="SKU" class="form-label"></label>
+                            <input asp-for="SKU" class="form-control" placeholder="e.g., IT-0001" />
+                            <span asp-validation-for="SKU" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="Description" class="form-label"></label>
+                            <input asp-for="Description" class="form-control" placeholder="Short description (optional)" />
+                            <span asp-validation-for="Description" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="QuantityOnHand" class="form-label"></label>
+                            <input asp-for="QuantityOnHand" class="form-control" />
+                            <span asp-validation-for="QuantityOnHand" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ReorderLevel" class="form-label"></label>
+                            <input asp-for="ReorderLevel" class="form-control" />
+                            <span asp-validation-for="ReorderLevel" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="CategoryID" class="form-label"></label>
+                            <select asp-for="CategoryID" class="form-select" asp-items="ViewBag.CategoryID">
+                                <option value="0">-- Select Category --</option>
+                            </select>
+                            <span asp-validation-for="CategoryID" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="StorageLocationID" class="form-label"></label>
+                            <select asp-for="StorageLocationID" class="form-select" asp-items="ViewBag.StorageLocationID">
+                                <option value="0">-- Select Location --</option>
+                            </select>
+                            <span asp-validation-for="StorageLocationID" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="it-panel">
+                <div class="it-panel-header">
+                    <div class="fw-bold">Status & photo</div>
+                    <div class="text-muted small">Set active state and upload an image.</div>
+                </div>
+
+                <div class="it-panel-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" asp-for="IsActive" />
+                        <label class="form-check-label" asp-for="IsActive">Active</label>
+                    </div>
+
+                    <label class="form-label">Item Photo (optional)</label>
+                    <input type="file" name="thePicture" class="form-control" accept="image/*" />
+                    <div class="text-danger small mt-1">@Html.ValidationMessage("thePicture")</div>
+
+                    <div class="it-hint mt-3">
+                        Tip: Use a clear image to identify items quickly.
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">Create Item</button>
+                        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
 
 @section Scripts {
     @{

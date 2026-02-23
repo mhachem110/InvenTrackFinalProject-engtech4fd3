@@ -4,40 +4,75 @@
     ViewData["Title"] = "Add Location";
 }
 
-<h1>Add Location</h1>
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">Add Location</h1>
+        </div>
+        <div class="text-muted small">Create a new storage location for inventory.</div>
+    </div>
 
-<h4>Storage Location</h4>
-<hr />
-<div class="row">
-    <div class="col-md-6">
-        <form asp-action="Create" method="post">
-            <div asp-validation-summary="All" class="text-danger"></div>
-
-            <div class="form-group">
-                <label asp-for="Name" class="control-label"></label>
-                <input asp-for="Name" class="form-control" />
-                <span asp-validation-for="Name" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="Building" class="control-label"></label>
-                <input asp-for="Building" class="form-control" />
-                <span asp-validation-for="Building" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="Room" class="control-label"></label>
-                <input asp-for="Room" class="form-control" />
-                <span asp-validation-for="Room" class="text-danger"></span>
-            </div>
-
-            <div class="form-group mt-2">
-                <input type="submit" value="Create" class="btn btn-primary" />
-                <a asp-action="Index" class="btn btn-link">Back</a>
-            </div>
-        </form>
+    <div class="d-flex gap-2">
+        <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
     </div>
 </div>
+
+<form asp-action="Create" method="post">
+    <div class="row g-3 g-lg-4">
+        <div class="col-lg-8">
+            <div class="it-panel">
+                <div class="it-panel-header">
+                    <div class="fw-bold">Location details</div>
+                    <div class="text-muted small">Name + building/room fields.</div>
+                </div>
+
+                <div class="it-panel-body">
+                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="Name" class="form-label"></label>
+                            <input asp-for="Name" class="form-control" placeholder="e.g., Main Office" />
+                            <span asp-validation-for="Name" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label asp-for="Building" class="form-label"></label>
+                            <input asp-for="Building" class="form-control" placeholder="e.g., A" />
+                            <span asp-validation-for="Building" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label asp-for="Room" class="form-label"></label>
+                            <input asp-for="Room" class="form-control" placeholder="e.g., 101" />
+                            <span asp-validation-for="Room" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">Create Location</button>
+                        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="it-panel">
+                <div class="it-panel-header">
+                    <div class="fw-bold">Tip</div>
+                    <div class="text-muted small">Keep names consistent.</div>
+                </div>
+                <div class="it-panel-body">
+                    <div class="it-hint">
+                        Use clear location names (e.g., “Storage Room”, “Back Office”) so the team doesn’t duplicate locations.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
 
 @section Scripts {
     @{

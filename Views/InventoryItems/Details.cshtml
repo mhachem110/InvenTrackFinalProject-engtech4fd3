@@ -1,58 +1,108 @@
-@model InvenTrack.Models.InventoryItem
+﻿@model InvenTrack.Models.InventoryItem
+@using System
 
 @{
     ViewData["Title"] = "Item Details";
 }
 
-<h1>Item Details</h1>
-
-<div>
-    <h4>Inventory Item</h4>
-    <hr />
-
-    @if (Model.ItemPhoto?.Content != null)
-    {
-        var imageBase64 = Convert.ToBase64String(Model.ItemPhoto.Content);
-        var imageSrc = $"data:{Model.ItemPhoto.MimeType};base64,{imageBase64}";
-
-        <div>
-            <img src="@imageSrc"
-                 alt="Photo of @Model.ItemName"
-                 title="Photo of @Model.ItemName"
-                 class="img-fluid rounded" />
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">Item Details</h1>
         </div>
-        <hr />
-    }
+        <div class="text-muted small">View item information.</div>
+    </div>
 
-
-    <dl class="row">
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.ItemName)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.ItemName)</dd>
-
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.SKU)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.SKU)</dd>
-
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.Description)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.Description)</dd>
-
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.QuantityOnHand)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.QuantityOnHand)</dd>
-
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.ReorderLevel)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.ReorderLevel)</dd>
-
-        <dt class="col-sm-2">Category</dt>
-        <dd class="col-sm-10">@(Model.Category?.Name ?? "-")</dd>
-
-        <dt class="col-sm-2">Location</dt>
-        <dd class="col-sm-10">@(Model.StorageLocation?.Name ?? "-")</dd>
-
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.IsActive)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.IsActive)</dd>
-    </dl>
+    <div class="d-flex gap-2">
+        <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-outline-primary">Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
+    </div>
 </div>
 
-<div>
-    <a asp-action="Edit" asp-route-id="@Model.ID">Edit</a> |
-    <a asp-action="Index">Back to List</a>
+<div class="it-panel">
+    <div class="it-panel-body">
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <div class="text-muted small mb-2">Photo</div>
+
+                @if (Model.ItemPhoto?.Content != null && Model.ItemPhoto.Content.Length > 0)
+                {
+                    var imageSrc = $"data:{Model.ItemPhoto.MimeType};base64,{Convert.ToBase64String(Model.ItemPhoto.Content)}";
+                    <img src="@imageSrc" class="img-fluid rounded-4 border" alt="Photo of @Model.ItemName" />
+                }
+                else
+                {
+                    <div class="it-empty-photo rounded-4 border">
+                        📦
+                        <div class="small text-muted mt-2">No photo</div>
+                    </div>
+                }
+            </div>
+
+            <div class="col-lg-8">
+                <div class="d-flex align-items-start justify-content-between gap-3">
+                    <div>
+                        <div class="fw-bold fs-4">@Model.ItemName</div>
+                        <div class="text-muted">SKU: <span class="fw-semibold">@Model.SKU</span></div>
+                    </div>
+
+                    <div>
+                        @if (Model.IsActive)
+                        {
+                            <span class="badge bg-success-subtle text-success border it-badge">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary-subtle text-secondary border it-badge">Inactive</span>
+                        }
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="it-field">
+                            <div class="label">Description</div>
+                            <div class="value">@(!string.IsNullOrWhiteSpace(Model.Description) ? Model.Description : "—")</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="it-field">
+                            <div class="label">Quantity On Hand</div>
+                            <div class="value">@Model.QuantityOnHand</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="it-field">
+                            <div class="label">Reorder Level</div>
+                            <div class="value">@Model.ReorderLevel</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="it-field">
+                            <div class="label">Category</div>
+                            <div class="value">@(Model.Category?.Name ?? "—")</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="it-field">
+                            <div class="label">Location</div>
+                            <div class="value">@(Model.StorageLocation?.Name ?? "—")</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-primary">Edit Item</a>
+                    <a asp-action="Delete" asp-route-id="@Model.ID" class="btn btn-outline-danger">Delete</a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

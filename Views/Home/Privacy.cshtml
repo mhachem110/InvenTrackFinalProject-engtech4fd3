@@ -1,51 +1,174 @@
 ﻿@{
-    ViewData["Title"] = "Privacy Policy";
+    ViewData["Title"] = "Privacy";
 }
 
-<div class="text-center">
-    <h1 class="display-5 fw-semibold">Privacy Policy</h1>
-    <p class="text-muted">How InvenTrack handles data in this prototype.</p>
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">Privacy</h1>
+        </div>
+        <div class="text-muted small">How InvenTrack handles data in this prototype.</div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">Back</a>
+    </div>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-body">
-        <h5 class="fw-semibold mb-3">Overview</h5>
-        <p class="text-muted">
-            InvenTrack is a course prototype intended for inventory tracking. This application stores inventory-related
-            information (e.g., item names, SKUs, quantities, categories, and locations) to support basic management and reporting.
-        </p>
+<div class="row g-3 g-lg-4">
+    <!-- Left: main content -->
+    <div class="col-lg-8">
+        <div class="it-panel mb-3">
+            <div class="it-panel-header">
+                <div class="fw-bold d-flex align-items-center gap-2">
+                    <span class="it-ico">🛡️</span>
+                    Overview
+                </div>
+                <div class="text-muted small">A quick summary of what’s stored and why.</div>
+            </div>
 
-        <hr />
+            <div class="it-panel-body">
+                <p class="text-muted mb-0">
+                    InvenTrack is a course prototype for inventory tracking. It stores inventory-related data
+                    (item names, SKUs, quantities, categories, and locations) to support basic management and reporting.
+                </p>
+            </div>
+        </div>
 
-        <h5 class="fw-semibold mb-3">What data we store</h5>
-        <ul class="text-muted">
-            <li><strong>Inventory data:</strong> item name, SKU/asset tag, description, quantity, reorder level, and active status.</li>
-            <li><strong>Organizational data:</strong> categories and storage locations.</li>
-            <li><strong>Optional images:</strong> item photos/thumbnails if uploaded.</li>
-        </ul>
+        <div class="it-panel mb-3">
+            <div class="it-panel-header">
+                <div class="fw-bold d-flex align-items-center gap-2">
+                    <span class="it-ico">📦</span>
+                    What data we store
+                </div>
+                <div class="text-muted small">Only what’s needed for inventory workflows.</div>
+            </div>
 
-        <hr />
+            <div class="it-panel-body">
+                <div class="it-list">
+                    <div class="it-list-item">
+                        <div class="it-list-dot">1</div>
+                        <div>
+                            <div class="fw-semibold">Inventory data</div>
+                            <div class="text-muted small">
+                                Item name, SKU/asset tag, description, quantity, reorder level, and active status.
+                            </div>
+                        </div>
+                    </div>
 
-        <h5 class="fw-semibold mb-3">How we use the data</h5>
-        <ul class="text-muted">
-            <li>To display and manage inventory records through the web interface.</li>
-            <li>To support validation and reduce duplicate/invalid entries.</li>
-            <li>To enable future features such as reporting and low-stock insights.</li>
-        </ul>
+                    <div class="it-list-item">
+                        <div class="it-list-dot">2</div>
+                        <div>
+                            <div class="fw-semibold">Organizational data</div>
+                            <div class="text-muted small">Categories and storage locations.</div>
+                        </div>
+                    </div>
 
-        <hr />
+                    <div class="it-list-item">
+                        <div class="it-list-dot">3</div>
+                        <div>
+                            <div class="fw-semibold">Optional images</div>
+                            <div class="text-muted small">Item photos/thumbnails if uploaded.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        <h5 class="fw-semibold mb-3">Access & security</h5>
-        <p class="text-muted">
-            This prototype is designed to be used by authorized users in a controlled environment. In future stages,
-            authentication and role-based access (e.g., Admin vs Viewer) can be added to limit access appropriately.
-        </p>
+        <div class="it-panel mb-3">
+            <div class="it-panel-header">
+                <div class="fw-bold d-flex align-items-center gap-2">
+                    <span class="it-ico">⚙️</span>
+                    How we use the data
+                </div>
+                <div class="text-muted small">What the system does with what you enter.</div>
+            </div>
 
-        <hr />
+            <div class="it-panel-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="it-mini">
+                            <div class="it-mini-title">Management</div>
+                            <div class="text-muted small">
+                                Display and manage inventory records through the web UI.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="it-mini">
+                            <div class="it-mini-title">Validation</div>
+                            <div class="text-muted small">
+                                Reduce duplicate/invalid entries using validation rules.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="it-mini">
+                            <div class="it-mini-title">Future features</div>
+                            <div class="text-muted small">
+                                Enable reporting and low-stock insights in later stages.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        <h5 class="fw-semibold mb-3">Contact</h5>
-        <p class="text-muted mb-0">
-            If you have questions about this prototype’s data handling, contact the project team.
-        </p>
+        <div class="it-panel">
+            <div class="it-panel-header">
+                <div class="fw-bold d-flex align-items-center gap-2">
+                    <span class="it-ico">🔒</span>
+                    Access & security
+                </div>
+                <div class="text-muted small">Prototype rules + future enhancements.</div>
+            </div>
+
+            <div class="it-panel-body">
+                <p class="text-muted mb-0">
+                    This prototype is intended for authorized users in a controlled environment.
+                    In later stages, authentication and role-based access (Admin vs Viewer) can be added.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: contact / quick note -->
+    <div class="col-lg-4">
+        <div class="it-panel mb-3">
+            <div class="it-panel-header">
+                <div class="fw-bold d-flex align-items-center gap-2">
+                    <span class="it-ico">📩</span>
+                    Contact
+                </div>
+                <div class="text-muted small">Questions or concerns?</div>
+            </div>
+            <div class="it-panel-body">
+                <div class="it-hint">
+                    If you have questions about this prototype’s data handling, contact the project team.
+                </div>
+
+                <div class="mt-3 small text-muted">
+                    Recommended: include your item SKU and screenshot when reporting an issue.
+                </div>
+            </div>
+        </div>
+
+        <div class="it-panel">
+            <div class="it-panel-header">
+                <div class="fw-bold d-flex align-items-center gap-2">
+                    <span class="it-ico">🧾</span>
+                    Notes
+                </div>
+                <div class="text-muted small">Important clarifications.</div>
+            </div>
+            <div class="it-panel-body">
+                <ul class="text-muted small mb-0">
+                    <li>No payment data is collected.</li>
+                    <li>No user accounts in this prototype (yet).</li>
+                    <li>Images are optional and only stored if uploaded.</li>
+                </ul>
+            </div>
+        </div>
     </div>
 </div>

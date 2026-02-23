@@ -1,35 +1,66 @@
 @model IEnumerable<InvenTrack.Models.InventoryItem>
+@using System
 
 @{
     ViewData["Title"] = "Inventory";
 }
 
-<div class="text-center">
-    <h1 class="display-5 fw-semibold">Inventory</h1>
-    <p class="text-muted">Browse and manage inventory items, quantities, and locations.</p>
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">Inventory</h1>
+        </div>
+        <div class="text-muted small">Browse and manage items, quantities, and locations.</div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a asp-action="Create" class="btn btn-primary">
+            + Add Item
+        </a>
+    </div>
 </div>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div></div>
-    <a asp-action="Create" class="btn btn-primary">
-        + Add New Item
-    </a>
+<div class="it-panel mb-3">
+    <div class="it-panel-body">
+        <div class="row g-2 align-items-center">
+            <div class="col-lg-6">
+                <div class="it-input">
+                    <span class="it-input-ico">🔎</span>
+                    <input id="invSearch" type="search" class="form-control it-input-field"
+                           placeholder="Search by name, SKU, category, location..." />
+                </div>
+            </div>
+
+            <div class="col-lg-3">
+                <select id="invStatus" class="form-select">
+                    <option value="all" selected>All statuses</option>
+                    <option value="active">Active only</option>
+                    <option value="inactive">Inactive only</option>
+                </select>
+            </div>
+
+            <div class="col-lg-3 text-lg-end">
+                <span class="text-muted small" id="invCount"></span>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-body p-0">
+<div class="it-panel">
+    <div class="it-panel-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
+            <table class="table table-hover align-middle mb-0 it-table" id="invTable">
+                <thead>
                     <tr>
-                        <th style="width: 120px;">Photo</th>
-                        <th>@Html.DisplayNameFor(model => model.First().ItemName)</th>
-                        <th style="width: 140px;">@Html.DisplayNameFor(model => model.First().SKU)</th>
-                        <th style="width: 140px;">@Html.DisplayNameFor(model => model.First().QuantityOnHand)</th>
-                        <th style="width: 160px;">Category</th>
-                        <th style="width: 180px;">Location</th>
-                        <th style="width: 110px;">@Html.DisplayNameFor(model => model.First().IsActive)</th>
-                        <th class="text-end" style="width: 240px;">Actions</th>
+                        <th style="width:92px;">Photo</th>
+                        <th>Item</th>
+                        <th style="width:150px;">SKU</th>
+                        <th style="width:140px;">On Hand</th>
+                        <th style="width:180px;">Category</th>
+                        <th style="width:190px;">Location</th>
+                        <th style="width:120px;">Status</th>
+                        <th class="text-end" style="width:220px;">Actions</th>
                     </tr>
                 </thead>
 
@@ -37,8 +68,10 @@
                     @if (Model == null || !Model.Any())
                     {
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">
-                                No inventory items found. Click <strong>Add New Item</strong> to create one.
+                            <td colspan="8" class="text-center text-muted py-5">
+                                <div class="fw-semibold mb-1">No inventory items yet</div>
+                                <div class="small mb-3">Create your first item to start tracking inventory.</div>
+                                <a asp-action="Create" class="btn btn-primary btn-sm">+ Add Item</a>
                             </td>
                         </tr>
                     }
@@ -46,7 +79,8 @@
                     {
                         foreach (var item in Model)
                         {
-                            <tr>
+                            var status = item.IsActive ? "active" : "inactive";
+                            <tr class="inv-row" data-status="@status">
                                 <td>
                                     @if (item.ItemThumbnail?.Content != null && item.ItemThumbnail.Content.Length > 0)
                                     {
@@ -55,56 +89,57 @@
 
                                         <img src="@imageSrc"
                                              alt="Thumbnail of @item.ItemName"
-                                             class="img-thumbnail"
-                                             style="max-height:80px;" />
+                                             class="it-thumb" />
                                     }
                                     else
                                     {
-                                        <span class="text-muted">—</span>
+                                        <div class="it-thumb it-thumb-empty">📦</div>
                                     }
                                 </td>
 
-                                <td class="fw-semibold">
-                                    @Html.DisplayFor(modelItem => item.ItemName)
+                                <td>
+                                    <div class="fw-semibold">@item.ItemName</div>
+                                    <div class="text-muted small">
+                                        Reorder: <span class="fw-semibold">@item.ReorderLevel</span>
+                                    </div>
                                 </td>
 
-                                <td class="text-muted">
-                                    @Html.DisplayFor(modelItem => item.SKU)
-                                </td>
+                                <td class="text-muted">@item.SKU</td>
 
                                 <td>
-                                    @Html.DisplayFor(modelItem => item.QuantityOnHand)
+                                    <span class="it-qty">@item.QuantityOnHand</span>
+                                    @if (item.QuantityOnHand <= item.ReorderLevel)
+                                    {
+                                        <span class="badge text-bg-warning ms-2">Low</span>
+                                    }
                                 </td>
 
-                                <td class="text-muted">
-                                    @(item.Category?.Name ?? "-")
-                                </td>
-
-                                <td class="text-muted">
-                                    @(item.StorageLocation?.Name ?? "-")
-                                </td>
+                                <td class="text-muted">@(item.Category?.Name ?? "-")</td>
+                                <td class="text-muted">@(item.StorageLocation?.Name ?? "-")</td>
 
                                 <td>
                                     @if (item.IsActive)
                                     {
-                                        <span class="badge bg-success">Active</span>
+                                        <span class="badge bg-success-subtle text-success border it-badge">Active</span>
                                     }
                                     else
                                     {
-                                        <span class="badge bg-secondary">Inactive</span>
+                                        <span class="badge bg-secondary-subtle text-secondary border it-badge">Inactive</span>
                                     }
                                 </td>
 
                                 <td class="text-end">
-                                    <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-sm btn-outline-primary me-1">
-                                        Edit
-                                    </a>
-                                    <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-sm btn-outline-secondary me-1">
-                                        Details
-                                    </a>
-                                    <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-sm btn-outline-danger">
-                                        Delete
-                                    </a>
+                                    <div class="btn-group" role="group">
+                                        <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-sm btn-outline-secondary">
+                                            Details
+                                        </a>
+                                        <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-sm btn-outline-primary">
+                                            Edit
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-sm btn-outline-danger">
+                                            Delete
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -115,3 +150,38 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const search = document.getElementById('invSearch');
+            const status = document.getElementById('invStatus');
+            const rows = Array.from(document.querySelectorAll('.inv-row'));
+            const count = document.getElementById('invCount');
+
+            function apply() {
+                const q = (search.value || '').toLowerCase().trim();
+                const s = status.value;
+
+                let visible = 0;
+
+                rows.forEach(r => {
+                    const text = r.innerText.toLowerCase();
+                    const okText = !q || text.includes(q);
+                    const rowStatus = r.getAttribute('data-status');
+                    const okStatus = (s === 'all') || (rowStatus === s);
+
+                    const show = okText && okStatus;
+                    r.style.display = show ? '' : 'none';
+                    if (show) visible++;
+                });
+
+                count.textContent = rows.length ? `${visible} of ${rows.length} items` : '';
+            }
+
+            if (search) search.addEventListener('input', apply);
+            if (status) status.addEventListener('change', apply);
+            apply();
+        })();
+    </script>
+}

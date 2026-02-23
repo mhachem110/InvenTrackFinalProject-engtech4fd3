@@ -4,69 +4,110 @@
     ViewData["Title"] = "Categories";
 }
 
-<div class="text-center">
-    <h1 class="display-5 fw-semibold">Categories</h1>
-    <p class="text-muted">Manage category names and descriptions for inventory organization.</p>
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">Categories</h1>
+        </div>
+        <div class="text-muted small">Manage category names and descriptions for organization.</div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a asp-action="Create" class="btn btn-primary">+ New Category</a>
+    </div>
 </div>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div></div>
-    <a asp-action="Create" class="btn btn-primary">
-        + Create New Category
-    </a>
+<div class="it-panel mb-3">
+    <div class="it-panel-body">
+        <div class="row g-2 align-items-center">
+            <div class="col-lg-8">
+                <div class="it-input">
+                    <span class="it-input-ico">🔎</span>
+                    <input id="catSearch" type="search" class="form-control it-input-field"
+                           placeholder="Search categories by name or description..." />
+                </div>
+            </div>
+
+            <div class="col-lg-4 text-lg-end">
+                <span class="text-muted small" id="catCount"></span>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-body p-0">
+<div class="it-panel">
+    <div class="it-panel-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
+            <table class="table table-hover align-middle mb-0 it-table" id="catTable">
+                <thead>
                     <tr>
-                        <th style="width: 25%;">
-                            @Html.DisplayNameFor(model => model.First().Name)
-                        </th>
-                        <th>
-                            @Html.DisplayNameFor(model => model.First().Description)
-                        </th>
+                        <th style="width: 28%;">Name</th>
+                        <th>Description</th>
                         <th class="text-end" style="width: 220px;">Actions</th>
                     </tr>
                 </thead>
+
                 <tbody>
                     @if (Model == null || !Model.Any())
                     {
                         <tr>
-                            <td colspan="3" class="text-center text-muted py-4">
-                                No categories found. Click <strong>Create New Category</strong> to add one.
+                            <td colspan="3" class="text-center text-muted py-5">
+                                <div class="fw-semibold mb-1">No categories yet</div>
+                                <div class="small mb-3">Create categories to keep your inventory organized.</div>
+                                <a asp-action="Create" class="btn btn-primary btn-sm">+ New Category</a>
                             </td>
                         </tr>
                     }
                     else
                     {
-                        @foreach (var item in Model)
+                        foreach (var item in Model)
                         {
-                            <tr>
-                                <td class="fw-semibold">
-                                    @Html.DisplayFor(modelItem => item.Name)
-                                </td>
+                            <tr class="cat-row">
+                                <td class="fw-semibold">@item.Name</td>
                                 <td class="text-muted">
-                                    @Html.DisplayFor(modelItem => item.Description)
+                                    @(!string.IsNullOrWhiteSpace(item.Description) ? item.Description : "—")
                                 </td>
                                 <td class="text-end">
-                                    <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-sm btn-outline-primary me-1">
-                                        Edit
-                                    </a>
-                                    <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-sm btn-outline-secondary me-1">
-                                        Details
-                                    </a>
-                                    <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-sm btn-outline-danger">
-                                        Delete
-                                    </a>
+                                    <div class="btn-group" role="group">
+                                        <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-sm btn-outline-secondary">Details</a>
+                                        <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-sm btn-outline-primary">Edit</a>
+                                        <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-sm btn-outline-danger">Delete</a>
+                                    </div>
                                 </td>
                             </tr>
                         }
                     }
                 </tbody>
+
             </table>
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const search = document.getElementById('catSearch');
+            const rows = Array.from(document.querySelectorAll('.cat-row'));
+            const count = document.getElementById('catCount');
+
+            function apply() {
+                const q = (search.value || '').toLowerCase().trim();
+                let visible = 0;
+
+                rows.forEach(r => {
+                    const text = r.innerText.toLowerCase();
+                    const show = !q || text.includes(q);
+                    r.style.display = show ? '' : 'none';
+                    if (show) visible++;
+                });
+
+                count.textContent = rows.length ? `${visible} of ${rows.length} categories` : '';
+            }
+
+            if (search) search.addEventListener('input', apply);
+            apply();
+        })();
+    </script>
+}
