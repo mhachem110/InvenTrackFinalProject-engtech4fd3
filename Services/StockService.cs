@@ -35,27 +35,31 @@ namespace InvenTrack.Services
                     if (item == null)
                         return (false, "Inventory item not found.");
 
-                    var hasStocks = await _context.InventoryItemStocks.AnyAsync(s => s.InventoryItemID == inventoryItemId);
-                    if (!hasStocks)
-                    {
-                        _context.InventoryItemStocks.Add(new InventoryItemStock
-                        {
-                            InventoryItemID = inventoryItemId,
-                            StorageLocationID = item.StorageLocationID,
-                            QuantityOnHand = item.QuantityOnHand
-                        });
-                        await _context.SaveChangesAsync();
-                    }
+                    performedBy = string.IsNullOrWhiteSpace(performedBy) ? "System" : performedBy.Trim();
+                    notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
 
-                    int qtyAbs = (actionType == StockActionType.Adjustment) ? quantity : Math.Abs(quantity);
+                    if (actionType == StockActionType.Adjustment && string.IsNullOrWhiteSpace(notes))
+                        return (false, "Notes are required for an Adjustment.");
+
+                    int qtyAbs = actionType == StockActionType.Adjustment ? quantity : Math.Abs(quantity);
 
                     if (actionType == StockActionType.CheckIn)
                     {
                         if (!toLocationId.HasValue || toLocationId.Value < 1)
                             return (false, "Please select a location for Check In.");
+                        if (qtyAbs < 0)
+                            return (false, "Quantity must be positive for Check In.");
                     }
 
-                    if (actionType == StockActionType.CheckOut || actionType == StockActionType.Adjustment)
+                    if (actionType == StockActionType.CheckOut)
+                    {
+                        if (!fromLocationId.HasValue || fromLocationId.Value < 1)
+                            return (false, "Please select a location.");
+                        if (qtyAbs < 0)
+                            return (false, "Quantity must be positive for Check Out.");
+                    }
+
+                    if (actionType == StockActionType.Adjustment)
                     {
                         if (!fromLocationId.HasValue || fromLocationId.Value < 1)
                             return (false, "Please select a location.");
@@ -69,31 +73,37 @@ namespace InvenTrack.Services
                             return (false, "Please select a target location.");
                         if (fromLocationId.Value == toLocationId.Value)
                             return (false, "Target location must be different from source location.");
+                        if (qtyAbs < 0)
+                            return (false, "Quantity must be positive for Transfer.");
                     }
-
-                    if (actionType == StockActionType.Adjustment && string.IsNullOrWhiteSpace(notes))
-                        return (false, "Notes are required for an Adjustment.");
-
-                    performedBy = string.IsNullOrWhiteSpace(performedBy) ? "System" : performedBy.Trim();
-                    notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
 
                     await using var dbTx = await _context.Database.BeginTransactionAsync();
                     try
                     {
+                        var stocks = await _context.InventoryItemStocks
+                            .Where(s => s.InventoryItemID == inventoryItemId)
+                            .ToListAsync();
+
+                        if (stocks.Count == 0)
+                        {
+                            var seed = new InventoryItemStock
+                            {
+                                InventoryItemID = inventoryItemId,
+                                StorageLocationID = item.StorageLocationID,
+                                QuantityOnHand = item.QuantityOnHand
+                            };
+                            _context.InventoryItemStocks.Add(seed);
+                            stocks.Add(seed);
+                        }
+
                         InventoryItemStock? fromStock = null;
                         InventoryItemStock? toStock = null;
 
                         if (fromLocationId.HasValue)
-                        {
-                            fromStock = await _context.InventoryItemStocks
-                                .FirstOrDefaultAsync(s => s.InventoryItemID == inventoryItemId && s.StorageLocationID == fromLocationId.Value);
-                        }
+                            fromStock = stocks.FirstOrDefault(s => s.StorageLocationID == fromLocationId.Value);
 
                         if (toLocationId.HasValue)
-                        {
-                            toStock = await _context.InventoryItemStocks
-                                .FirstOrDefaultAsync(s => s.InventoryItemID == inventoryItemId && s.StorageLocationID == toLocationId.Value);
-                        }
+                            toStock = stocks.FirstOrDefault(s => s.StorageLocationID == toLocationId.Value);
 
                         if (actionType == StockActionType.CheckIn)
                         {
@@ -106,9 +116,10 @@ namespace InvenTrack.Services
                                     QuantityOnHand = 0
                                 };
                                 _context.InventoryItemStocks.Add(toStock);
+                                stocks.Add(toStock);
                             }
 
-                            toStock.QuantityOnHand += qtyAbs;
+                            toStock.QuantityOnHand += Math.Abs(quantity);
 
                             _context.StockTransactions.Add(new StockTransaction
                             {
@@ -117,7 +128,7 @@ namespace InvenTrack.Services
                                 DateCreated = DateTime.UtcNow,
                                 PerformedBy = performedBy,
                                 Notes = notes,
-                                QuantityChange = qtyAbs,
+                                QuantityChange = Math.Abs(quantity),
                                 ToStorageLocationID = toLocationId
                             });
                         }
@@ -126,10 +137,11 @@ namespace InvenTrack.Services
                             if (fromStock == null)
                                 return (false, "No stock exists in the selected location.");
 
-                            if (fromStock.QuantityOnHand < qtyAbs)
+                            var q = Math.Abs(quantity);
+                            if (fromStock.QuantityOnHand < q)
                                 return (false, $"Insufficient stock in that location. Available = {fromStock.QuantityOnHand}.");
 
-                            fromStock.QuantityOnHand -= qtyAbs;
+                            fromStock.QuantityOnHand -= q;
 
                             _context.StockTransactions.Add(new StockTransaction
                             {
@@ -138,7 +150,7 @@ namespace InvenTrack.Services
                                 DateCreated = DateTime.UtcNow,
                                 PerformedBy = performedBy,
                                 Notes = notes,
-                                QuantityChange = -qtyAbs,
+                                QuantityChange = -q,
                                 FromStorageLocationID = fromLocationId
                             });
                         }
@@ -153,6 +165,7 @@ namespace InvenTrack.Services
                                     QuantityOnHand = 0
                                 };
                                 _context.InventoryItemStocks.Add(fromStock);
+                                stocks.Add(fromStock);
                             }
 
                             var newLocQty = fromStock.QuantityOnHand + quantity;
@@ -177,7 +190,8 @@ namespace InvenTrack.Services
                             if (fromStock == null)
                                 return (false, "No stock exists in the selected source location.");
 
-                            if (fromStock.QuantityOnHand < qtyAbs)
+                            var q = Math.Abs(quantity);
+                            if (fromStock.QuantityOnHand < q)
                                 return (false, $"Insufficient stock in source location. Available = {fromStock.QuantityOnHand}.");
 
                             if (toStock == null)
@@ -189,10 +203,11 @@ namespace InvenTrack.Services
                                     QuantityOnHand = 0
                                 };
                                 _context.InventoryItemStocks.Add(toStock);
+                                stocks.Add(toStock);
                             }
 
-                            fromStock.QuantityOnHand -= qtyAbs;
-                            toStock.QuantityOnHand += qtyAbs;
+                            fromStock.QuantityOnHand -= q;
+                            toStock.QuantityOnHand += q;
 
                             _context.StockTransactions.Add(new StockTransaction
                             {
@@ -201,29 +216,26 @@ namespace InvenTrack.Services
                                 DateCreated = DateTime.UtcNow,
                                 PerformedBy = performedBy,
                                 Notes = notes,
-                                QuantityChange = qtyAbs,
+                                QuantityChange = q,
                                 FromStorageLocationID = fromLocationId,
                                 ToStorageLocationID = toLocationId
                             });
                         }
 
-                        var total = await _context.InventoryItemStocks
-                            .Where(s => s.InventoryItemID == inventoryItemId)
-                            .SumAsync(s => s.QuantityOnHand);
+                        item.QuantityOnHand = stocks.Sum(s => s.QuantityOnHand);
 
-                        item.QuantityOnHand = total;
-
-                        var primary = await _context.InventoryItemStocks
-                            .Where(s => s.InventoryItemID == inventoryItemId)
+                        var primary = stocks
+                            .Where(s => s.QuantityOnHand > 0)
                             .OrderByDescending(s => s.QuantityOnHand)
                             .Select(s => s.StorageLocationID)
-                            .FirstOrDefaultAsync();
+                            .FirstOrDefault();
 
                         if (primary > 0)
                             item.StorageLocationID = primary;
 
                         await _context.SaveChangesAsync();
                         await dbTx.CommitAsync();
+
                         return (true, null);
                     }
                     catch (Exception ex)
