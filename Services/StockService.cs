@@ -1,16 +1,29 @@
 ﻿using InvenTrack.Data;
 using InvenTrack.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 
 namespace InvenTrack.Services
 {
     public class StockService
     {
         private readonly InvenTrackContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IEmailSender _emailSender;
+        private readonly ILogger<StockService> _logger;
 
-        public StockService(InvenTrackContext context)
+        public StockService(
+            InvenTrackContext context,
+            UserManager<ApplicationUser> userManager,
+            IEmailSender emailSender,
+            ILogger<StockService> logger)
         {
             _context = context;
+            _userManager = userManager;
+            _emailSender = emailSender;
+            _logger = logger;
         }
 
         public async Task<(bool ok, string? error)> ApplyTransactionAsync(
@@ -34,6 +47,9 @@ namespace InvenTrack.Services
                     var item = await _context.InventoryItems.FirstOrDefaultAsync(i => i.ID == inventoryItemId);
                     if (item == null)
                         return (false, "Inventory item not found.");
+
+                    var beforeTotal = item.QuantityOnHand;
+                    var reorderLevel = item.ReorderLevel;
 
                     performedBy = string.IsNullOrWhiteSpace(performedBy) ? "System" : performedBy.Trim();
                     notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
@@ -77,6 +93,10 @@ namespace InvenTrack.Services
                             return (false, "Quantity must be positive for Transfer.");
                     }
 
+                    bool shouldAlertAfterCommit = false;
+                    int afterTotal = beforeTotal;
+                    List<InventoryItemStock> stocksForEmail = new();
+
                     await using var dbTx = await _context.Database.BeginTransactionAsync();
                     try
                     {
@@ -119,7 +139,8 @@ namespace InvenTrack.Services
                                 stocks.Add(toStock);
                             }
 
-                            toStock.QuantityOnHand += Math.Abs(quantity);
+                            var q = Math.Abs(quantity);
+                            toStock.QuantityOnHand += q;
 
                             _context.StockTransactions.Add(new StockTransaction
                             {
@@ -128,7 +149,7 @@ namespace InvenTrack.Services
                                 DateCreated = DateTime.UtcNow,
                                 PerformedBy = performedBy,
                                 Notes = notes,
-                                QuantityChange = Math.Abs(quantity),
+                                QuantityChange = q,
                                 ToStorageLocationID = toLocationId
                             });
                         }
@@ -222,7 +243,8 @@ namespace InvenTrack.Services
                             });
                         }
 
-                        item.QuantityOnHand = stocks.Sum(s => s.QuantityOnHand);
+                        afterTotal = stocks.Sum(s => s.QuantityOnHand);
+                        item.QuantityOnHand = afterTotal;
 
                         var primary = stocks
                             .Where(s => s.QuantityOnHand > 0)
@@ -236,6 +258,31 @@ namespace InvenTrack.Services
                         await _context.SaveChangesAsync();
                         await dbTx.CommitAsync();
 
+                        var crossedAboveToLow = beforeTotal > reorderLevel && afterTotal <= reorderLevel;
+                        var droppedFromEqualToBelow = beforeTotal == reorderLevel && afterTotal < reorderLevel;
+
+                        if (item.IsActive && reorderLevel >= 0 && (crossedAboveToLow || droppedFromEqualToBelow))
+                        {
+                            shouldAlertAfterCommit = true;
+                            stocksForEmail = stocks;
+                        }
+
+                        if (shouldAlertAfterCommit)
+                        {
+                            _logger.LogInformation(
+                                "Reorder alert trigger: ItemId={ItemId} SKU={SKU} Before={Before} After={After} Reorder={Reorder}",
+                                item.ID, item.SKU, beforeTotal, afterTotal, reorderLevel);
+
+                            try
+                            {
+                                await SendReorderAlertAsync(item, afterTotal, reorderLevel, stocksForEmail);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Reorder alert email failed for ItemId={ItemId}", item.ID);
+                            }
+                        }
+
                         return (true, null);
                     }
                     catch (Exception ex)
@@ -248,6 +295,78 @@ namespace InvenTrack.Services
             catch (Exception ex)
             {
                 return (false, ex.Message);
+            }
+        }
+
+        private async Task SendReorderAlertAsync(InventoryItem item, int qtyNow, int reorderLevel, List<InventoryItemStock> stocks)
+        {
+            var recipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var role in new[] { "Admin", "Manager", "Viewer" })
+            {
+                var users = await _userManager.GetUsersInRoleAsync(role);
+                foreach (var u in users)
+                {
+                    if (string.IsNullOrWhiteSpace(u.Email)) continue;
+                    if (!u.EmailConfirmed) continue;
+
+                    recipients.Add(u.Email);
+                }
+            }
+
+            if (recipients.Count == 0)
+            {
+                _logger.LogWarning("Reorder alert: no recipients found (Admin/Manager with confirmed emails). ItemId={ItemId}", item.ID);
+                return;
+            }
+
+            var locationIds = stocks?
+                .Select(s => s.StorageLocationID)
+                .Distinct()
+                .ToList() ?? new List<int>();
+
+            var locNames = await _context.StorageLocations
+                .AsNoTracking()
+                .Where(l => locationIds.Contains(l.ID))
+                .ToDictionaryAsync(l => l.ID, l => l.Name);
+
+            string LocName(int id) => locNames.TryGetValue(id, out var n) ? n : $"Location #{id}";
+
+            var subject = $"[InvenTrack] Reorder Alert: {item.ItemName} ({item.SKU})";
+
+            var sb = new StringBuilder();
+            sb.Append("<div style='font-family:Segoe UI,Arial,sans-serif;line-height:1.5'>");
+            sb.Append("<h2 style='margin:0 0 8px 0'>Reorder Alert</h2>");
+            sb.Append($"<div><strong>Item:</strong> {System.Net.WebUtility.HtmlEncode(item.ItemName)}</div>");
+            sb.Append($"<div><strong>SKU:</strong> {System.Net.WebUtility.HtmlEncode(item.SKU)}</div>");
+            sb.Append($"<div><strong>Total Quantity On Hand:</strong> {qtyNow}</div>");
+            sb.Append($"<div><strong>Reorder Level:</strong> {reorderLevel}</div>");
+
+            if (stocks != null && stocks.Count > 0)
+            {
+                sb.Append("<hr style='margin:12px 0'/>");
+                sb.Append("<div style='font-weight:600;margin-bottom:6px'>Per-location stock</div>");
+                sb.Append("<ul style='margin:0;padding-left:18px'>");
+
+                foreach (var s in stocks.OrderByDescending(x => x.QuantityOnHand))
+                {
+                    var name = System.Net.WebUtility.HtmlEncode(LocName(s.StorageLocationID));
+                    sb.Append($"<li>{name}: {s.QuantityOnHand}</li>");
+                }
+
+                sb.Append("</ul>");
+            }
+
+            sb.Append("<hr style='margin:12px 0'/>");
+            sb.Append("<div style='color:#6c757d;font-size:12px'>This message was generated automatically by InvenTrack.</div>");
+            sb.Append("</div>");
+
+            var body = sb.ToString();
+
+            foreach (var email in recipients)
+            {
+                await _emailSender.SendEmailAsync(email, subject, body);
+                _logger.LogInformation("Reorder alert email sent to {Email} for ItemId={ItemId}", email, item.ID);
             }
         }
     }

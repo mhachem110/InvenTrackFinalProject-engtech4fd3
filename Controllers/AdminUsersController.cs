@@ -46,7 +46,6 @@ namespace InvenTrack.Controllers
             {
                 var roles = await _userManager.GetRolesAsync(u);
                 var role = roles.FirstOrDefault(r => AllowedRoles.Contains(r)) ?? "None";
-
                 var isLockedOut = u.LockoutEnabled && u.LockoutEnd.HasValue && u.LockoutEnd.Value > DateTimeOffset.UtcNow;
 
                 vm.Users.Add(new UserRoleRowVM
@@ -322,12 +321,95 @@ namespace InvenTrack.Controllers
 
             var res = await _userManager.SetLockoutEndDateAsync(user, null);
 
-            if (!res.Succeeded)
-                TempData["RoleMsg"] = "Unable to unlock user.";
-            else
-                TempData["RoleMsg"] = $"Unlocked {user.Email ?? user.UserName}.";
+            TempData["RoleMsg"] = res.Succeeded
+                ? $"Unlocked {user.Email ?? user.UserName}."
+                : "Unable to unlock user.";
 
             return RedirectToAction(nameof(Index));
+        }
+
+        public async Task<IActionResult> Delete(string id)
+        {
+            await EnsureRolesExistAsync();
+
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var isSelf = string.Equals(currentUserId, user.Id, StringComparison.Ordinal);
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault(r => AllowedRoles.Contains(r)) ?? "None";
+
+            var isLockedOut = user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd.Value > DateTimeOffset.UtcNow;
+
+            var isLastAdmin = false;
+            if (role == "Admin")
+                isLastAdmin = await IsLastAdminAsync(user.Id);
+
+            var vm = new DeleteUserVM
+            {
+                UserId = user.Id,
+                Email = user.Email ?? "-",
+                UserName = user.UserName ?? "-",
+                Role = role,
+                IsLockedOut = isLockedOut,
+                LockoutEnd = user.LockoutEnd,
+                IsSelf = isSelf,
+                IsLastAdmin = isLastAdmin
+            };
+
+            return View(vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(DeleteUserVM vm)
+        {
+            await EnsureRolesExistAsync();
+
+            if (string.IsNullOrWhiteSpace(vm.UserId))
+                return NotFound();
+
+            var user = await _userManager.FindByIdAsync(vm.UserId);
+            if (user == null)
+            {
+                TempData["RoleMsg"] = "User not found.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var currentUserId = _userManager.GetUserId(User);
+            if (string.Equals(currentUserId, user.Id, StringComparison.Ordinal))
+            {
+                TempData["RoleMsg"] = "You cannot delete your own account.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault(r => AllowedRoles.Contains(r)) ?? "None";
+
+            if (role == "Admin" && await IsLastAdminAsync(user.Id))
+            {
+                TempData["RoleMsg"] = "Cannot delete the last Admin account.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var res = await _userManager.DeleteAsync(user);
+
+            if (!res.Succeeded)
+            {
+                TempData["RoleMsg"] = "Unable to delete user.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            TempData["RoleMsg"] = $"Deleted user {user.Email ?? user.UserName}.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        private async Task<bool> IsLastAdminAsync(string userId)
+        {
+            var admins = await _userManager.GetUsersInRoleAsync("Admin");
+            return admins.Count == 1 && admins[0].Id == userId;
         }
 
         private async Task EnsureRolesExistAsync()

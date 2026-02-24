@@ -1,7 +1,9 @@
 using InvenTrack.Data;
 using InvenTrack.Models;
+using InvenTrack.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,7 +30,10 @@ builder.Services.AddDbContext<InvenTrackContext>(options =>
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
-    options.SignIn.RequireConfirmedAccount = false;
+    options.SignIn.RequireConfirmedAccount = true;
+    options.SignIn.RequireConfirmedEmail = true;
+
+    options.User.RequireUniqueEmail = true;
 
     options.Password.RequiredLength = 8;
     options.Password.RequireUppercase = true;
@@ -46,6 +51,7 @@ builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Login");
     options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Register");
+    options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/RegisterConfirmation");
     options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Logout");
     options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ForgotPassword");
     options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ResetPassword");
@@ -69,6 +75,14 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 builder.Services.AddScoped<InvenTrack.Services.StockService>();
 
+builder.Services.Configure<SendGridSettings>(builder.Configuration.GetSection("SendGrid"));
+builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
+
+// SMTP (Office365/Outlook) is often blocked due to SMTP AUTH disabled.
+// Keep this only if you have enabled SMTP AUTH on the mailbox.
+// builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+// builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
@@ -82,15 +96,16 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/", async context =>
+app.MapGet("/", context =>
 {
     if (context.User?.Identity?.IsAuthenticated ?? false)
     {
         context.Response.Redirect("/Home");
-        return;
+        return Task.CompletedTask;
     }
 
     context.Response.Redirect("/Identity/Account/Login");
+    return Task.CompletedTask;
 });
 
 app.MapControllerRoute(
