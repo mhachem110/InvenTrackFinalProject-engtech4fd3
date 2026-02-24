@@ -2,11 +2,13 @@
 using InvenTrack.Models;
 using InvenTrack.Services;
 using InvenTrack.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace InvenTrack.Controllers
 {
+    [Authorize(Roles = "Admin,Manager,Viewer")]
     public class StockTransactionsController : Controller
     {
         private readonly InvenTrackContext _context;
@@ -31,7 +33,7 @@ namespace InvenTrack.Controllers
 
             return View(txs);
         }
-
+        [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> Create(int inventoryItemId)
         {
             var item = await _context.InventoryItems
@@ -99,7 +101,7 @@ namespace InvenTrack.Controllers
 
             return View(vm);
         }
-
+        [Authorize(Roles = "Admin,Manager")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(StockTransactionCreateVM vm)

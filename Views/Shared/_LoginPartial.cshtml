@@ -1,0 +1,43 @@
+﻿@using Microsoft.AspNetCore.Identity
+@using InvenTrack.Models
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+
+@{
+    bool signedIn = SignInManager.IsSignedIn(User);
+    string roleLabel =
+        User.IsInRole("Admin") ? "Admin" :
+        User.IsInRole("Manager") ? "Manager" :
+        User.IsInRole("Viewer") ? "Viewer" : "";
+}
+
+@if (signedIn)
+{
+    <div class="text-muted small mb-2">Signed in</div>
+    <div class="small mb-3">
+        <span class="fw-semibold">@User.Identity?.Name</span>
+        @if (!string.IsNullOrWhiteSpace(roleLabel))
+        {
+            <span class="badge bg-primary-subtle text-primary border it-badge ms-2">@roleLabel</span>
+        }
+    </div>
+
+    <a class="it-nav-link" asp-area="Identity" asp-page="/Account/Manage/Index">
+        <span class="it-nav-ico">⚙️</span> Account
+    </a>
+
+    <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="mt-1">
+        <button type="submit" class="it-nav-link w-100 text-start" style="border:0;background:transparent;">
+            <span class="it-nav-ico">🚪</span> Logout
+        </button>
+    </form>
+}
+else
+{
+    <a class="it-nav-link" asp-area="Identity" asp-page="/Account/Login">
+        <span class="it-nav-ico">🔑</span> Login
+    </a>
+    <a class="it-nav-link" asp-area="Identity" asp-page="/Account/Register">
+        <span class="it-nav-ico">🧑‍💻</span> Register
+    </a>
+}

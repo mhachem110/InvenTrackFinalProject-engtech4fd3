@@ -39,3 +39,10 @@ Database not available / paused:
 - wait 30 seconds
 - run Update-Database again
 - check Azure SQL firewall has your IP allowed
+
+
+
+USER :
+
+"admin@inventrack.local";
+"Admin@2026";

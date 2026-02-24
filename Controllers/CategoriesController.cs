@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using InvenTrack.Data;
+﻿using InvenTrack.Data;
 using InvenTrack.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace InvenTrack.Controllers
 {
+    [Authorize(Roles = "Admin,Manager,Viewer")]
     public class CategoriesController : Controller
     {
         private readonly InvenTrackContext _context;
@@ -53,13 +55,13 @@ namespace InvenTrack.Controllers
 
             return View(category);
         }
-
+        [Authorize(Roles = "Admin,Manager")]
         // GET: Categories/Create
         public IActionResult Create()
         {
             return View();
         }
-
+        [Authorize(Roles = "Admin,Manager")]
         // POST: Categories/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -91,7 +93,7 @@ namespace InvenTrack.Controllers
 
             return View(category);
         }
-
+        [Authorize(Roles = "Admin,Manager")]
         // GET: Categories/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
@@ -102,7 +104,7 @@ namespace InvenTrack.Controllers
 
             return View(category);
         }
-
+        [Authorize(Roles = "Admin,Manager")]
         // POST: Categories/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -146,7 +148,7 @@ namespace InvenTrack.Controllers
 
             return View(categoryToUpdate);
         }
-
+        [Authorize(Roles = "Admin,Manager")]
         // GET: Categories/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
@@ -160,7 +162,7 @@ namespace InvenTrack.Controllers
 
             return View(category);
         }
-
+        [Authorize(Roles = "Admin,Manager")]
         // POST: Categories/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]

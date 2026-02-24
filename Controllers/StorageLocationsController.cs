@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using InvenTrack.Data;
+﻿using InvenTrack.Data;
 using InvenTrack.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace InvenTrack.Controllers
 {
+    [Authorize(Roles = "Admin,Manager,Viewer")]
     public class StorageLocationsController : Controller
     {
         private readonly InvenTrackContext _context;

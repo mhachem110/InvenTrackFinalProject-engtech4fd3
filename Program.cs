@@ -1,15 +1,14 @@
-using Microsoft.EntityFrameworkCore;
 using InvenTrack.Data;
+using InvenTrack.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// -------------------------------
-// Database (Azure SQL)
-// -------------------------------
-// Azure SQL (serverless) can be paused. Retries help during resume.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        builder.Configuration.GetConnectionString("IdentityContext"),
         sql =>
         {
             sql.MigrationsHistoryTable("__EFMigrationsHistory_Identity");
@@ -27,8 +26,48 @@ builder.Services.AddDbContext<InvenTrackContext>(options =>
             sql.CommandTimeout(60);
         }));
 
-builder.Services.AddScoped<InvenTrack.Services.StockService>(); 
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+{
+    options.SignIn.RequireConfirmedAccount = false;
+
+    options.Password.RequiredLength = 8;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireDigit = true;
+    options.Password.RequireNonAlphanumeric = false;
+})
+.AddEntityFrameworkStores<ApplicationDbContext>()
+.AddDefaultTokenProviders()
+.AddDefaultUI();
+
 builder.Services.AddControllersWithViews();
+
+builder.Services.AddRazorPages(options =>
+{
+    options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Login");
+    options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Register");
+    options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Logout");
+    options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ForgotPassword");
+    options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ResetPassword");
+    options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ResendEmailConfirmation");
+    options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ConfirmEmail");
+    options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/AccessDenied");
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Identity/Account/Login";
+    options.AccessDeniedPath = "/Identity/Account/AccessDenied";
+});
+
+builder.Services.AddScoped<InvenTrack.Services.StockService>();
 
 var app = builder.Build();
 
@@ -39,13 +78,28 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 app.UseRouting();
+
+app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapGet("/", async context =>
+{
+    if (context.User?.Identity?.IsAuthenticated ?? false)
+    {
+        context.Response.Redirect("/Home");
+        return;
+    }
+
+    context.Response.Redirect("/Identity/Account/Login");
+});
 
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// Apply migrations + seed
+app.MapRazorPages();
+
 InvenTrackInitializer.Seed(app);
+await IdentitySeeder.SeedAsync(app.Services);
 
 app.Run();

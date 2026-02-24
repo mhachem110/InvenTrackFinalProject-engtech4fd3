@@ -1,12 +1,14 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
 using InvenTrack.Data;
 using InvenTrack.Models;
 using InvenTrack.Utilities;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
 
 namespace InvenTrack.Controllers
 {
+    [Authorize(Roles = "Admin,Manager,Viewer")]
     public class InventoryItemsController : Controller
     {
         private readonly InvenTrackContext _context;
@@ -173,6 +175,7 @@ namespace InvenTrack.Controllers
             return View();
         }
 
+        [Authorize(Roles = "Admin,Manager")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(
@@ -228,7 +231,7 @@ namespace InvenTrack.Controllers
             PopulateDropDowns(item.CategoryID, item.StorageLocationID);
             return View(item);
         }
-
+        [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
@@ -243,7 +246,7 @@ namespace InvenTrack.Controllers
             PopulateDropDowns(item.CategoryID, item.StorageLocationID);
             return View(item);
         }
-
+        [Authorize(Roles = "Admin,Manager")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(
@@ -326,7 +329,7 @@ namespace InvenTrack.Controllers
             PopulateDropDowns(item.CategoryID, itemToUpdate.StorageLocationID);
             return View(itemToUpdate);
         }
-
+        [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
@@ -340,7 +343,7 @@ namespace InvenTrack.Controllers
 
             return View(item);
         }
-
+        [Authorize(Roles = "Admin,Manager")]
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)

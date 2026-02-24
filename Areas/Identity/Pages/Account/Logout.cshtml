@@ -1,0 +1,46 @@
+﻿@page
+@model LogoutModel
+
+@{
+    ViewData["Title"] = "Logout";
+}
+
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">Logout</h1>
+        </div>
+        <div class="text-muted small">End your session securely.</div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">Home</a>
+    </div>
+</div>
+
+<div class="it-panel">
+    <div class="it-panel-body">
+        @if (User.Identity?.IsAuthenticated ?? false)
+        {
+            <div class="fw-semibold mb-2">Are you sure you want to log out?</div>
+            <div class="text-muted small mb-3">You can log back in anytime.</div>
+
+            <form asp-area="Identity"
+                  asp-page="/Account/Logout"
+                  asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })"
+                  method="post">
+                <button type="submit" class="btn btn-primary">Log out</button>
+                <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </form>
+        }
+        else
+        {
+            <div class="fw-semibold mb-2">You’re logged out</div>
+            <div class="text-muted small mb-3">Your session has ended successfully.</div>
+
+            <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-primary">Log in again</a>
+            <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary ms-2">Home</a>
+        }
+    </div>
+</div>

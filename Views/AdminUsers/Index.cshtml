@@ -1,0 +1,126 @@
+﻿@model InvenTrack.ViewModels.Admin.UserRolesIndexVM
+
+@{
+    ViewData["Title"] = "User Admin";
+}
+
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">User Admin</h1>
+        </div>
+        <div class="text-muted small">Admin-only: create users, assign roles, reset passwords, lock/unlock.</div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a asp-action="Create" class="btn btn-primary">+ Create User</a>
+    </div>
+</div>
+
+@if (TempData["RoleMsg"] != null)
+{
+    <div class="alert alert-success">@TempData["RoleMsg"]</div>
+}
+
+<div class="it-panel mb-3">
+    <div class="it-panel-body">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-lg-8">
+                <div class="it-input">
+                    <span class="it-input-ico">🔎</span>
+                    <input name="q" value="@Model.Query" type="search" class="form-control it-input-field"
+                           placeholder="Search by email or username..." />
+                </div>
+            </div>
+
+            <div class="col-lg-4 text-lg-end">
+                <button type="submit" class="btn btn-primary">Search</button>
+                <a asp-action="Index" class="btn btn-outline-secondary ms-2">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="it-panel">
+    <div class="it-panel-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 it-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th style="width:220px;">Username</th>
+                        <th style="width:140px;">Role</th>
+                        <th style="width:170px;">Status</th>
+                        <th class="text-end" style="width:320px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Users == null || !Model.Users.Any())
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-5">
+                                <div class="fw-semibold mb-1">No users found</div>
+                                <div class="small">Try a different search.</div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var u in Model.Users)
+                        {
+                            <tr>
+                                <td class="fw-semibold">@u.Email</td>
+                                <td class="text-muted">@u.UserName</td>
+                                <td>
+                                    @if (u.Role == "Admin")
+                                    {
+                                        <span class="badge bg-primary-subtle text-primary border it-badge">Admin</span>
+                                    }
+                                    else if (u.Role == "Manager")
+                                    {
+                                        <span class="badge bg-success-subtle text-success border it-badge">Manager</span>
+                                    }
+                                    else if (u.Role == "Viewer")
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border it-badge">Viewer</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-light text-dark border it-badge">None</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (u.IsLockedOut)
+                                    {
+                                        <span class="badge bg-danger-subtle text-danger border it-badge">Locked</span>
+                                        <div class="text-muted small mt-1">Until: @(u.LockoutEnd?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")</div>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success-subtle text-success border it-badge">Active</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group" role="group">
+                                        <a asp-action="Edit" asp-route-id="@u.UserId" class="btn btn-sm btn-outline-primary">Role</a>
+                                        <a asp-action="ResetPassword" asp-route-id="@u.UserId" class="btn btn-sm btn-outline-secondary">Reset PW</a>
+                                        <a asp-action="Lockout" asp-route-id="@u.UserId" class="btn btn-sm btn-outline-warning">Lock</a>
+                                    </div>
+
+                                    @if (u.IsLockedOut)
+                                    {
+                                        <form asp-action="Unlock" asp-route-id="@u.UserId" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-success ms-2">Unlock</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
