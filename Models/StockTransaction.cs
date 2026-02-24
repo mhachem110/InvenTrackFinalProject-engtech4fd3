@@ -26,7 +26,6 @@ namespace InvenTrack.Models
         [StringLength(120)]
         public string? PerformedBy { get; set; }
 
-        // The item this transaction belongs to
         public int InventoryItemID { get; set; }
         public InventoryItem InventoryItem { get; set; } = null!;
 
@@ -38,38 +37,35 @@ namespace InvenTrack.Models
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
-            // Quantity cannot be zero
             if (QuantityChange == 0)
-            {
-                yield return new ValidationResult(
-                    "Quantity change cannot be 0.",
-                    new[] { nameof(QuantityChange) }
-                );
-            }
-
-            if ((ActionType == StockActionType.CheckIn || ActionType == StockActionType.CheckOut) && QuantityChange < 0)
-            {
-                yield return new ValidationResult(
-                    "Quantity must be positive for Check In / Check Out.",
-                    new[] { nameof(QuantityChange) }
-                );
-            }
+                yield return new ValidationResult("Quantity change cannot be 0.", new[] { nameof(QuantityChange) });
 
             if (ActionType == StockActionType.Adjustment && string.IsNullOrWhiteSpace(Notes))
+                yield return new ValidationResult("Notes are required for an Adjustment.", new[] { nameof(Notes) });
+
+            if (ActionType == StockActionType.CheckIn)
             {
-                yield return new ValidationResult(
-                    "Notes are required for an Adjustment.",
-                    new[] { nameof(Notes) }
-                );
+                if (!ToStorageLocationID.HasValue || ToStorageLocationID.Value < 1)
+                    yield return new ValidationResult("Please select a location for Check In.", new[] { nameof(ToStorageLocationID) });
             }
 
-            // Transfer requires target location
-            if (ActionType == StockActionType.Transfer && (!ToStorageLocationID.HasValue || ToStorageLocationID.Value < 1))
+            if (ActionType == StockActionType.CheckOut || ActionType == StockActionType.Adjustment)
             {
-                yield return new ValidationResult(
-                    "Please select a target location for a transfer.",
-                    new[] { nameof(ToStorageLocationID) }
-                );
+                if (!FromStorageLocationID.HasValue || FromStorageLocationID.Value < 1)
+                    yield return new ValidationResult("Please select a location.", new[] { nameof(FromStorageLocationID) });
+            }
+
+            if (ActionType == StockActionType.Transfer)
+            {
+                if (!FromStorageLocationID.HasValue || FromStorageLocationID.Value < 1)
+                    yield return new ValidationResult("Please select a source location.", new[] { nameof(FromStorageLocationID) });
+
+                if (!ToStorageLocationID.HasValue || ToStorageLocationID.Value < 1)
+                    yield return new ValidationResult("Please select a target location.", new[] { nameof(ToStorageLocationID) });
+
+                if (FromStorageLocationID.HasValue && ToStorageLocationID.HasValue &&
+                    FromStorageLocationID.Value == ToStorageLocationID.Value)
+                    yield return new ValidationResult("Target location must be different from source location.", new[] { nameof(ToStorageLocationID) });
             }
         }
     }

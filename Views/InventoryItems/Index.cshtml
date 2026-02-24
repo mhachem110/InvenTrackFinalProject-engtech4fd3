@@ -1,8 +1,10 @@
 @model IEnumerable<InvenTrack.Models.InventoryItem>
 @using System
+@using System.Linq
 
 @{
     ViewData["Title"] = "Inventory";
+    var locationCounts = ViewData["LocationCounts"] as Dictionary<int, int> ?? new Dictionary<int, int>();
 }
 
 <div class="it-pagehead mb-3">
@@ -15,9 +17,7 @@
     </div>
 
     <div class="d-flex gap-2">
-        <a asp-action="Create" class="btn btn-primary">
-            + Add Item
-        </a>
+        <a asp-action="Create" class="btn btn-primary">+ Add Item</a>
     </div>
 </div>
 
@@ -58,7 +58,7 @@
                         <th style="width:150px;">SKU</th>
                         <th style="width:140px;">On Hand</th>
                         <th style="width:180px;">Category</th>
-                        <th style="width:190px;">Location</th>
+                        <th style="width:210px;">Locations</th>
                         <th style="width:120px;">Status</th>
                         <th class="text-end" style="width:220px;">Actions</th>
                     </tr>
@@ -80,16 +80,15 @@
                         foreach (var item in Model)
                         {
                             var status = item.IsActive ? "active" : "inactive";
+                            var locCount = locationCounts.TryGetValue(item.ID, out var c) ? c : 0;
+
                             <tr class="inv-row" data-status="@status">
                                 <td>
                                     @if (item.ItemThumbnail?.Content != null && item.ItemThumbnail.Content.Length > 0)
                                     {
                                         var imageBase64 = Convert.ToBase64String(item.ItemThumbnail.Content);
                                         var imageSrc = $"data:{item.ItemThumbnail.MimeType};base64,{imageBase64}";
-
-                                        <img src="@imageSrc"
-                                             alt="Thumbnail of @item.ItemName"
-                                             class="it-thumb" />
+                                        <img src="@imageSrc" alt="Thumbnail of @item.ItemName" class="it-thumb" />
                                     }
                                     else
                                     {
@@ -115,7 +114,26 @@
                                 </td>
 
                                 <td class="text-muted">@(item.Category?.Name ?? "-")</td>
-                                <td class="text-muted">@(item.StorageLocation?.Name ?? "-")</td>
+
+                                <td class="text-muted">
+                                    @{
+                                        var primary = item.StorageLocation?.Name ?? "-";
+                                        if (locCount > 1)
+                                        {
+                                            <span>@primary</span>
+                                            <span class="badge bg-primary-subtle text-primary border it-badge ms-2"
+                                                  data-bs-toggle="tooltip"
+                                                  data-bs-placement="top"
+                                                  title="This item currently has stock in @locCount locations.">
+                                                +@(locCount - 1) more
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span>@primary</span>
+                                        }
+                                    }
+                                </td>
 
                                 <td>
                                     @if (item.IsActive)
@@ -130,15 +148,9 @@
 
                                 <td class="text-end">
                                     <div class="btn-group" role="group">
-                                        <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-sm btn-outline-secondary">
-                                            Details
-                                        </a>
-                                        <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-sm btn-outline-primary">
-                                            Edit
-                                        </a>
-                                        <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-sm btn-outline-danger">
-                                            Delete
-                                        </a>
+                                        <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-sm btn-outline-secondary">Details</a>
+                                        <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-sm btn-outline-primary">Edit</a>
+                                        <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-sm btn-outline-danger">Delete</a>
                                     </div>
                                 </td>
                             </tr>
@@ -182,6 +194,11 @@
             if (search) search.addEventListener('input', apply);
             if (status) status.addEventListener('change', apply);
             apply();
+
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach(function (el) {
+                new bootstrap.Tooltip(el);
+            });
         })();
     </script>
 }

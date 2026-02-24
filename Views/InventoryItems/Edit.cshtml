@@ -11,11 +11,11 @@
             <div class="it-page-dot"></div>
             <h1 class="h3 mb-0 fw-bold">Edit Item</h1>
         </div>
-        <div class="text-muted small">Update item details and photo.</div>
+        <div class="text-muted small">Update item details and photo. Stock and location are managed via Transactions.</div>
     </div>
 
     <div class="d-flex gap-2">
-        <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
+        <a asp-action="Details" asp-route-id="@Model.ID" class="btn btn-outline-secondary">Back</a>
     </div>
 </div>
 
@@ -27,7 +27,7 @@
             <div class="it-panel">
                 <div class="it-panel-header">
                     <div class="fw-bold">Item details</div>
-                    <div class="text-muted small">Name, SKU, quantity and classification.</div>
+                    <div class="text-muted small">Name, SKU, description, reorder settings, and classification.</div>
                 </div>
 
                 <div class="it-panel-body">
@@ -53,12 +53,6 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label asp-for="QuantityOnHand" class="form-label"></label>
-                            <input asp-for="QuantityOnHand" class="form-control" />
-                            <span asp-validation-for="QuantityOnHand" class="text-danger small"></span>
-                        </div>
-
-                        <div class="col-md-6">
                             <label asp-for="ReorderLevel" class="form-label"></label>
                             <input asp-for="ReorderLevel" class="form-control" />
                             <span asp-validation-for="ReorderLevel" class="text-danger small"></span>
@@ -73,11 +67,26 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label asp-for="StorageLocationID" class="form-label"></label>
-                            <select asp-for="StorageLocationID" class="form-select" asp-items="ViewBag.StorageLocationID">
+                            <label class="form-label">Total Quantity On Hand</label>
+                            <input asp-for="QuantityOnHand" class="form-control" readonly />
+                            <span asp-validation-for="QuantityOnHand" class="text-danger small"></span>
+                            <div class="form-text">Managed via Stock Transactions (check in/out/adjust/transfer).</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Primary Location</label>
+                            <select asp-for="StorageLocationID" class="form-select" asp-items="ViewBag.StorageLocationID" disabled>
                                 <option value="0">-- Select Location --</option>
                             </select>
+                            <input type="hidden" asp-for="StorageLocationID" />
                             <span asp-validation-for="StorageLocationID" class="text-danger small"></span>
+                            <div class="form-text">Primary location updates automatically based on per-location stock.</div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="it-hint">
+                                Tip: To move stock between locations or change quantities, use <strong>Transactions</strong> on the item details page.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -117,8 +126,18 @@
 
                     <div class="d-grid gap-2 mt-4">
                         <button type="submit" class="btn btn-primary">Save Changes</button>
-                        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                        <a asp-action="Details" asp-route-id="@Model.ID" class="btn btn-outline-secondary">Cancel</a>
                     </div>
+                </div>
+            </div>
+
+            <div class="it-panel mt-3">
+                <div class="it-panel-body">
+                    <div class="fw-semibold mb-1">Need to update stock?</div>
+                    <div class="text-muted small mb-3">Use transactions for check in/out, adjustments, and partial transfers.</div>
+                    <a asp-controller="StockTransactions" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-outline-primary w-100">
+                        + New Transaction
+                    </a>
                 </div>
             </div>
         </div>

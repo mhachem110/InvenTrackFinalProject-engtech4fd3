@@ -3,7 +3,6 @@ using InvenTrack.Models;
 using InvenTrack.Services;
 using InvenTrack.ViewModels;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
 namespace InvenTrack.Controllers
@@ -33,7 +32,6 @@ namespace InvenTrack.Controllers
             return View(txs);
         }
 
-        // GET: StockTransactions/Create?inventoryItemId=5
         public async Task<IActionResult> Create(int inventoryItemId)
         {
             var item = await _context.InventoryItems
@@ -43,19 +41,62 @@ namespace InvenTrack.Controllers
 
             if (item == null) return NotFound();
 
+            var hasStocks = await _context.InventoryItemStocks.AnyAsync(s => s.InventoryItemID == inventoryItemId);
+            List<InventoryItemStock> stocks;
+
+            if (hasStocks)
+            {
+                stocks = await _context.InventoryItemStocks
+                    .AsNoTracking()
+                    .Include(s => s.StorageLocation)
+                    .Where(s => s.InventoryItemID == inventoryItemId)
+                    .ToListAsync();
+            }
+            else
+            {
+                stocks = new List<InventoryItemStock>
+                {
+                    new InventoryItemStock
+                    {
+                        InventoryItemID = inventoryItemId,
+                        StorageLocationID = item.StorageLocationID,
+                        StorageLocation = item.StorageLocation ?? new StorageLocation { Name = "-" },
+                        QuantityOnHand = item.QuantityOnHand
+                    }
+                };
+            }
+
+            var allLocations = await _context.StorageLocations
+                .AsNoTracking()
+                .OrderBy(l => l.Name)
+                .ToListAsync();
+
+            var locList = allLocations.Select(l =>
+            {
+                var s = stocks.FirstOrDefault(x => x.StorageLocationID == l.ID);
+                return new LocationStockVM
+                {
+                    LocationID = l.ID,
+                    LocationName = l.Name,
+                    QuantityOnHand = s?.QuantityOnHand ?? 0
+                };
+            }).ToList();
+
+            var defaultFrom = locList.OrderByDescending(x => x.QuantityOnHand).FirstOrDefault(x => x.QuantityOnHand > 0)?.LocationID;
+
             var vm = new StockTransactionCreateVM
             {
                 InventoryItemID = item.ID,
                 ItemName = item.ItemName,
                 SKU = item.SKU,
-                CurrentQuantityOnHand = item.QuantityOnHand,
-                CurrentLocationID = item.StorageLocationID,
-                CurrentLocationName = item.StorageLocation?.Name ?? "-",
+                TotalQuantityOnHand = locList.Sum(x => x.QuantityOnHand),
                 ActionType = StockActionType.CheckIn,
-                Quantity = 1
+                Quantity = 1,
+                FromLocationID = defaultFrom,
+                ToLocationID = null,
+                Locations = locList
             };
 
-            vm.LocationOptions = await BuildLocationOptionsAsync(item.StorageLocationID);
             return View(vm);
         }
 
@@ -63,16 +104,53 @@ namespace InvenTrack.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(StockTransactionCreateVM vm)
         {
-            vm.LocationOptions = await BuildLocationOptionsAsync(vm.CurrentLocationID);
+            var allLocations = await _context.StorageLocations
+                .AsNoTracking()
+                .OrderBy(l => l.Name)
+                .ToListAsync();
+
+            var stocks = await _context.InventoryItemStocks
+                .AsNoTracking()
+                .Where(s => s.InventoryItemID == vm.InventoryItemID)
+                .ToListAsync();
+
+            vm.Locations = allLocations.Select(l =>
+            {
+                var s = stocks.FirstOrDefault(x => x.StorageLocationID == l.ID);
+                return new LocationStockVM
+                {
+                    LocationID = l.ID,
+                    LocationName = l.Name,
+                    QuantityOnHand = s?.QuantityOnHand ?? 0
+                };
+            }).ToList();
+
+            vm.TotalQuantityOnHand = vm.Locations.Sum(x => x.QuantityOnHand);
 
             if (!ModelState.IsValid)
                 return View(vm);
+
+            int? fromId = null;
+            int? toId = null;
+
+            if (vm.ActionType == StockActionType.CheckIn)
+                toId = vm.ToLocationID;
+            else if (vm.ActionType == StockActionType.CheckOut)
+                fromId = vm.FromLocationID;
+            else if (vm.ActionType == StockActionType.Adjustment)
+                fromId = vm.FromLocationID;
+            else if (vm.ActionType == StockActionType.Transfer)
+            {
+                fromId = vm.FromLocationID;
+                toId = vm.ToLocationID;
+            }
 
             var (ok, error) = await _stockService.ApplyTransactionAsync(
                 inventoryItemId: vm.InventoryItemID,
                 actionType: vm.ActionType,
                 quantity: vm.Quantity,
-                targetLocationId: vm.ActionType == StockActionType.Transfer ? vm.TargetLocationID : null,
+                fromLocationId: fromId,
+                toLocationId: toId,
                 notes: vm.Notes,
                 performedBy: vm.PerformedBy
             );
@@ -84,23 +162,6 @@ namespace InvenTrack.Controllers
             }
 
             return RedirectToAction("Details", "InventoryItems", new { id = vm.InventoryItemID });
-        }
-
-        private async Task<IEnumerable<SelectListItem>> BuildLocationOptionsAsync(int currentLocationId)
-        {
-            var locations = await _context.StorageLocations
-                .AsNoTracking()
-                .OrderBy(l => l.Name)
-                .ToListAsync();
-
-            return locations
-                .Where(l => l.ID != currentLocationId)
-                .Select(l => new SelectListItem
-                {
-                    Value = l.ID.ToString(),
-                    Text = l.Name
-                })
-                .ToList();
         }
     }
 }

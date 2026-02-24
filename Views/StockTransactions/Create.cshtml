@@ -1,8 +1,11 @@
 ﻿@model InvenTrack.ViewModels.StockTransactionCreateVM
 @using InvenTrack.Models
+@using System.Linq
 
 @{
     ViewData["Title"] = "New Transaction";
+    var fromList = Model.Locations.Where(x => x.QuantityOnHand > 0).OrderBy(x => x.LocationName).ToList();
+    var allList = Model.Locations.OrderBy(x => x.LocationName).ToList();
 }
 
 <div class="it-pagehead mb-3">
@@ -22,7 +25,6 @@
 </div>
 
 <div class="row g-3 g-lg-4">
-    <!-- Left: Transaction form -->
     <div class="col-lg-8">
         <div class="it-panel">
             <div class="it-panel-header">
@@ -37,9 +39,7 @@
                     <input type="hidden" asp-for="InventoryItemID" />
                     <input type="hidden" asp-for="ItemName" />
                     <input type="hidden" asp-for="SKU" />
-                    <input type="hidden" asp-for="CurrentLocationID" />
-                    <input type="hidden" asp-for="CurrentLocationName" />
-                    <input type="hidden" asp-for="CurrentQuantityOnHand" id="qohHidden" />
+                    <input type="hidden" asp-for="TotalQuantityOnHand" id="totalHidden" />
 
                     <div class="row g-3">
                         <div class="col-md-6">
@@ -58,16 +58,31 @@
                             <div class="form-text" id="qtyHelp"></div>
                         </div>
 
-                        <!-- Transfer block -->
-                        <div class="col-12" id="transferBlock" style="display:none;">
-                            <label asp-for="TargetLocationID" class="form-label"></label>
-                            <select asp-for="TargetLocationID" class="form-select" asp-items="Model.LocationOptions">
-                                <option value="">-- Select Target Location --</option>
+                        <div class="col-12" id="fromBlock">
+                            <label class="form-label" id="fromLabel">From Location</label>
+                            <select asp-for="FromLocationID" class="form-select" id="fromSelect">
+                                <option value="">-- Select Location --</option>
+                                @foreach (var l in fromList)
+                                {
+                                    <option value="@l.LocationID" data-qty="@l.QuantityOnHand">
+                                        @l.LocationName (@l.QuantityOnHand)
+                                    </option>
+                                }
                             </select>
-                            <span asp-validation-for="TargetLocationID" class="text-danger small"></span>
-                            <div class="form-text">
-                                Transfer moves the entire stock to the selected location (single-location item design).
-                            </div>
+                            <span asp-validation-for="FromLocationID" class="text-danger small"></span>
+                            <div class="form-text" id="fromHelp"></div>
+                        </div>
+
+                        <div class="col-12" id="toBlock">
+                            <label asp-for="ToLocationID" class="form-label"></label>
+                            <select asp-for="ToLocationID" class="form-select" id="toSelect">
+                                <option value="">-- Select Location --</option>
+                                @foreach (var l in allList)
+                                {
+                                    <option value="@l.LocationID">@l.LocationName</option>
+                                }
+                            </select>
+                            <span asp-validation-for="ToLocationID" class="text-danger small"></span>
                         </div>
 
                         <div class="col-12">
@@ -96,12 +111,11 @@
         </div>
     </div>
 
-    <!-- Right: Item summary -->
     <div class="col-lg-4">
         <div class="it-panel">
             <div class="it-panel-header">
                 <div class="fw-bold">Item summary</div>
-                <div class="text-muted small">Current state before applying changes.</div>
+                <div class="text-muted small">Current stock by location.</div>
             </div>
 
             <div class="it-panel-body">
@@ -111,24 +125,33 @@
                     <div class="text-muted small">SKU: <span class="fw-semibold">@Model.SKU</span></div>
                 </div>
 
-                <div class="row g-2">
-                    <div class="col-12">
-                        <div class="it-field">
-                            <div class="label">Current location</div>
-                            <div class="value">@Model.CurrentLocationName</div>
-                        </div>
-                    </div>
+                <div class="it-field mb-3">
+                    <div class="label">Total quantity</div>
+                    <div class="value"><span class="it-qty">@Model.TotalQuantityOnHand</span></div>
+                </div>
 
-                    <div class="col-12">
-                        <div class="it-field">
-                            <div class="label">Quantity on hand</div>
-                            <div class="value"><span class="it-qty">@Model.CurrentQuantityOnHand</span></div>
-                        </div>
-                    </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-muted small">Location</th>
+                                <th class="text-muted small text-end">Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in allList)
+                            {
+                                <tr>
+                                    <td class="text-muted">@l.LocationName</td>
+                                    <td class="text-end"><span class="it-qty">@l.QuantityOnHand</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
 
                 <div class="it-hint mt-3">
-                    Tip: Use <strong>Transfer</strong> to change location. Use <strong>Adjustment</strong> for corrections (notes required).
+                    Tip: Transfer supports partial quantities. Checkout/Transfer is limited by available stock in the selected source location.
                 </div>
             </div>
         </div>
@@ -143,33 +166,71 @@
     <script>
         (function () {
             const action = document.getElementById('actionSelect');
-            const transferBlock = document.getElementById('transferBlock');
             const qty = document.getElementById('qtyInput');
-            const qoh = parseInt(document.getElementById('qohHidden').value || "0", 10);
-            const help = document.getElementById('qtyHelp');
+            const fromBlock = document.getElementById('fromBlock');
+            const toBlock = document.getElementById('toBlock');
+            const fromSelect = document.getElementById('fromSelect');
+            const toSelect = document.getElementById('toSelect');
+            const fromLabel = document.getElementById('fromLabel');
+            const fromHelp = document.getElementById('fromHelp');
+            const qtyHelp = document.getElementById('qtyHelp');
 
-            // Enum values: CheckIn=1, CheckOut=2, Adjustment=3, Transfer=4
+            function availableFrom() {
+                const opt = fromSelect?.selectedOptions?.[0];
+                const v = opt ? parseInt(opt.getAttribute('data-qty') || "0", 10) : 0;
+                return isNaN(v) ? 0 : v;
+            }
+
             function refresh() {
                 const v = action.value;
 
-                if (v === "4") { // Transfer
-                    transferBlock.style.display = "";
-                    qty.value = qoh;
-                    qty.readOnly = true;
-                    help.innerText = "Transfer moves ALL stock (auto-filled).";
-                } else {
-                    transferBlock.style.display = "none";
+                if (v === "1") { // CheckIn
+                    fromBlock.style.display = "none";
+                    toBlock.style.display = "";
+                    qty.readOnly = false;
+                    qtyHelp.innerText = "Enter a positive quantity to add.";
+                    fromHelp.innerText = "";
+                }
+                else if (v === "2") { // CheckOut
+                    fromBlock.style.display = "";
+                    toBlock.style.display = "none";
+                    fromLabel.innerText = "Location";
                     qty.readOnly = false;
 
-                    if (v === "3") { // Adjustment
-                        help.innerText = "Adjustment can be positive or negative (e.g., -2 or 5). Notes required.";
-                    } else {
-                        help.innerText = "Enter a positive quantity.";
-                    }
+                    const av = availableFrom();
+                    qty.max = av > 0 ? av : "";
+                    fromHelp.innerText = av > 0 ? `Available in selected location: ${av}` : "";
+                    qtyHelp.innerText = "Enter a positive quantity to remove.";
+                }
+                else if (v === "3") { // Adjustment
+                    fromBlock.style.display = "";
+                    toBlock.style.display = "none";
+                    fromLabel.innerText = "Location";
+                    qty.readOnly = false;
+                    qty.removeAttribute("max");
+                    fromHelp.innerText = "";
+                    qtyHelp.innerText = "Can be positive or negative (notes required).";
+                }
+                else if (v === "4") { // Transfer
+                    fromBlock.style.display = "";
+                    toBlock.style.display = "";
+                    fromLabel.innerText = "From Location";
+                    qty.readOnly = false;
+
+                    const av = availableFrom();
+                    qty.max = av > 0 ? av : "";
+                    fromHelp.innerText = av > 0 ? `Available in selected location: ${av}` : "";
+                    qtyHelp.innerText = "Enter a positive quantity to move.";
+
+                    const fromVal = fromSelect.value;
+                    Array.from(toSelect.options).forEach(o => {
+                        o.disabled = fromVal && o.value === fromVal;
+                    });
                 }
             }
 
-            action.addEventListener('change', refresh);
+            if (action) action.addEventListener('change', refresh);
+            if (fromSelect) fromSelect.addEventListener('change', refresh);
             refresh();
         })();
     </script>

@@ -16,10 +16,6 @@ namespace InvenTrack.Controllers
             _context = context;
         }
 
-        // ---------------------------
-        // Helpers
-        // ---------------------------
-
         private static string NormalizeSku(string? sku)
             => (sku ?? string.Empty).Trim();
 
@@ -42,10 +38,7 @@ namespace InvenTrack.Controllers
         {
             var resizeTask = Task.Run(() => ResizeImage.shrinkImageWebp(bytes, w, h));
             var done = await Task.WhenAny(resizeTask, Task.Delay(timeoutMs));
-
-            if (done != resizeTask)
-                return null;
-
+            if (done != resizeTask) return null;
             return await resizeTask;
         }
 
@@ -79,15 +72,13 @@ namespace InvenTrack.Controllers
                 const int thumbTimeoutMs = 1500;
 
                 var full = await ResizeWebpWithTimeoutAsync(pictureArray, 500, 600, fullTimeoutMs);
-                if (full == null)
-                    return "Image processing took too long. Try a smaller image.";
+                if (full == null) return "Image processing took too long. Try a smaller image.";
 
                 var thumb = await ResizeWebpWithTimeoutAsync(pictureArray, 100, 120, thumbTimeoutMs);
-                if (thumb == null)
-                    return "Thumbnail processing took too long. Try a smaller image.";
+                if (thumb == null) return "Thumbnail processing took too long. Try a smaller image.";
 
-                item.ItemPhoto = item.ItemPhoto ?? new ItemPhoto();
-                item.ItemThumbnail = item.ItemThumbnail ?? new ItemThumbnail();
+                item.ItemPhoto ??= new ItemPhoto();
+                item.ItemThumbnail ??= new ItemThumbnail();
 
                 item.ItemPhoto.InventoryItem = item;
                 item.ItemThumbnail.InventoryItem = item;
@@ -108,20 +99,32 @@ namespace InvenTrack.Controllers
             }
         }
 
-        // ---------------------------
-        // GET: InventoryItems
-        // ---------------------------
         public async Task<IActionResult> Index()
         {
-            var items = _context.InventoryItems
+            var items = await _context.InventoryItems
+                .AsNoTracking()
                 .Include(i => i.ItemThumbnail)
                 .Include(i => i.Category)
-                .Include(i => i.StorageLocation);
+                .Include(i => i.StorageLocation)
+                .OrderBy(i => i.ItemName)
+                .ToListAsync();
 
-            return View(await items.ToListAsync());
+            var counts = await _context.InventoryItemStocks
+                .AsNoTracking()
+                .GroupBy(s => s.InventoryItemID)
+                .Select(g => new
+                {
+                    InventoryItemID = g.Key,
+                    LocationCount = g.Count(x => x.QuantityOnHand > 0)
+                })
+                .ToListAsync();
+
+            var dict = counts.ToDictionary(x => x.InventoryItemID, x => x.LocationCount);
+            ViewData["LocationCounts"] = dict;
+
+            return View(items);
         }
 
-        // GET: InventoryItems/Details/5  (UPDATED: includes transaction history + From/To locations)
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null) return NotFound();
@@ -131,25 +134,45 @@ namespace InvenTrack.Controllers
                 .Include(i => i.ItemThumbnail)
                 .Include(i => i.Category)
                 .Include(i => i.StorageLocation)
-                .Include(i => i.StockTransactions)
-                    .ThenInclude(t => t.FromStorageLocation)
-                .Include(i => i.StockTransactions)
-                    .ThenInclude(t => t.ToStorageLocation)
+                .Include(i => i.StockTransactions).ThenInclude(t => t.FromStorageLocation)
+                .Include(i => i.StockTransactions).ThenInclude(t => t.ToStorageLocation)
                 .FirstOrDefaultAsync(m => m.ID == id);
 
             if (item == null) return NotFound();
 
+            var stocks = await _context.InventoryItemStocks
+                .AsNoTracking()
+                .Include(s => s.StorageLocation)
+                .Where(s => s.InventoryItemID == item.ID)
+                .OrderByDescending(s => s.QuantityOnHand)
+                .ToListAsync();
+
+            if (stocks.Count == 0)
+            {
+                stocks = new List<InventoryItemStock>
+                {
+                    new InventoryItemStock
+                    {
+                        InventoryItemID = item.ID,
+                        StorageLocationID = item.StorageLocationID,
+                        StorageLocation = item.StorageLocation ?? new StorageLocation { Name = "-" },
+                        QuantityOnHand = item.QuantityOnHand
+                    }
+                };
+            }
+
+            ViewData["LocationStocks"] = stocks;
+            ViewData["LocationCount"] = stocks.Count(s => s.QuantityOnHand > 0);
+
             return View(item);
         }
 
-        // GET: InventoryItems/Create
         public IActionResult Create()
         {
             PopulateDropDowns();
             return View();
         }
 
-        // POST: InventoryItems/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(
@@ -173,10 +196,27 @@ namespace InvenTrack.Controllers
 
             if (ModelState.IsValid)
             {
+                var strategy = _context.Database.CreateExecutionStrategy();
                 try
                 {
-                    _context.Add(item);
-                    await _context.SaveChangesAsync();
+                    await strategy.ExecuteAsync(async () =>
+                    {
+                        await using var tx = await _context.Database.BeginTransactionAsync();
+
+                        _context.Add(item);
+                        await _context.SaveChangesAsync();
+
+                        _context.InventoryItemStocks.Add(new InventoryItemStock
+                        {
+                            InventoryItemID = item.ID,
+                            StorageLocationID = item.StorageLocationID,
+                            QuantityOnHand = item.QuantityOnHand
+                        });
+
+                        await _context.SaveChangesAsync();
+                        await tx.CommitAsync();
+                    });
+
                     return RedirectToAction(nameof(Index));
                 }
                 catch (DbUpdateException)
@@ -189,7 +229,6 @@ namespace InvenTrack.Controllers
             return View(item);
         }
 
-        // GET: InventoryItems/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
@@ -205,7 +244,6 @@ namespace InvenTrack.Controllers
             return View(item);
         }
 
-        // POST: InventoryItems/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(
@@ -228,21 +266,24 @@ namespace InvenTrack.Controllers
             if (await SkuExistsAsync(item.SKU, excludeId: item.ID))
                 ModelState.AddModelError(nameof(InventoryItem.SKU), "SKU / Asset Tag must be unique. This value already exists.");
 
+            if (item.QuantityOnHand != itemToUpdate.QuantityOnHand)
+            {
+                ModelState.AddModelError(nameof(InventoryItem.QuantityOnHand),
+                    "Use Stock Transactions to change quantities (supports per-location stock and partial transfers).");
+            }
+
             if (item.StorageLocationID != itemToUpdate.StorageLocationID)
             {
                 ModelState.AddModelError(nameof(InventoryItem.StorageLocationID),
-                    "Use Stock Transactions (Transfer) to change an item’s location.");
+                    "Use Stock Transactions (Transfer) to move quantities between locations.");
             }
 
-            // Apply scalar updates
             itemToUpdate.ItemName = item.ItemName;
             itemToUpdate.SKU = item.SKU;
             itemToUpdate.Description = item.Description;
-            itemToUpdate.QuantityOnHand = item.QuantityOnHand;
             itemToUpdate.ReorderLevel = item.ReorderLevel;
             itemToUpdate.IsActive = item.IsActive;
             itemToUpdate.CategoryID = item.CategoryID;
-            // StorageLocationID stays unchanged unless transfer is used
 
             if (!string.IsNullOrEmpty(chkRemoveImage) && chkRemoveImage == "on")
             {
@@ -278,7 +319,7 @@ namespace InvenTrack.Controllers
                 }
                 catch (DbUpdateException)
                 {
-                    ModelState.AddModelError(string.Empty, "Unable to save changes. Please try again (SKU must be unique).");
+                    ModelState.AddModelError(string.Empty, "Unable to save changes. Please try again.");
                 }
             }
 
@@ -286,7 +327,6 @@ namespace InvenTrack.Controllers
             return View(itemToUpdate);
         }
 
-        // GET: InventoryItems/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
@@ -301,18 +341,24 @@ namespace InvenTrack.Controllers
             return View(item);
         }
 
-        // POST: InventoryItems/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var item = await _context.InventoryItems.FindAsync(id);
-            if (item != null)
+            if (item == null) return RedirectToAction(nameof(Index));
+
+            try
             {
                 _context.InventoryItems.Remove(item);
                 await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
             }
-            return RedirectToAction(nameof(Index));
+            catch (DbUpdateException)
+            {
+                ModelState.AddModelError(string.Empty, "Unable to delete this item because it has related records (transactions or stock rows).");
+                return View("Delete", item);
+            }
         }
     }
 }
