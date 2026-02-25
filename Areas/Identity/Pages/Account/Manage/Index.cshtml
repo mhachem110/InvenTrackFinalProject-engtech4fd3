@@ -5,23 +5,71 @@
     ViewData["ActivePage"] = ManageNavPages.Index;
 }
 
-<h3>@ViewData["Title"]</h3>
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">Profile</h1>
+        </div>
+        <div class="text-muted small">Update your account details.</div>
+    </div>
+</div>
+
 <partial name="_StatusMessage" for="StatusMessage" />
-<div class="row">
-    <div class="col-md-6">
-        <form id="profile-form" method="post">
-            <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
-            <div class="form-floating mb-3">
-                <input asp-for="Username" class="form-control" placeholder="Please choose your username." disabled />
-                <label asp-for="Username" class="form-label"></label>
+
+<div class="row g-3 g-lg-4">
+    <div class="col-12 col-lg-4">
+        <div class="it-panel">
+            <div class="it-panel-header">
+                <div>
+                    <div class="fw-bold">Account</div>
+                    <div class="text-muted small">Manage your profile settings.</div>
+                </div>
             </div>
-            <div class="form-floating mb-3">
-                <input asp-for="Input.PhoneNumber" class="form-control" placeholder="Please enter your phone number."/>
-                <label asp-for="Input.PhoneNumber" class="form-label"></label>
-                <span asp-validation-for="Input.PhoneNumber" class="text-danger"></span>
+            <div class="it-panel-body p-0">
+                <partial name="_ManageNav" />
             </div>
-            <button id="update-profile-button" type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
-        </form>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-8">
+        <div class="it-panel">
+            <div class="it-panel-header">
+                <div>
+                    <div class="fw-bold">Profile details</div>
+                    <div class="text-muted small">Username is fixed. Phone number is optional.</div>
+                </div>
+            </div>
+
+            <div class="it-panel-body">
+                <form id="profile-form" method="post">
+                    <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="Username" class="form-label"></label>
+                            <input asp-for="Username" class="form-control" disabled />
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="Input.PhoneNumber" class="form-label"></label>
+                            <input asp-for="Input.PhoneNumber" class="form-control" placeholder="Optional" />
+                            <span asp-validation-for="Input.PhoneNumber" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12">
+                            <button id="update-profile-button" type="submit" class="btn btn-primary w-100">
+                                Save changes
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="it-hint mt-3">
+                    Tip: Keep your email verified to receive alerts and confirmations.
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

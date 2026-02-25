@@ -1,0 +1,108 @@
+﻿@page
+@model EmailModel
+@{
+    ViewData["Title"] = "Manage Email";
+    ViewData["ActivePage"] = ManageNavPages.Email;
+}
+
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">Manage Email</h1>
+        </div>
+        <div class="text-muted small">Update your email and verification status.</div>
+    </div>
+</div>
+
+<partial name="_StatusMessage" for="StatusMessage" />
+
+<div class="row g-3 g-lg-4">
+    <div class="col-12 col-lg-4">
+        <div class="it-panel">
+            <div class="it-panel-header">
+                <div>
+                    <div class="fw-bold">Account</div>
+                    <div class="text-muted small">Manage your account settings.</div>
+                </div>
+            </div>
+            <div class="it-panel-body p-0">
+                <partial name="_ManageNav" />
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-8">
+        <div class="it-panel">
+            <div class="it-panel-header">
+                <div>
+                    <div class="fw-bold">Email settings</div>
+                    <div class="text-muted small">Confirm your email to receive alerts and confirmations.</div>
+                </div>
+            </div>
+
+            <div class="it-panel-body">
+                <form id="email-form" method="post">
+                    <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="Email" class="form-label"></label>
+
+                            @if (Model.IsEmailConfirmed)
+                            {
+                                <div class="input-group">
+                                    <input asp-for="Email" class="form-control" disabled />
+                                    <span class="input-group-text text-success fw-bold">✓</span>
+                                </div>
+                                <div class="text-muted small mt-1">Your email is confirmed.</div>
+                            }
+                            else
+                            {
+                                <input asp-for="Email" class="form-control" disabled />
+                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2">
+                                    <div class="text-muted small">Your email is not confirmed.</div>
+
+                                    <button id="email-verification"
+                                            type="submit"
+                                            asp-page-handler="SendVerificationEmail"
+                                            class="btn btn-outline-primary btn-sm">
+                                        Send verification email
+                                    </button>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="Input.NewEmail" class="form-label"></label>
+                            <input asp-for="Input.NewEmail"
+                                   class="form-control"
+                                   autocomplete="email"
+                                   aria-required="true"
+                                   placeholder="name@example.com" />
+                            <span asp-validation-for="Input.NewEmail" class="text-danger small"></span>
+                            <div class="text-muted small mt-1">Changing email will require confirmation.</div>
+                        </div>
+
+                        <div class="col-12">
+                            <button id="change-email-button"
+                                    type="submit"
+                                    asp-page-handler="ChangeEmail"
+                                    class="btn btn-primary w-100">
+                                Change email
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="it-hint mt-3">
+                    Tip: Confirmed email is required for reorder alerts and account confirmations.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

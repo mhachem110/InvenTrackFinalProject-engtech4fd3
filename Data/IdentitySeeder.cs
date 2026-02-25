@@ -17,13 +17,18 @@ namespace InvenTrack.Data
             foreach (var r in roles)
             {
                 if (!await roleManager.RoleExistsAsync(r))
-                    await roleManager.CreateAsync(new IdentityRole(r));
+                {
+                    var roleRes = await roleManager.CreateAsync(new IdentityRole(r));
+                    if (!roleRes.Succeeded)
+                        throw new InvalidOperationException("Failed to create role: " + r);
+                }
             }
 
             var adminEmail = "admin@inventrack.local";
             var adminPass = "Admin@2026";
 
             var admin = await userManager.FindByEmailAsync(adminEmail);
+
             if (admin == null)
             {
                 admin = new ApplicationUser
@@ -33,11 +38,23 @@ namespace InvenTrack.Data
                     EmailConfirmed = true
                 };
 
-                await userManager.CreateAsync(admin, adminPass);
+                var createRes = await userManager.CreateAsync(admin, adminPass);
+                if (!createRes.Succeeded)
+                {
+                    var msg = string.Join("; ", createRes.Errors.Select(e => e.Description));
+                    throw new InvalidOperationException("Failed to create admin user: " + msg);
+                }
             }
 
             if (!await userManager.IsInRoleAsync(admin, "Admin"))
-                await userManager.AddToRoleAsync(admin, "Admin");
+            {
+                var addRoleRes = await userManager.AddToRoleAsync(admin, "Admin");
+                if (!addRoleRes.Succeeded)
+                {
+                    var msg = string.Join("; ", addRoleRes.Errors.Select(e => e.Description));
+                    throw new InvalidOperationException("Failed to assign Admin role: " + msg);
+                }
+            }
         }
     }
 }

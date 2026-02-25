@@ -28,22 +28,23 @@ builder.Services.AddDbContext<InvenTrackContext>(options =>
             sql.CommandTimeout(60);
         }));
 
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
-{
-    options.SignIn.RequireConfirmedAccount = true;
-    options.SignIn.RequireConfirmedEmail = true;
+builder.Services
+    .AddIdentity<ApplicationUser, IdentityRole>(options =>
+    {
+        options.SignIn.RequireConfirmedAccount = true;
+        options.SignIn.RequireConfirmedEmail = true;
 
-    options.User.RequireUniqueEmail = true;
+        options.User.RequireUniqueEmail = true;
 
-    options.Password.RequiredLength = 8;
-    options.Password.RequireUppercase = true;
-    options.Password.RequireLowercase = true;
-    options.Password.RequireDigit = true;
-    options.Password.RequireNonAlphanumeric = false;
-})
-.AddEntityFrameworkStores<ApplicationDbContext>()
-.AddDefaultTokenProviders()
-.AddDefaultUI();
+        options.Password.RequiredLength = 8;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireDigit = true;
+        options.Password.RequireNonAlphanumeric = false;
+    })
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders()
+    .AddDefaultUI();
 
 builder.Services.AddControllersWithViews();
 
@@ -73,13 +74,12 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.AccessDeniedPath = "/Identity/Account/AccessDenied";
 });
 
-builder.Services.AddScoped<InvenTrack.Services.StockService>();
+builder.Services.AddScoped<StockService>();
 
 builder.Services.Configure<SendGridSettings>(builder.Configuration.GetSection("SendGrid"));
 builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
 
-// SMTP (Office365/Outlook) is often blocked due to SMTP AUTH disabled.
-// Keep this only if you have enabled SMTP AUTH on the mailbox.
+// SMTP (optional)
 // builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 // builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
 
