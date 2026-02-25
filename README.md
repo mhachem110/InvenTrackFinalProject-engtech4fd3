@@ -1,28 +1,74 @@
-# InvenTrack (Stage 1 Starter)
+# InvenTrack (ENGTECH 4FD3) — Inventory Management Platform
 
-This repository is a **Stage 1 starter** for the InvenTrack project (ENGTECH 4FD3), built with **ASP.NET Core MVC** + **Entity Framework Core** + **SQLite**.
+InvenTrack is a web-based inventory management system built with **ASP.NET Core MVC**, **Entity Framework Core**, and **Azure SQL**.  
+It supports inventory items (with photos), categories, storage locations, **stock transactions (check-in / check-out / adjustment / transfers with per-location stock)**, and **role-based access control** using ASP.NET Core Identity.
 
-Stage 1 focus:
-- Inventory domain models (Item, Category, Location, Stock Transactions)
-- EF Core DbContext for inventory (`InvenTrackContext`)
-- Starter CRUD screens for Inventory Items (with optional photo + thumbnail upload)
+---
 
-## Quick Start (Visual Studio)
+## Features
 
-1. Open the solution file:
-   - `InvenTrack.sln`
+### Inventory
+- Create, view, edit, delete inventory items
+- Unique SKU enforcement
+- Item photo + thumbnail upload (WebP processing)
+- Reorder level tracking + low stock badges
 
-2. Run the project (F5).
-   - The app will create a local SQLite database file: `InvenTrackDatabase.db`
-   - Seed data is added automatically the first time.
+### Categories & Locations
+- Full CRUD for Categories and Storage Locations
+- Inventory items reference Category and a primary Location
 
-> Note: This starter uses `EnsureCreated()` for quick setup in Stage 1.
-> When you're ready for migrations, switch the initializer to `Database.Migrate()` and create migrations.
+### Stock Transactions
+- **Check In** (add stock to a location)
+- **Check Out** (remove stock from a location)
+- **Adjustment** (increase/decrease stock in a location; notes required)
+- **Transfer** (move partial quantity between locations)
+- Transactions history shown per item and globally
 
-## Where to Look
+### Per-Location Stock
+- Tracks quantities per location using `InventoryItemStock`
+- Automatically recalculates total `QuantityOnHand` per item after every transaction
+- Automatically selects a “primary” location (highest stock)
 
-- Models: `Models/InventoryItem.cs`, `Models/Category.cs`, `Models/StorageLocation.cs`, `Models/StockTransaction.cs`
-- DbContext: `Data/InvenTrackContext.cs`
-- Seed data: `Data/InvenTrackInitializer.cs`
-- Inventory CRUD: `Controllers/InventoryItemsController.cs` + `Views/InventoryItems/`
+### Authentication & Authorization (Identity)
+- Email/password login + register
+- Email confirmation required
+- Roles: **Admin**, **Manager**, **Viewer**
+- Admin user management page (create users, assign roles, reset password, lock/unlock, delete users)
 
+### Email Notifications
+- **Email confirmation** on registration
+- **Reorder alerts** emailed to Admins & Managers when stock drops to/below reorder level
+- Email sender supports **SendGrid** (recommended). SMTP can be enabled optionally.
+
+---
+
+## Tech Stack
+- ASP.NET Core MVC + Razor Pages (Identity UI)
+- EF Core + Azure SQL
+- Bootstrap 5 + Custom theme (`it-*` classes)
+- SendGrid email delivery
+
+---
+
+## Getting Started
+
+### Prerequisites
+- Visual Studio 2022/2026 (or `dotnet` CLI)
+- .NET SDK installed
+- Azure SQL connection strings
+- SendGrid API key (recommended)
+
+---
+
+## Configuration
+
+### 1) Connection Strings
+Update `appsettings.json`:
+
+```json
+{
+  "ConnectionStrings": {
+    "IdentityContext": "YOUR_AZURE_SQL_CONN_FOR_IDENTITY",
+    "InvenTrackContext": "YOUR_AZURE_SQL_CONN_FOR_APP_DATA"
+  }
+}
