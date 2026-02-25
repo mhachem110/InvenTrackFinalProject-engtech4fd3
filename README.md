@@ -1,74 +1,82 @@
-# InvenTrack (ENGTECH 4FD3) — Inventory Management Platform
+# InvenTrack
 
-InvenTrack is a web-based inventory management system built with **ASP.NET Core MVC**, **Entity Framework Core**, and **Azure SQL**.  
-It supports inventory items (with photos), categories, storage locations, **stock transactions (check-in / check-out / adjustment / transfers with per-location stock)**, and **role-based access control** using ASP.NET Core Identity.
+InvenTrack is a web application for tracking inventory items, where they are stored, how much stock is available, and how stock changes over time. The system is designed for small teams that need a clear view of items, categories, locations, and a reliable transaction history for audits and daily operations.
 
----
+The app focuses on two goals:
+1. Keeping inventory data organized and easy to browse
+2. Recording every stock change as a transaction so updates are traceable
 
-## Features
+## What the app does
 
-### Inventory
-- Create, view, edit, delete inventory items
-- Unique SKU enforcement
-- Item photo + thumbnail upload (WebP processing)
-- Reorder level tracking + low stock badges
+### Inventory items
+Users can create and manage inventory items with:
+- Item name, SKU, description
+- Quantity on hand and reorder level
+- Active or inactive status
+- Category and a primary storage location
+- Optional photo and thumbnail to help identify items quickly
 
-### Categories & Locations
-- Full CRUD for Categories and Storage Locations
-- Inventory items reference Category and a primary Location
+### Categories and storage locations
+The app includes:
+- Categories to group items for consistent naming and reporting
+- Storage locations to represent physical areas such as rooms, shelves, or buildings
 
-### Stock Transactions
-- **Check In** (add stock to a location)
-- **Check Out** (remove stock from a location)
-- **Adjustment** (increase/decrease stock in a location; notes required)
-- **Transfer** (move partial quantity between locations)
-- Transactions history shown per item and globally
+### Stock transactions and history
+Instead of manually editing quantities, stock is updated through transactions. This keeps a clear history of what happened and when.
 
-### Per-Location Stock
-- Tracks quantities per location using `InventoryItemStock`
-- Automatically recalculates total `QuantityOnHand` per item after every transaction
-- Automatically selects a “primary” location (highest stock)
+Supported transaction types:
+- Check In: adds stock to a selected location
+- Check Out: removes stock from a selected location
+- Adjustment: corrects stock up or down in a selected location and requires notes
+- Transfer: moves partial quantities between locations
 
-### Authentication & Authorization (Identity)
-- Email/password login + register
-- Email confirmation required
-- Roles: **Admin**, **Manager**, **Viewer**
-- Admin user management page (create users, assign roles, reset password, lock/unlock, delete users)
+The app maintains per location stock using a dedicated stock table and automatically recalculates the item total quantity on hand after each transaction. A transaction history is available per item and also as a global list.
 
-### Email Notifications
-- **Email confirmation** on registration
-- **Reorder alerts** emailed to Admins & Managers when stock drops to/below reorder level
-- Email sender supports **SendGrid** (recommended). SMTP can be enabled optionally.
+### Low stock prediction and reorder suggestions
+InvenTrack is designed to use the transaction history as usage data. A prediction module will analyze historical inventory changes and estimate low stock risk before items reach a critical threshold. The goal is to show:
+- A risk label such as Reorder Soon or Reorder Now
+- A suggested reorder quantity based on recent usage trends
+- A clear Insufficient Data state when there is not enough history to make a useful estimate
 
----
+This feature is intended as decision support, not a guarantee.
 
-## Tech Stack
-- ASP.NET Core MVC + Razor Pages (Identity UI)
-- EF Core + Azure SQL
-- Bootstrap 5 + Custom theme (`it-*` classes)
-- SendGrid email delivery
+### Authentication and roles
+Access is controlled through user accounts and roles:
+- Admin: full access, including user administration
+- Manager: can manage inventory and transactions
+- Viewer: read only access
 
----
+Admins can manage users from the UI, including role assignment, password resets, lock and unlock, and permanent user deletion.
 
-## Getting Started
+### Alerts and emails
+The app supports:
+- Email confirmation during registration
+- Reorder alerts sent to Admin and Manager accounts when stock drops to the reorder threshold
 
-### Prerequisites
-- Visual Studio 2022/2026 (or `dotnet` CLI)
-- .NET SDK installed
-- Azure SQL connection strings
-- SendGrid API key (recommended)
+## Current stage
 
----
+### Completed
+- Inventory CRUD with validation and image upload
+- Category and location CRUD
+- Stock transaction system with per location stock tracking
+- Partial transfers between locations
+- Transaction history views
+- Role based access control for core modules
+- Admin user management UI
+- Email confirmation and reorder alert wiring with SendGrid support
+- UI theme applied across the main application and key Identity pages
 
-## Configuration
+### In progress
+- Finishing theme updates for remaining Identity pages
+- Finalizing alert reliability and ensuring email sender setup is consistent across environments
+- Polishing navigation and page layout consistency across modules
 
-### 1) Connection Strings
-Update `appsettings.json`:
+### Upcoming implementations
+- Low stock prediction feature using transaction history, including risk labels and suggested reorder quantities
+- Inventory and transaction reporting views, including summary filters and movement views
+- Export features for inventory and transaction logs
+- Search and filtering improvements across transactions and item lists
+- Additional account security polish and admin audit views
 
-```json
-{
-  "ConnectionStrings": {
-    "IdentityContext": "YOUR_AZURE_SQL_CONN_FOR_IDENTITY",
-    "InvenTrackContext": "YOUR_AZURE_SQL_CONN_FOR_APP_DATA"
-  }
-}
+## Team
+Built by Group 8 for ENGTECH 4FD3.
