@@ -1,7 +1,6 @@
 ﻿@using Microsoft.AspNetCore.Identity
 @using InvenTrack.Models
 @inject SignInManager<ApplicationUser> SignInManager
-@inject UserManager<ApplicationUser> UserManager
 
 @{
     var controller = (ViewContext.RouteData.Values["controller"]?.ToString() ?? "").ToLowerInvariant();
@@ -9,11 +8,6 @@
 
     bool signedIn = SignInManager.IsSignedIn(User);
     bool canWrite = User.IsInRole("Admin") || User.IsInRole("Manager");
-
-    string roleLabel =
-        User.IsInRole("Admin") ? "Admin" :
-        User.IsInRole("Manager") ? "Manager" :
-        User.IsInRole("Viewer") ? "Viewer" : "";
 }
 
 <!DOCTYPE html>
@@ -29,170 +23,151 @@
 </head>
 
 <body class="it-body">
-    @* -----------------------------
-       Logged OUT view (no sidebar)
-       ----------------------------- *@
     @if (!signedIn)
     {
-        <header class="it-topbar">
-            <div class="container-fluid px-3 px-lg-4 d-flex align-items-center justify-content-between">
-                <a class="d-flex align-items-center gap-2 text-decoration-none" asp-controller="Home" asp-action="Index">
-                    <span class="it-logo">IT</span>
-                    <span class="fw-semibold text-dark">InvenTrack</span>
-                </a>
-
-                <div class="d-flex gap-2">
-                    <a class="btn btn-sm btn-outline-primary" asp-area="Identity" asp-page="/Account/Login">Login</a>
-                    <a class="btn btn-sm btn-primary" asp-area="Identity" asp-page="/Account/Register">Register</a>
-                </div>
-            </div>
-        </header>
-
-        <main role="main" class="it-content">
-            <div class="container-fluid px-3 px-lg-4 py-4">
-                @RenderBody()
-            </div>
-        </main>
-
-        <footer class="it-footer">
-            <div class="container-fluid px-3 px-lg-4 py-3 d-flex flex-wrap justify-content-between align-items-center">
-                <div class="text-muted small">
-                    &copy; 2026 <span class="fw-semibold">InvenTrack</span> — Inventory Management Platform
-                </div>
-                <div class="small">
-                    <a class="text-decoration-none" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                </div>
-            </div>
-        </footer>
-    }
-    @* -----------------------------
-       Logged IN view (full shell)
-       ----------------------------- *@
-    else
-    {
-        <header class="it-topbar d-lg-none">
-            <div class="container-fluid px-3 d-flex align-items-center justify-content-between">
-                <button class="btn btn-outline-secondary it-icon-btn" type="button"
-                        data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-controls="sidebarOffcanvas">
-                    ☰
-                </button>
-
-                <a class="d-flex align-items-center gap-2 text-decoration-none" asp-controller="Home" asp-action="Index">
-                    <span class="it-logo">IT</span>
-                    <span class="fw-semibold text-dark">InvenTrack</span>
-                </a>
-
-                <div style="width:40px;"></div>
-            </div>
-        </header>
-
-        <div class="it-shell">
-            <aside class="it-sidebar d-none d-lg-flex">
-                <div class="it-sidebar-inner">
-                    <a class="d-flex align-items-center gap-2 text-decoration-none mb-4" asp-controller="Home" asp-action="Index">
+        <div class="it-public-shell">
+            <header class="it-topbar">
+                <div class="container-fluid px-3 px-lg-4 d-flex align-items-center justify-content-between gap-3">
+                    <a class="d-flex align-items-center gap-2 text-decoration-none" asp-controller="Home" asp-action="Index">
                         <span class="it-logo">IT</span>
-                        <div>
-                            <div class="fw-bold text-dark">InvenTrack</div>
-                            <div class="text-muted small">Inventory dashboard</div>
-                        </div>
+                        <span class="fw-semibold text-dark">InvenTrack</span>
                     </a>
 
-                    <nav class="it-nav">
-                        <a class="it-nav-link @(IsActive("Home") ? "active" : "")" asp-controller="Home" asp-action="Index">
-                            <span class="it-nav-ico">🏠</span> Home
-                        </a>
-
-                        <a class="it-nav-link @(IsActive("InventoryItems") ? "active" : "")" asp-controller="InventoryItems" asp-action="Index">
-                            <span class="it-nav-ico">📦</span> Inventory
-                        </a>
-
-                        <a class="it-nav-link @(IsActive("StockTransactions") ? "active" : "")" asp-controller="StockTransactions" asp-action="Index">
-                            <span class="it-nav-ico">🧾</span> Transactions
-                        </a>
-
-                        <a class="it-nav-link @(IsActive("Categories") ? "active" : "")" asp-controller="Categories" asp-action="Index">
-                            <span class="it-nav-ico">🗂️</span> Categories
-                        </a>
-
-                        <a class="it-nav-link @(IsActive("StorageLocations") ? "active" : "")" asp-controller="StorageLocations" asp-action="Index">
-                            <span class="it-nav-ico">📍</span> Locations
-                        </a>
-
-                        @if (User.IsInRole("Admin"))
-                        {
-                            <div class="it-nav-divider"></div>
-                            <a class="it-nav-link @(IsActive("AdminUsers") ? "active" : "")" asp-controller="AdminUsers" asp-action="Index">
-                                <span class="it-nav-ico">🛡️</span> User Admin
-                            </a>
-                        }
-
-                        <div class="it-nav-divider"></div>
-
-                        <a class="it-nav-link" asp-controller="Home" asp-action="Privacy">
-                            <span class="it-nav-ico">🔒</span> Privacy
-                        </a>
-
-                        <div class="it-nav-divider"></div>
-
-                        <div class="text-muted small mb-2">Signed in</div>
-                        <div class="small mb-3">
-                            <span class="fw-semibold">@User.Identity?.Name</span>
-                            @if (!string.IsNullOrWhiteSpace(roleLabel))
-                            {
-                                <span class="badge bg-primary-subtle text-primary border it-badge ms-2">@roleLabel</span>
-                            }
-                        </div>
-
-                        <a class="it-nav-link" asp-area="Identity" asp-page="/Account/Manage/Index">
-                            <span class="it-nav-ico">⚙️</span> Account
-                        </a>
-
-                        <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="mt-1">
-                            <button type="submit" class="it-nav-link w-100 text-start" style="border:0;background:transparent;">
-                                <span class="it-nav-ico">🚪</span> Logout
-                            </button>
-                        </form>
-                    </nav>
-
-                    <div class="it-sidebar-footer mt-auto">
-                        <div class="small text-muted">Tip: keep SKUs unique for clean reporting.</div>
+                    <div class="d-flex flex-wrap gap-2 justify-content-end">
+                        <a class="btn btn-sm btn-outline-primary" asp-area="Identity" asp-page="/Account/Login">Login</a>
                     </div>
                 </div>
-            </aside>
+            </header>
 
-            <div class="it-main">
-                <header class="it-topbar d-none d-lg-flex">
-                    <div class="container-fluid px-4 d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="it-page-dot"></div>
-                            <div class="fw-semibold">@ViewData["Title"]</div>
-                        </div>
+            <main role="main" class="it-content">
+                <div class="container-fluid px-3 px-lg-4 py-4">
+                    @RenderBody()
+                </div>
+            </main>
 
-                        <div class="d-flex align-items-center gap-2">
-                            @if (canWrite)
+            <footer class="it-footer mt-auto">
+                <div class="container-fluid px-3 px-lg-4 py-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+                    <div class="text-muted small text-center text-md-start">
+                        &copy; 2026 <span class="fw-semibold">InvenTrack</span> - Inventory Management Platform
+                    </div>
+                    <div class="small">
+                        <a class="text-decoration-none" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    }
+    else
+    {
+        <div class="it-auth-shell">
+            <header class="it-topbar d-lg-none">
+                <div class="container-fluid px-3 d-flex align-items-center justify-content-between gap-2">
+                    <button class="btn btn-outline-secondary it-icon-btn" type="button"
+                            data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-controls="sidebarOffcanvas">
+                        ☰
+                    </button>
+
+                    <a class="d-flex align-items-center gap-2 text-decoration-none flex-grow-1 justify-content-center justify-content-sm-start"
+                       asp-controller="Home" asp-action="Index">
+                        <span class="it-logo">IT</span>
+                        <span class="fw-semibold text-dark">InvenTrack</span>
+                    </a>
+
+                    <div style="width:40px;"></div>
+                </div>
+            </header>
+
+            <div class="it-shell">
+                <aside class="it-sidebar d-none d-lg-flex">
+                    <div class="it-sidebar-inner">
+                        <a class="d-flex align-items-center gap-2 text-decoration-none mb-4" asp-controller="Home" asp-action="Index">
+                            <span class="it-logo">IT</span>
+                            <div>
+                                <div class="fw-bold text-dark">InvenTrack</div>
+                                <div class="text-muted small">Inventory dashboard</div>
+                            </div>
+                        </a>
+
+                        <nav class="it-nav">
+                            <a class="it-nav-link @(IsActive("Home") ? "active" : "")" asp-controller="Home" asp-action="Index">
+                                <span class="it-nav-ico">🏠</span> Home
+                            </a>
+
+                            <a class="it-nav-link @(IsActive("InventoryItems") ? "active" : "")" asp-controller="InventoryItems" asp-action="Index">
+                                <span class="it-nav-ico">📦</span> Inventory
+                            </a>
+
+                            <a class="it-nav-link @(IsActive("StockTransactions") ? "active" : "")" asp-controller="StockTransactions" asp-action="Index">
+                                <span class="it-nav-ico">🧾</span> Transactions
+                            </a>
+
+                            <a class="it-nav-link @(IsActive("Categories") ? "active" : "")" asp-controller="Categories" asp-action="Index">
+                                <span class="it-nav-ico">🗂️</span> Categories
+                            </a>
+
+                            <a class="it-nav-link @(IsActive("StorageLocations") ? "active" : "")" asp-controller="StorageLocations" asp-action="Index">
+                                <span class="it-nav-ico">📍</span> Locations
+                            </a>
+
+                            @if (User.IsInRole("Admin"))
                             {
-                                <a class="btn btn-sm btn-primary" asp-controller="InventoryItems" asp-action="Create">+ Add Item</a>
+                                <div class="it-nav-divider"></div>
+                                <a class="it-nav-link @(IsActive("AdminUsers") ? "active" : "")" asp-controller="AdminUsers" asp-action="Index">
+                                    <span class="it-nav-ico">🛡️</span> User Admin
+                                </a>
                             }
-                        </div>
-                    </div>
-                </header>
 
-                <main role="main" class="it-content">
-                    <div class="container-fluid px-3 px-lg-4 py-4">
-                        @RenderBody()
-                    </div>
-                </main>
+                            <div class="it-nav-divider"></div>
 
-                <footer class="it-footer">
-                    <div class="container-fluid px-3 px-lg-4 py-3 d-flex flex-wrap justify-content-between align-items-center">
-                        <div class="text-muted small">
-                            &copy; 2026 <span class="fw-semibold">InvenTrack</span> — Inventory Management Platform
-                        </div>
-                        <div class="small">
-                            <a class="text-decoration-none" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                            <a class="it-nav-link" asp-controller="Home" asp-action="Privacy">
+                                <span class="it-nav-ico">🔒</span> Privacy
+                            </a>
+
+                            <div class="it-nav-divider"></div>
+
+                            <partial name="_LoginPartial" />
+                        </nav>
+
+                        <div class="it-sidebar-footer mt-auto">
+                            <div class="small text-muted">Tip: keep SKUs unique for clean reporting.</div>
                         </div>
                     </div>
-                </footer>
+                </aside>
+
+                <div class="it-main">
+                    <header class="it-topbar d-none d-lg-flex">
+                        <div class="container-fluid px-4 d-flex align-items-center justify-content-between gap-3">
+                            <div class="d-flex align-items-center gap-2 min-w-0">
+                                <div class="it-page-dot"></div>
+                                <div class="fw-semibold text-truncate">@ViewData["Title"]</div>
+                            </div>
+
+                            <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                                @if (canWrite)
+                                {
+                                    <a class="btn btn-sm btn-primary" asp-controller="InventoryItems" asp-action="Create">+ Add Item</a>
+                                }
+                            </div>
+                        </div>
+                    </header>
+
+                    <main role="main" class="it-content">
+                        <div class="container-fluid px-3 px-lg-4 py-4">
+                            @RenderBody()
+                        </div>
+                    </main>
+
+                    <footer class="it-footer mt-auto">
+                        <div class="container-fluid px-3 px-lg-4 py-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+                            <div class="text-muted small text-center text-md-start">
+                                &copy; 2026 <span class="fw-semibold">InvenTrack</span> - Inventory Management Platform
+                            </div>
+                            <div class="small">
+                                <a class="text-decoration-none" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                            </div>
+                        </div>
+                    </footer>
+                </div>
             </div>
         </div>
 
@@ -208,7 +183,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
 
-            <div class="offcanvas-body">
+            <div class="offcanvas-body d-flex flex-column">
                 <nav class="it-nav">
                     <a class="it-nav-link @(IsActive("Home") ? "active" : "")" asp-controller="Home" asp-action="Index">
                         <span class="it-nav-ico">🏠</span> Home
@@ -246,15 +221,7 @@
 
                     <div class="it-nav-divider"></div>
 
-                    <a class="it-nav-link" asp-area="Identity" asp-page="/Account/Manage/Index">
-                        <span class="it-nav-ico">⚙️</span> Account
-                    </a>
-
-                    <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="mt-1">
-                        <button type="submit" class="it-nav-link w-100 text-start" style="border:0;background:transparent;">
-                            <span class="it-nav-ico">🚪</span> Logout
-                        </button>
-                    </form>
+                    <partial name="_LoginPartial" />
                 </nav>
             </div>
         </div>

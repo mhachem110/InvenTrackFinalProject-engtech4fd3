@@ -2,8 +2,13 @@
 using InvenTrack.ViewModels.Admin;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Encodings.Web;
 
 namespace InvenTrack.Controllers
 {
@@ -12,35 +17,60 @@ namespace InvenTrack.Controllers
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IEmailSender _emailSender;
 
         private static readonly string[] AllowedRoles = new[] { "Admin", "Manager", "Viewer" };
 
-        public AdminUsersController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
+        public AdminUsersController(
+            UserManager<ApplicationUser> userManager,
+            RoleManager<IdentityRole> roleManager,
+            IEmailSender emailSender)
         {
             _userManager = userManager;
             _roleManager = roleManager;
+            _emailSender = emailSender;
         }
 
-        public async Task<IActionResult> Index(string? q)
+        public async Task<IActionResult> Index(string? q, int page = 1, int pageSize = 10)
         {
             await EnsureRolesExistAsync();
+
+            if (page < 1) page = 1;
+
+            var allowedPageSizes = new[] { 10, 25, 50 };
+            if (!allowedPageSizes.Contains(pageSize))
+                pageSize = 10;
 
             var query = _userManager.Users.AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(q))
             {
-                var s = q.Trim().ToLowerInvariant();
+                q = q.Trim();
                 query = query.Where(u =>
-                    (u.Email ?? "").ToLower().Contains(s) ||
-                    (u.UserName ?? "").ToLower().Contains(s));
+                    (u.Email ?? "").Contains(q) ||
+                    (u.UserName ?? "").Contains(q));
             }
+
+            var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            if (totalPages > 0 && page > totalPages)
+                page = totalPages;
 
             var users = await query
                 .OrderBy(u => u.Email)
-                .Take(500)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            var vm = new UserRolesIndexVM { Query = q };
+            var vm = new UserRolesIndexVM
+            {
+                Query = q,
+                PageIndex = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                TotalPages = totalPages
+            };
 
             foreach (var u in users)
             {
@@ -69,8 +99,7 @@ namespace InvenTrack.Controllers
             var vm = new CreateUserVM
             {
                 AvailableRoles = AllowedRoles.ToList(),
-                SelectedRole = "Viewer",
-                EmailConfirmed = true
+                SelectedRole = "Viewer"
             };
 
             return View(vm);
@@ -106,14 +135,16 @@ namespace InvenTrack.Controllers
                 return View(vm);
             }
 
+            var temporaryPassword = GenerateTemporaryPassword();
+
             var user = new ApplicationUser
             {
                 Email = email,
                 UserName = userName,
-                EmailConfirmed = vm.EmailConfirmed
+                EmailConfirmed = true
             };
 
-            var createRes = await _userManager.CreateAsync(user, vm.Password);
+            var createRes = await _userManager.CreateAsync(user, temporaryPassword);
             if (!createRes.Succeeded)
             {
                 foreach (var e in createRes.Errors)
@@ -125,14 +156,120 @@ namespace InvenTrack.Controllers
             var roleRes = await _userManager.AddToRoleAsync(user, vm.SelectedRole);
             if (!roleRes.Succeeded)
             {
+                await _userManager.DeleteAsync(user);
+
                 foreach (var e in roleRes.Errors)
                     ModelState.AddModelError(string.Empty, e.Description);
 
                 return View(vm);
             }
 
-            TempData["RoleMsg"] = $"Created user {email} with role {vm.SelectedRole}.";
+            try
+            {
+                var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+                var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(resetToken));
+
+                var setPasswordUrl = Url.Action(
+                    nameof(SetInitialPassword),
+                    "AdminUsers",
+                    new { email = user.Email, code = encodedToken },
+                    protocol: Request.Scheme);
+
+                if (string.IsNullOrWhiteSpace(setPasswordUrl))
+                {
+                    await _userManager.DeleteAsync(user);
+                    ModelState.AddModelError(string.Empty, "Unable to generate the password setup link.");
+                    return View(vm);
+                }
+
+                var safeUser = HtmlEncoder.Default.Encode(user.UserName ?? user.Email ?? "");
+                var safeRole = HtmlEncoder.Default.Encode(vm.SelectedRole);
+                var safeTempPassword = HtmlEncoder.Default.Encode(temporaryPassword);
+                var safeUrl = HtmlEncoder.Default.Encode(setPasswordUrl);
+
+                var subject = "Your InvenTrack account";
+                var body = $@"
+<p>Hello {safeUser},</p>
+<p>An administrator created your InvenTrack account.</p>
+<p><strong>Username:</strong> {HtmlEncoder.Default.Encode(user.UserName ?? "-")}<br />
+<strong>Role:</strong> {safeRole}<br />
+<strong>Temporary password:</strong> {safeTempPassword}</p>
+<p>Please use the link below to set your own password:</p>
+<p><a href=""{safeUrl}"">Set your password</a></p>
+<p>You will be asked for the temporary password once, then you can choose your own password.</p>
+<p>If you were not expecting this account, please contact your administrator.</p>";
+
+                await _emailSender.SendEmailAsync(email, subject, body);
+            }
+            catch
+            {
+                await _userManager.DeleteAsync(user);
+                ModelState.AddModelError(string.Empty, "User was not created because the onboarding email could not be sent.");
+                return View(vm);
+            }
+
+            TempData["RoleMsg"] = $"Created user {email} with role {vm.SelectedRole}. An onboarding email was sent.";
             return RedirectToAction(nameof(Index));
+        }
+
+        [AllowAnonymous]
+        public IActionResult SetInitialPassword(string? email, string? code)
+        {
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code))
+                return BadRequest();
+
+            var vm = new SetInitialPasswordVM
+            {
+                Email = email,
+                Code = code
+            };
+
+            return View(vm);
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SetInitialPassword(SetInitialPasswordVM vm)
+        {
+            if (!ModelState.IsValid)
+                return View(vm);
+
+            var user = await _userManager.FindByEmailAsync(vm.Email.Trim());
+            if (user == null)
+            {
+                ModelState.AddModelError(string.Empty, "Invalid or expired setup link.");
+                return View(vm);
+            }
+
+            var tempPasswordValid = await _userManager.CheckPasswordAsync(user, vm.TemporaryPassword);
+            if (!tempPasswordValid)
+            {
+                ModelState.AddModelError(nameof(vm.TemporaryPassword), "Temporary password is invalid.");
+                return View(vm);
+            }
+
+            string decodedToken;
+            try
+            {
+                decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(vm.Code));
+            }
+            catch
+            {
+                ModelState.AddModelError(string.Empty, "Invalid or expired setup link.");
+                return View(vm);
+            }
+
+            var resetRes = await _userManager.ResetPasswordAsync(user, decodedToken, vm.NewPassword);
+            if (!resetRes.Succeeded)
+            {
+                foreach (var e in resetRes.Errors)
+                    ModelState.AddModelError(string.Empty, e.Description);
+
+                return View(vm);
+            }
+
+            return Redirect("~/Identity/Account/Login?onboarded=1");
         }
 
         public async Task<IActionResult> Edit(string id)
@@ -419,6 +556,36 @@ namespace InvenTrack.Controllers
                 if (!await _roleManager.RoleExistsAsync(r))
                     await _roleManager.CreateAsync(new IdentityRole(r));
             }
+        }
+
+        private static string GenerateTemporaryPassword(int length = 12)
+        {
+            const string lower = "abcdefghijkmnopqrstuvwxyz";
+            const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+            const string digits = "23456789";
+            const string special = "!@$?_-.";
+            var all = lower + upper + digits + special;
+
+            var chars = new List<char>
+            {
+                lower[RandomNumberGenerator.GetInt32(lower.Length)],
+                upper[RandomNumberGenerator.GetInt32(upper.Length)],
+                digits[RandomNumberGenerator.GetInt32(digits.Length)],
+                special[RandomNumberGenerator.GetInt32(special.Length)]
+            };
+
+            while (chars.Count < length)
+            {
+                chars.Add(all[RandomNumberGenerator.GetInt32(all.Length)]);
+            }
+
+            for (int i = chars.Count - 1; i > 0; i--)
+            {
+                int j = RandomNumberGenerator.GetInt32(i + 1);
+                (chars[i], chars[j]) = (chars[j], chars[i]);
+            }
+
+            return new string(chars.ToArray());
         }
     }
 }

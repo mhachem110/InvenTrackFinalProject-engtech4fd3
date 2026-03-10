@@ -20,6 +20,10 @@
 
 <div class="it-panel">
     <div class="it-panel-body">
+        <div class="it-hint mb-3">
+            A temporary password and a one-time password setup link will be emailed automatically to this user.
+        </div>
+
         <form asp-action="Create" method="post">
             <div asp-validation-summary="All" class="text-danger mb-3"></div>
 
@@ -37,18 +41,6 @@
                 </div>
 
                 <div class="col-md-6">
-                    <label asp-for="Password" class="form-label"></label>
-                    <input asp-for="Password" class="form-control" />
-                    <span asp-validation-for="Password" class="text-danger small"></span>
-                </div>
-
-                <div class="col-md-6">
-                    <label asp-for="ConfirmPassword" class="form-label"></label>
-                    <input asp-for="ConfirmPassword" class="form-control" />
-                    <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
-                </div>
-
-                <div class="col-md-6">
                     <label asp-for="SelectedRole" class="form-label"></label>
                     <select asp-for="SelectedRole" class="form-select">
                         @foreach (var r in Model.AvailableRoles)
@@ -57,13 +49,6 @@
                         }
                     </select>
                     <span asp-validation-for="SelectedRole" class="text-danger small"></span>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="form-check form-switch mt-4">
-                        <input class="form-check-input" asp-for="EmailConfirmed" />
-                        <label class="form-check-label" asp-for="EmailConfirmed">Email Confirmed</label>
-                    </div>
                 </div>
 
                 <div class="col-12">

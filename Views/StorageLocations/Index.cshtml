@@ -1,7 +1,18 @@
-﻿@model IEnumerable<InvenTrack.Models.StorageLocation>
+﻿@model InvenTrack.Utilities.PaginatedList<InvenTrack.Models.StorageLocation>
+@using System
+@using System.Linq
 
 @{
     ViewData["Title"] = "Locations";
+
+    var currentFilter = ViewData["CurrentFilter"] as string ?? string.Empty;
+    var currentPageSize = ViewData["CurrentPageSize"] is int ps ? ps : 10;
+
+    var startItem = Model.TotalCount == 0 ? 0 : ((Model.PageIndex - 1) * Model.PageSize) + 1;
+    var endItem = Model.TotalCount == 0 ? 0 : Math.Min(Model.PageIndex * Model.PageSize, Model.TotalCount);
+
+    var firstPage = Math.Max(1, Model.PageIndex - 2);
+    var lastPage = Math.Min(Model.TotalPages, Model.PageIndex + 2);
 }
 
 <div class="it-pagehead mb-3">
@@ -18,23 +29,41 @@
     </div>
 </div>
 
-<div class="it-panel mb-3">
+<form asp-action="Index" method="get" class="it-panel mb-3">
     <div class="it-panel-body">
+        <input type="hidden" id="pageNumber" name="page" value="1" />
+
         <div class="row g-2 align-items-center">
-            <div class="col-lg-8">
+            <div class="col-lg-6">
                 <div class="it-input">
                     <span class="it-input-ico">🔎</span>
-                    <input id="locSearch" type="search" class="form-control it-input-field"
+                    <input name="searchString"
+                           value="@currentFilter"
+                           type="search"
+                           class="form-control it-input-field"
                            placeholder="Search by location name, building, or room..." />
                 </div>
             </div>
 
-            <div class="col-lg-4 text-lg-end">
-                <span class="text-muted small" id="locCount"></span>
+            <div class="col-lg-3">
+                <select id="pageSize" name="pageSize" class="form-select">
+                    <option value="10" selected="@(currentPageSize == 10 ? "selected" : null)">10 per page</option>
+                    <option value="25" selected="@(currentPageSize == 25 ? "selected" : null)">25 per page</option>
+                    <option value="50" selected="@(currentPageSize == 50 ? "selected" : null)">50 per page</option>
+                </select>
+            </div>
+
+            <div class="col-lg-3 d-flex justify-content-lg-end gap-2">
+                <button type="submit" class="btn btn-primary">Apply</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Clear</a>
             </div>
         </div>
+
+        <div class="mt-2 text-muted small">
+            Showing @startItem - @endItem of @Model.TotalCount locations
+        </div>
     </div>
-</div>
+</form>
 
 <div class="it-panel">
     <div class="it-panel-body p-0">
@@ -54,8 +83,8 @@
                     {
                         <tr>
                             <td colspan="4" class="text-center text-muted py-5">
-                                <div class="fw-semibold mb-1">No locations yet</div>
-                                <div class="small mb-3">Create locations to keep inventory organized by area.</div>
+                                <div class="fw-semibold mb-1">No locations found</div>
+                                <div class="small mb-3">Try changing the search or create a new location.</div>
                                 <a asp-action="Create" class="btn btn-primary btn-sm">+ New Location</a>
                             </td>
                         </tr>
@@ -64,10 +93,10 @@
                     {
                         foreach (var item in Model)
                         {
-                            <tr class="loc-row">
+                            <tr>
                                 <td class="fw-semibold">@item.Name</td>
-                                <td class="text-muted">@(!string.IsNullOrWhiteSpace(item.Building) ? item.Building : "—")</td>
-                                <td class="text-muted">@(!string.IsNullOrWhiteSpace(item.Room) ? item.Room : "—")</td>
+                                <td class="text-muted">@(!string.IsNullOrWhiteSpace(item.Building) ? item.Building : "-")</td>
+                                <td class="text-muted">@(!string.IsNullOrWhiteSpace(item.Room) ? item.Room : "-")</td>
                                 <td class="text-end">
                                     <div class="btn-group" role="group">
                                         <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-sm btn-outline-secondary">Details</a>
@@ -79,35 +108,109 @@
                         }
                     }
                 </tbody>
-
             </table>
         </div>
+
+        @if (Model.TotalPages > 1)
+        {
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 p-3 border-top">
+                <div class="text-muted small">
+                    Page @Model.PageIndex of @Model.TotalPages
+                </div>
+
+                <nav aria-label="Location pagination">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
+                            <a class="page-link"
+                               asp-action="Index"
+                               asp-route-page="@(Model.PageIndex - 1)"
+                               asp-route-searchString="@currentFilter"
+                               asp-route-pageSize="@currentPageSize">
+                                Previous
+                            </a>
+                        </li>
+
+                        @if (firstPage > 1)
+                        {
+                            <li class="page-item">
+                                <a class="page-link"
+                                   asp-action="Index"
+                                   asp-route-page="1"
+                                   asp-route-searchString="@currentFilter"
+                                   asp-route-pageSize="@currentPageSize">
+                                    1
+                                </a>
+                            </li>
+
+                            @if (firstPage > 2)
+                            {
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            }
+                        }
+
+                        @for (var p = firstPage; p <= lastPage; p++)
+                        {
+                            <li class="page-item @(p == Model.PageIndex ? "active" : "")">
+                                <a class="page-link"
+                                   asp-action="Index"
+                                   asp-route-page="@p"
+                                   asp-route-searchString="@currentFilter"
+                                   asp-route-pageSize="@currentPageSize">
+                                    @p
+                                </a>
+                            </li>
+                        }
+
+                        @if (lastPage < Model.TotalPages)
+                        {
+                            @if (lastPage < Model.TotalPages - 1)
+                            {
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            }
+
+                            <li class="page-item">
+                                <a class="page-link"
+                                   asp-action="Index"
+                                   asp-route-page="@Model.TotalPages"
+                                   asp-route-searchString="@currentFilter"
+                                   asp-route-pageSize="@currentPageSize">
+                                    @Model.TotalPages
+                                </a>
+                            </li>
+                        }
+
+                        <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
+                            <a class="page-link"
+                               asp-action="Index"
+                               asp-route-page="@(Model.PageIndex + 1)"
+                               asp-route-searchString="@currentFilter"
+                               asp-route-pageSize="@currentPageSize">
+                                Next
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        }
     </div>
 </div>
 
 @section Scripts {
     <script>
         (function () {
-            const search = document.getElementById('locSearch');
-            const rows = Array.from(document.querySelectorAll('.loc-row'));
-            const count = document.getElementById('locCount');
+            const pageSize = document.getElementById('pageSize');
+            const pageNumber = document.getElementById('pageNumber');
 
-            function apply() {
-                const q = (search.value || '').toLowerCase().trim();
-                let visible = 0;
-
-                rows.forEach(r => {
-                    const text = r.innerText.toLowerCase();
-                    const show = !q || text.includes(q);
-                    r.style.display = show ? '' : 'none';
-                    if (show) visible++;
+            if (pageSize) {
+                pageSize.addEventListener('change', function () {
+                    if (pageNumber) pageNumber.value = 1;
+                    this.form.submit();
                 });
-
-                count.textContent = rows.length ? `${visible} of ${rows.length} locations` : '';
             }
-
-            if (search) search.addEventListener('input', apply);
-            apply();
         })();
     </script>
 }

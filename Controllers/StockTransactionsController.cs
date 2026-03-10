@@ -1,6 +1,7 @@
 ﻿using InvenTrack.Data;
 using InvenTrack.Models;
 using InvenTrack.Services;
+using InvenTrack.Utilities;
 using InvenTrack.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,19 +21,88 @@ namespace InvenTrack.Controllers
             _stockService = stockService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(
+            string? searchString,
+            string actionFilter = "all",
+            int page = 1,
+            int pageSize = 10)
         {
-            var txs = await _context.StockTransactions
-                .AsNoTracking()
-                .Include(t => t.InventoryItem)
-                .Include(t => t.FromStorageLocation)
-                .Include(t => t.ToStorageLocation)
-                .OrderByDescending(t => t.DateCreated)
-                .Take(250)
-                .ToListAsync();
+            if (page < 1) page = 1;
 
-            return View(txs);
+            var allowedPageSizes = new[] { 10, 25, 50 };
+            if (!allowedPageSizes.Contains(pageSize))
+                pageSize = 10;
+
+            actionFilter = string.IsNullOrWhiteSpace(actionFilter)
+                ? "all"
+                : actionFilter.Trim().ToLowerInvariant();
+
+            IQueryable<StockTransaction> query = _context.StockTransactions
+                .AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(searchString))
+            {
+                searchString = searchString.Trim();
+                var searchLower = searchString.ToLowerInvariant();
+
+                var searchCheckIn = searchLower == "checkin" || searchLower == "check in";
+                var searchCheckOut = searchLower == "checkout" || searchLower == "check out";
+                var searchAdjustment = searchLower == "adjustment" || searchLower == "adjust";
+                var searchTransfer = searchLower == "transfer";
+
+                query = query.Where(t =>
+                    (t.InventoryItem != null && t.InventoryItem.ItemName.Contains(searchString)) ||
+                    (t.InventoryItem != null && t.InventoryItem.SKU.Contains(searchString)) ||
+                    (t.Notes != null && t.Notes.Contains(searchString)) ||
+                    (t.PerformedBy != null && t.PerformedBy.Contains(searchString)) ||
+                    (t.FromStorageLocation != null && t.FromStorageLocation.Name.Contains(searchString)) ||
+                    (t.ToStorageLocation != null && t.ToStorageLocation.Name.Contains(searchString)) ||
+                    (searchCheckIn && t.ActionType == StockActionType.CheckIn) ||
+                    (searchCheckOut && t.ActionType == StockActionType.CheckOut) ||
+                    (searchAdjustment && t.ActionType == StockActionType.Adjustment) ||
+                    (searchTransfer && t.ActionType == StockActionType.Transfer)
+                );
+            }
+
+            query = actionFilter switch
+            {
+                "checkin" => query.Where(t => t.ActionType == StockActionType.CheckIn),
+                "checkout" => query.Where(t => t.ActionType == StockActionType.CheckOut),
+                "adjustment" => query.Where(t => t.ActionType == StockActionType.Adjustment),
+                "transfer" => query.Where(t => t.ActionType == StockActionType.Transfer),
+                _ => query
+            };
+
+            var pagedTransactions = await PaginatedList<StockTransaction>.CreateAsync(
+                query
+                    .Include(t => t.InventoryItem)
+                    .Include(t => t.FromStorageLocation)
+                    .Include(t => t.ToStorageLocation)
+                    .OrderByDescending(t => t.DateCreated),
+                page,
+                pageSize);
+
+            if (pagedTransactions.TotalPages > 0 && page > pagedTransactions.TotalPages)
+            {
+                page = pagedTransactions.TotalPages;
+
+                pagedTransactions = await PaginatedList<StockTransaction>.CreateAsync(
+                    query
+                        .Include(t => t.InventoryItem)
+                        .Include(t => t.FromStorageLocation)
+                        .Include(t => t.ToStorageLocation)
+                        .OrderByDescending(t => t.DateCreated),
+                    page,
+                    pageSize);
+            }
+
+            ViewData["CurrentFilter"] = searchString ?? string.Empty;
+            ViewData["CurrentAction"] = actionFilter;
+            ViewData["CurrentPageSize"] = pageSize;
+
+            return View(pagedTransactions);
         }
+
         [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> Create(int inventoryItemId)
         {
@@ -84,7 +154,9 @@ namespace InvenTrack.Controllers
                 };
             }).ToList();
 
-            var defaultFrom = locList.OrderByDescending(x => x.QuantityOnHand).FirstOrDefault(x => x.QuantityOnHand > 0)?.LocationID;
+            var defaultFrom = locList
+                .OrderByDescending(x => x.QuantityOnHand)
+                .FirstOrDefault(x => x.QuantityOnHand > 0)?.LocationID;
 
             var vm = new StockTransactionCreateVM
             {
@@ -101,6 +173,7 @@ namespace InvenTrack.Controllers
 
             return View(vm);
         }
+
         [Authorize(Roles = "Admin,Manager")]
         [HttpPost]
         [ValidateAntiForgeryToken]

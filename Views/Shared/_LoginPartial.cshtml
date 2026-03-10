@@ -1,7 +1,6 @@
 ﻿@using Microsoft.AspNetCore.Identity
 @using InvenTrack.Models
 @inject SignInManager<ApplicationUser> SignInManager
-@inject UserManager<ApplicationUser> UserManager
 
 @{
     bool signedIn = SignInManager.IsSignedIn(User);
@@ -14,11 +13,12 @@
 @if (signedIn)
 {
     <div class="text-muted small mb-2">Signed in</div>
+
     <div class="small mb-3">
-        <span class="fw-semibold">@User.Identity?.Name</span>
+        <div class="fw-semibold text-break">@User.Identity?.Name</div>
         @if (!string.IsNullOrWhiteSpace(roleLabel))
         {
-            <span class="badge bg-primary-subtle text-primary border it-badge ms-2">@roleLabel</span>
+            <span class="badge bg-primary-subtle text-primary border it-badge mt-2">@roleLabel</span>
         }
     </div>
 
@@ -36,8 +36,5 @@ else
 {
     <a class="it-nav-link" asp-area="Identity" asp-page="/Account/Login">
         <span class="it-nav-ico">🔑</span> Login
-    </a>
-    <a class="it-nav-link" asp-area="Identity" asp-page="/Account/Register">
-        <span class="it-nav-ico">🧑‍💻</span> Register
     </a>
 }

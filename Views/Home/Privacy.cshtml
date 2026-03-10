@@ -8,30 +8,30 @@
             <div class="it-page-dot"></div>
             <h1 class="h3 mb-0 fw-bold">Privacy</h1>
         </div>
-        <div class="text-muted small">How InvenTrack handles data in this prototype.</div>
+        <div class="text-muted small">How InvenTrack handles inventory and account-related data in the current prototype.</div>
     </div>
 
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
         <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">Back</a>
     </div>
 </div>
 
 <div class="row g-3 g-lg-4">
-    <!-- Left: main content -->
-    <div class="col-lg-8">
+    <div class="col-12 col-xl-8">
         <div class="it-panel mb-3">
             <div class="it-panel-header">
                 <div class="fw-bold d-flex align-items-center gap-2">
                     <span class="it-ico">🛡️</span>
                     Overview
                 </div>
-                <div class="text-muted small">A quick summary of what’s stored and why.</div>
+                <div class="text-muted small">A summary of what this prototype stores and why.</div>
             </div>
 
             <div class="it-panel-body">
                 <p class="text-muted mb-0">
-                    InvenTrack is a course prototype for inventory tracking. It stores inventory-related data
-                    (item names, SKUs, quantities, categories, and locations) to support basic management and reporting.
+                    InvenTrack is a cloud-hosted inventory management prototype used to store, manage, and retrieve
+                    inventory information through a centralized web platform. The system supports item management,
+                    stock tracking, stock movement history, and structured reporting workflows for authorized users.
                 </p>
             </div>
         </div>
@@ -42,7 +42,7 @@
                     <span class="it-ico">📦</span>
                     What data we store
                 </div>
-                <div class="text-muted small">Only what’s needed for inventory workflows.</div>
+                <div class="text-muted small">Only data needed for inventory operations and access control.</div>
             </div>
 
             <div class="it-panel-body">
@@ -50,9 +50,10 @@
                     <div class="it-list-item">
                         <div class="it-list-dot">1</div>
                         <div>
-                            <div class="fw-semibold">Inventory data</div>
+                            <div class="fw-semibold">Inventory item data</div>
                             <div class="text-muted small">
-                                Item name, SKU/asset tag, description, quantity, reorder level, and active status.
+                                Item name, SKU or asset tag, description, quantity, reorder level, item status,
+                                category, and assigned storage location.
                             </div>
                         </div>
                     </div>
@@ -60,16 +61,41 @@
                     <div class="it-list-item">
                         <div class="it-list-dot">2</div>
                         <div>
-                            <div class="fw-semibold">Organizational data</div>
-                            <div class="text-muted small">Categories and storage locations.</div>
+                            <div class="fw-semibold">Location and category data</div>
+                            <div class="text-muted small">
+                                Categories and storage locations used to organize stock across rooms, buildings,
+                                and multiple inventory points.
+                            </div>
                         </div>
                     </div>
 
                     <div class="it-list-item">
                         <div class="it-list-dot">3</div>
                         <div>
-                            <div class="fw-semibold">Optional images</div>
-                            <div class="text-muted small">Item photos/thumbnails if uploaded.</div>
+                            <div class="fw-semibold">Stock transaction history</div>
+                            <div class="text-muted small">
+                                Check-in, check-out, adjustment, and transfer records used as an audit trail for stock changes.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="it-list-item">
+                        <div class="it-list-dot">4</div>
+                        <div>
+                            <div class="fw-semibold">Optional item images</div>
+                            <div class="text-muted small">
+                                Item photos and thumbnails are stored only when an image is uploaded for an item.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="it-list-item">
+                        <div class="it-list-dot">5</div>
+                        <div>
+                            <div class="fw-semibold">Account and role information</div>
+                            <div class="text-muted small">
+                                User sign-in and access level information used to control which features can be viewed or updated.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -82,32 +108,43 @@
                     <span class="it-ico">⚙️</span>
                     How we use the data
                 </div>
-                <div class="text-muted small">What the system does with what you enter.</div>
+                <div class="text-muted small">How entered data supports the application.</div>
             </div>
 
             <div class="it-panel-body">
                 <div class="row g-3">
-                    <div class="col-md-4">
-                        <div class="it-mini">
-                            <div class="it-mini-title">Management</div>
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <div class="it-mini h-100">
+                            <div class="it-mini-title">Inventory Management</div>
                             <div class="text-muted small">
-                                Display and manage inventory records through the web UI.
+                                Display, create, update, and manage items, categories, and locations in the web interface.
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="it-mini">
+
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <div class="it-mini h-100">
+                            <div class="it-mini-title">Stock Tracking</div>
+                            <div class="text-muted small">
+                                Monitor quantities on hand, including stock held across multiple locations.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <div class="it-mini h-100">
+                            <div class="it-mini-title">Audit Trail</div>
+                            <div class="text-muted small">
+                                Record stock movements and inventory adjustments for traceability and review.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <div class="it-mini h-100">
                             <div class="it-mini-title">Validation</div>
                             <div class="text-muted small">
-                                Reduce duplicate/invalid entries using validation rules.
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="it-mini">
-                            <div class="it-mini-title">Future features</div>
-                            <div class="text-muted small">
-                                Enable reporting and low-stock insights in later stages.
+                                Apply required fields, SKU rules, numeric limits, and integrity checks to reduce data errors.
                             </div>
                         </div>
                     </div>
@@ -119,55 +156,125 @@
             <div class="it-panel-header">
                 <div class="fw-bold d-flex align-items-center gap-2">
                     <span class="it-ico">🔒</span>
-                    Access & security
+                    Access and security
                 </div>
-                <div class="text-muted small">Prototype rules + future enhancements.</div>
+                <div class="text-muted small">Current controls and good practices for this prototype.</div>
             </div>
 
             <div class="it-panel-body">
-                <p class="text-muted mb-0">
-                    This prototype is intended for authorized users in a controlled environment.
-                    In later stages, authentication and role-based access (Admin vs Viewer) can be added.
-                </p>
+                <div class="it-list">
+                    <div class="it-list-item">
+                        <div class="it-list-dot">1</div>
+                        <div>
+                            <div class="fw-semibold">Authorized access</div>
+                            <div class="text-muted small">
+                                The current build supports role-based access for authorized users, including Admin,
+                                Manager, and Viewer roles.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="it-list-item">
+                        <div class="it-list-dot">2</div>
+                        <div>
+                            <div class="fw-semibold">Restricted actions</div>
+                            <div class="text-muted small">
+                                Sensitive actions such as inventory changes, stock adjustments, and administrative tasks
+                                should be limited to approved roles.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="it-list-item">
+                        <div class="it-list-dot">3</div>
+                        <div>
+                            <div class="fw-semibold">Cloud data storage</div>
+                            <div class="text-muted small">
+                                Application data is stored in a centralized cloud database. Connection details should be
+                                protected using secure configuration practices.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="it-hint mt-3">
+                    This application is a course prototype. Security, reporting, and permission workflows are active areas
+                    for continued refinement in later phases.
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Right: contact / quick note -->
-    <div class="col-lg-4">
+    <div class="col-12 col-xl-4">
         <div class="it-panel mb-3">
             <div class="it-panel-header">
                 <div class="fw-bold d-flex align-items-center gap-2">
                     <span class="it-ico">📩</span>
                     Contact
                 </div>
-                <div class="text-muted small">Questions or concerns?</div>
+                <div class="text-muted small">Questions or privacy concerns?</div>
             </div>
+
             <div class="it-panel-body">
                 <div class="it-hint">
-                    If you have questions about this prototype’s data handling, contact the project team.
+                    If you have questions about this prototype’s data handling, contact the project team or course group responsible for InvenTrack.
                 </div>
 
                 <div class="mt-3 small text-muted">
-                    Recommended: include your item SKU and screenshot when reporting an issue.
+                    When reporting an issue, include the item SKU, the affected page, and a screenshot if available.
                 </div>
+            </div>
+        </div>
+
+        <div class="it-panel mb-3">
+            <div class="it-panel-header">
+                <div class="fw-bold d-flex align-items-center gap-2">
+                    <span class="it-ico">🧾</span>
+                    Notes
+                </div>
+                <div class="text-muted small">Important clarifications for this build.</div>
+            </div>
+
+            <div class="it-panel-body">
+                <ul class="text-muted small mb-0 ps-3">
+                    <li>This is an academic prototype, not a production privacy policy.</li>
+                    <li>No payment or billing information is collected.</li>
+                    <li>Images are optional and stored only when uploaded.</li>
+                    <li>Transaction history is retained to support traceability and audit-friendly workflows.</li>
+                </ul>
             </div>
         </div>
 
         <div class="it-panel">
             <div class="it-panel-header">
                 <div class="fw-bold d-flex align-items-center gap-2">
-                    <span class="it-ico">🧾</span>
-                    Notes
+                    <span class="it-ico">🚀</span>
+                    Looking ahead
                 </div>
-                <div class="text-muted small">Important clarifications.</div>
+                <div class="text-muted small">Planned improvements for later milestones.</div>
             </div>
+
             <div class="it-panel-body">
-                <ul class="text-muted small mb-0">
-                    <li>No payment data is collected.</li>
-                    <li>No user accounts in this prototype (yet).</li>
-                    <li>Images are optional and only stored if uploaded.</li>
-                </ul>
+                <div class="text-muted small mb-2">
+                    Future work may include:
+                </div>
+
+                <div class="it-list">
+                    <div class="it-list-item">
+                        <div class="it-list-dot">•</div>
+                        <div class="text-muted small">Expanded reporting and dashboards</div>
+                    </div>
+
+                    <div class="it-list-item">
+                        <div class="it-list-dot">•</div>
+                        <div class="text-muted small">Additional role and workflow refinements</div>
+                    </div>
+
+                    <div class="it-list-item">
+                        <div class="it-list-dot">•</div>
+                        <div class="text-muted small">More advanced analytics and AI-supported features</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

@@ -101,30 +101,88 @@ namespace InvenTrack.Controllers
             }
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(
+            string? searchString,
+            string statusFilter = "all",
+            int page = 1,
+            int pageSize = 10)
         {
-            var items = await _context.InventoryItems
+            if (page < 1) page = 1;
+
+            var allowedPageSizes = new[] { 10, 25, 50 };
+            if (!allowedPageSizes.Contains(pageSize))
+                pageSize = 10;
+
+            statusFilter = string.IsNullOrWhiteSpace(statusFilter)
+                ? "all"
+                : statusFilter.Trim().ToLower();
+
+            IQueryable<InventoryItem> query = _context.InventoryItems
                 .AsNoTracking()
                 .Include(i => i.ItemThumbnail)
                 .Include(i => i.Category)
-                .Include(i => i.StorageLocation)
-                .OrderBy(i => i.ItemName)
-                .ToListAsync();
+                .Include(i => i.StorageLocation);
 
-            var counts = await _context.InventoryItemStocks
-                .AsNoTracking()
-                .GroupBy(s => s.InventoryItemID)
-                .Select(g => new
-                {
-                    InventoryItemID = g.Key,
-                    LocationCount = g.Count(x => x.QuantityOnHand > 0)
-                })
-                .ToListAsync();
+            if (!string.IsNullOrWhiteSpace(searchString))
+            {
+                searchString = searchString.Trim();
 
-            var dict = counts.ToDictionary(x => x.InventoryItemID, x => x.LocationCount);
+                query = query.Where(i =>
+                    i.ItemName.Contains(searchString) ||
+                    i.SKU.Contains(searchString) ||
+                    (i.Description != null && i.Description.Contains(searchString)) ||
+                    (i.Category != null && i.Category.Name.Contains(searchString)) ||
+                    (i.StorageLocation != null && i.StorageLocation.Name.Contains(searchString)));
+            }
+
+            query = statusFilter switch
+            {
+                "active" => query.Where(i => i.IsActive),
+                "inactive" => query.Where(i => !i.IsActive),
+                _ => query
+            };
+
+            var pagedItems = await PaginatedList<InventoryItem>.CreateAsync(
+                query.OrderBy(i => i.ItemName),
+                page,
+                pageSize);
+
+            if (pagedItems.TotalPages > 0 && page > pagedItems.TotalPages)
+            {
+                page = pagedItems.TotalPages;
+
+                pagedItems = await PaginatedList<InventoryItem>.CreateAsync(
+                    query.OrderBy(i => i.ItemName),
+                    page,
+                    pageSize);
+            }
+
+            var itemIds = pagedItems.Select(i => i.ID).ToList();
+
+            Dictionary<int, int> dict = new();
+
+            if (itemIds.Count > 0)
+            {
+                var counts = await _context.InventoryItemStocks
+                    .AsNoTracking()
+                    .Where(s => itemIds.Contains(s.InventoryItemID))
+                    .GroupBy(s => s.InventoryItemID)
+                    .Select(g => new
+                    {
+                        InventoryItemID = g.Key,
+                        LocationCount = g.Count(x => x.QuantityOnHand > 0)
+                    })
+                    .ToListAsync();
+
+                dict = counts.ToDictionary(x => x.InventoryItemID, x => x.LocationCount);
+            }
+
             ViewData["LocationCounts"] = dict;
+            ViewData["CurrentFilter"] = searchString ?? string.Empty;
+            ViewData["CurrentStatus"] = statusFilter;
+            ViewData["CurrentPageSize"] = pageSize;
 
-            return View(items);
+            return View(pagedItems);
         }
 
         public async Task<IActionResult> Details(int? id)
@@ -231,6 +289,7 @@ namespace InvenTrack.Controllers
             PopulateDropDowns(item.CategoryID, item.StorageLocationID);
             return View(item);
         }
+
         [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> Edit(int? id)
         {
@@ -246,6 +305,7 @@ namespace InvenTrack.Controllers
             PopulateDropDowns(item.CategoryID, item.StorageLocationID);
             return View(item);
         }
+
         [Authorize(Roles = "Admin,Manager")]
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -329,6 +389,7 @@ namespace InvenTrack.Controllers
             PopulateDropDowns(item.CategoryID, itemToUpdate.StorageLocationID);
             return View(itemToUpdate);
         }
+
         [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> Delete(int? id)
         {
@@ -343,6 +404,7 @@ namespace InvenTrack.Controllers
 
             return View(item);
         }
+
         [Authorize(Roles = "Admin,Manager")]
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]

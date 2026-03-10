@@ -1,5 +1,6 @@
 ﻿using InvenTrack.Data;
 using InvenTrack.Models;
+using InvenTrack.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -32,14 +33,45 @@ namespace InvenTrack.Controllers
         }
 
         // GET: Categories
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string? searchString, int page = 1, int pageSize = 10)
         {
-            var categories = await _context.Categories
-                .AsNoTracking()
-                .OrderBy(c => c.Name)
-                .ToListAsync();
+            if (page < 1) page = 1;
 
-            return View(categories);
+            var allowedPageSizes = new[] { 10, 25, 50 };
+            if (!allowedPageSizes.Contains(pageSize))
+                pageSize = 10;
+
+            IQueryable<Category> query = _context.Categories
+                .AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(searchString))
+            {
+                searchString = searchString.Trim();
+
+                query = query.Where(c =>
+                    c.Name.Contains(searchString) ||
+                    (c.Description != null && c.Description.Contains(searchString)));
+            }
+
+            var pagedCategories = await PaginatedList<Category>.CreateAsync(
+                query.OrderBy(c => c.Name),
+                page,
+                pageSize);
+
+            if (pagedCategories.TotalPages > 0 && page > pagedCategories.TotalPages)
+            {
+                page = pagedCategories.TotalPages;
+
+                pagedCategories = await PaginatedList<Category>.CreateAsync(
+                    query.OrderBy(c => c.Name),
+                    page,
+                    pageSize);
+            }
+
+            ViewData["CurrentFilter"] = searchString ?? string.Empty;
+            ViewData["CurrentPageSize"] = pageSize;
+
+            return View(pagedCategories);
         }
 
         // GET: Categories/Details/5
@@ -55,23 +87,23 @@ namespace InvenTrack.Controllers
 
             return View(category);
         }
+
         [Authorize(Roles = "Admin,Manager")]
         // GET: Categories/Create
         public IActionResult Create()
         {
             return View();
         }
+
         [Authorize(Roles = "Admin,Manager")]
         // POST: Categories/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Name,Description")] Category category)
         {
-            // Normalize inputs
             category.Name = Clean(category.Name);
             category.Description = Clean(category.Description);
 
-            // Friendly uniqueness check
             if (await CategoryNameExistsAsync(category.Name))
             {
                 ModelState.AddModelError(nameof(Category.Name), "Category name must be unique. This category already exists.");
@@ -93,6 +125,7 @@ namespace InvenTrack.Controllers
 
             return View(category);
         }
+
         [Authorize(Roles = "Admin,Manager")]
         // GET: Categories/Edit/5
         public async Task<IActionResult> Edit(int? id)
@@ -104,6 +137,7 @@ namespace InvenTrack.Controllers
 
             return View(category);
         }
+
         [Authorize(Roles = "Admin,Manager")]
         // POST: Categories/Edit/5
         [HttpPost]
@@ -113,15 +147,12 @@ namespace InvenTrack.Controllers
             var categoryToUpdate = await _context.Categories.FirstOrDefaultAsync(c => c.ID == id);
             if (categoryToUpdate == null) return NotFound();
 
-            // Update only allowed fields (prevents overposting)
             if (await TryUpdateModelAsync(categoryToUpdate, "",
                 c => c.Name, c => c.Description))
             {
-                // Normalize
                 categoryToUpdate.Name = Clean(categoryToUpdate.Name);
                 categoryToUpdate.Description = Clean(categoryToUpdate.Description);
 
-                // Friendly uniqueness check (exclude current category)
                 if (await CategoryNameExistsAsync(categoryToUpdate.Name, excludeId: id))
                 {
                     ModelState.AddModelError(nameof(Category.Name), "Category name must be unique. This category already exists.");
@@ -148,6 +179,7 @@ namespace InvenTrack.Controllers
 
             return View(categoryToUpdate);
         }
+
         [Authorize(Roles = "Admin,Manager")]
         // GET: Categories/Delete/5
         public async Task<IActionResult> Delete(int? id)
@@ -162,6 +194,7 @@ namespace InvenTrack.Controllers
 
             return View(category);
         }
+
         [Authorize(Roles = "Admin,Manager")]
         // POST: Categories/Delete/5
         [HttpPost, ActionName("Delete")]
@@ -179,7 +212,6 @@ namespace InvenTrack.Controllers
             }
             catch (DbUpdateException)
             {
-                // Common: FK constraint if InventoryItems reference this category
                 ModelState.AddModelError(string.Empty,
                     "Unable to delete this category because it is being used by one or more inventory items.");
 

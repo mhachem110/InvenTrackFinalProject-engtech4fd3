@@ -1,5 +1,6 @@
 ﻿using InvenTrack.Data;
 using InvenTrack.Models;
+using InvenTrack.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -32,14 +33,46 @@ namespace InvenTrack.Controllers
         }
 
         // GET: StorageLocations
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string? searchString, int page = 1, int pageSize = 10)
         {
-            var locations = await _context.StorageLocations
-                .AsNoTracking()
-                .OrderBy(l => l.Name)
-                .ToListAsync();
+            if (page < 1) page = 1;
 
-            return View(locations);
+            var allowedPageSizes = new[] { 10, 25, 50 };
+            if (!allowedPageSizes.Contains(pageSize))
+                pageSize = 10;
+
+            IQueryable<StorageLocation> query = _context.StorageLocations
+                .AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(searchString))
+            {
+                searchString = searchString.Trim();
+
+                query = query.Where(l =>
+                    l.Name.Contains(searchString) ||
+                    (l.Building != null && l.Building.Contains(searchString)) ||
+                    (l.Room != null && l.Room.Contains(searchString)));
+            }
+
+            var pagedLocations = await PaginatedList<StorageLocation>.CreateAsync(
+                query.OrderBy(l => l.Name),
+                page,
+                pageSize);
+
+            if (pagedLocations.TotalPages > 0 && page > pagedLocations.TotalPages)
+            {
+                page = pagedLocations.TotalPages;
+
+                pagedLocations = await PaginatedList<StorageLocation>.CreateAsync(
+                    query.OrderBy(l => l.Name),
+                    page,
+                    pageSize);
+            }
+
+            ViewData["CurrentFilter"] = searchString ?? string.Empty;
+            ViewData["CurrentPageSize"] = pageSize;
+
+            return View(pagedLocations);
         }
 
         // GET: StorageLocations/Details/5
@@ -67,7 +100,6 @@ namespace InvenTrack.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Name,Building,Room")] StorageLocation storageLocation)
         {
-            // Normalize text inputs
             storageLocation.Name = Clean(storageLocation.Name);
             storageLocation.Building = Clean(storageLocation.Building);
             storageLocation.Room = Clean(storageLocation.Room);
@@ -113,11 +145,9 @@ namespace InvenTrack.Controllers
             var storageLocationToUpdate = await _context.StorageLocations.FirstOrDefaultAsync(l => l.ID == id);
             if (storageLocationToUpdate == null) return NotFound();
 
-            // Update only allowed fields
             if (await TryUpdateModelAsync(storageLocationToUpdate, "",
                 l => l.Name, l => l.Building, l => l.Room))
             {
-                // Normalize
                 storageLocationToUpdate.Name = Clean(storageLocationToUpdate.Name);
                 storageLocationToUpdate.Building = Clean(storageLocationToUpdate.Building);
                 storageLocationToUpdate.Room = Clean(storageLocationToUpdate.Room);

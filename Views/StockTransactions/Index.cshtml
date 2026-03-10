@@ -1,8 +1,19 @@
-﻿@model IEnumerable<InvenTrack.Models.StockTransaction>
+﻿@model InvenTrack.Utilities.PaginatedList<InvenTrack.Models.StockTransaction>
 @using System
+@using System.Linq
 
 @{
     ViewData["Title"] = "Stock Transactions";
+
+    var currentFilter = ViewData["CurrentFilter"] as string ?? string.Empty;
+    var currentAction = ViewData["CurrentAction"] as string ?? "all";
+    var currentPageSize = ViewData["CurrentPageSize"] is int ps ? ps : 10;
+
+    var startItem = Model.TotalCount == 0 ? 0 : ((Model.PageIndex - 1) * Model.PageSize) + 1;
+    var endItem = Model.TotalCount == 0 ? 0 : Math.Min(Model.PageIndex * Model.PageSize, Model.TotalCount);
+
+    var firstPage = Math.Max(1, Model.PageIndex - 2);
+    var lastPage = Math.Min(Model.TotalPages, Model.PageIndex + 2);
 }
 
 <div class="it-pagehead mb-3">
@@ -19,36 +30,52 @@
     </div>
 </div>
 
-<!-- Filter/Search panel -->
-<div class="it-panel mb-3">
+<form asp-action="Index" method="get" class="it-panel mb-3">
     <div class="it-panel-body">
+        <input type="hidden" id="pageNumber" name="page" value="1" />
+
         <div class="row g-2 align-items-center">
-            <div class="col-lg-6">
+            <div class="col-lg-5">
                 <div class="it-input">
                     <span class="it-input-ico">🔎</span>
-                    <input id="txSearch" type="search" class="form-control it-input-field"
+                    <input name="searchString"
+                           value="@currentFilter"
+                           type="search"
+                           class="form-control it-input-field"
                            placeholder="Search item, action, notes, user, location..." />
                 </div>
             </div>
 
-            <div class="col-lg-3">
-                <select id="txAction" class="form-select">
-                    <option value="all" selected>All actions</option>
-                    <option value="checkin">Check In</option>
-                    <option value="checkout">Check Out</option>
-                    <option value="adjustment">Adjustment</option>
-                    <option value="transfer">Transfer</option>
+            <div class="col-lg-2">
+                <select name="actionFilter" class="form-select">
+                    <option value="all" selected="@(currentAction == "all" ? "selected" : null)">All actions</option>
+                    <option value="checkin" selected="@(currentAction == "checkin" ? "selected" : null)">Check In</option>
+                    <option value="checkout" selected="@(currentAction == "checkout" ? "selected" : null)">Check Out</option>
+                    <option value="adjustment" selected="@(currentAction == "adjustment" ? "selected" : null)">Adjustment</option>
+                    <option value="transfer" selected="@(currentAction == "transfer" ? "selected" : null)">Transfer</option>
                 </select>
             </div>
 
-            <div class="col-lg-3 text-lg-end">
-                <span class="text-muted small" id="txCount"></span>
+            <div class="col-lg-2">
+                <select id="pageSize" name="pageSize" class="form-select">
+                    <option value="10" selected="@(currentPageSize == 10 ? "selected" : null)">10 per page</option>
+                    <option value="25" selected="@(currentPageSize == 25 ? "selected" : null)">25 per page</option>
+                    <option value="50" selected="@(currentPageSize == 50 ? "selected" : null)">50 per page</option>
+                </select>
+            </div>
+
+            <div class="col-lg-3 d-flex justify-content-lg-end gap-2">
+                <button type="submit" class="btn btn-primary">Apply</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Clear</a>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Table panel -->
+        <div class="mt-2 text-muted small">
+            Showing @startItem - @endItem of @Model.TotalCount transactions
+        </div>
+    </div>
+</form>
+
 <div class="it-panel">
     <div class="it-panel-body p-0">
         <div class="table-responsive">
@@ -71,8 +98,8 @@
                     {
                         <tr>
                             <td colspan="8" class="text-center text-muted py-5">
-                                <div class="fw-semibold mb-1">No transactions recorded yet</div>
-                                <div class="small">Create a transaction from an item’s details page.</div>
+                                <div class="fw-semibold mb-1">No transactions found</div>
+                                <div class="small">Try changing the filters or create a transaction from an item details page.</div>
                             </td>
                         </tr>
                     }
@@ -80,11 +107,9 @@
                     {
                         foreach (var t in Model)
                         {
-                            var actionKey = t.ActionType.ToString().ToLowerInvariant(); // checkin/checkout/adjustment/transfer
                             var itemName = t.InventoryItem?.ItemName ?? "-";
-                            var actionLabel = t.ActionType.ToString();
 
-                            <tr class="tx-row" data-action="@actionKey">
+                            <tr>
                                 <td class="text-muted">
                                     @t.DateCreated.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                                 </td>
@@ -97,15 +122,15 @@
                                 </td>
 
                                 <td>
-                                    @if (t.ActionType.ToString() == "CheckIn")
+                                    @if (t.ActionType == InvenTrack.Models.StockActionType.CheckIn)
                                     {
                                         <span class="badge bg-success-subtle text-success border it-badge">Check In</span>
                                     }
-                                    else if (t.ActionType.ToString() == "CheckOut")
+                                    else if (t.ActionType == InvenTrack.Models.StockActionType.CheckOut)
                                     {
                                         <span class="badge bg-danger-subtle text-danger border it-badge">Check Out</span>
                                     }
-                                    else if (t.ActionType.ToString() == "Transfer")
+                                    else if (t.ActionType == InvenTrack.Models.StockActionType.Transfer)
                                     {
                                         <span class="badge bg-primary-subtle text-primary border it-badge">Transfer</span>
                                     }
@@ -119,55 +144,122 @@
                                     <span class="it-qty">@t.QuantityChange</span>
                                 </td>
 
-                                <td class="text-muted">@(t.FromStorageLocation?.Name ?? "—")</td>
-                                <td class="text-muted">@(t.ToStorageLocation?.Name ?? "—")</td>
-
-                                <td class="text-muted">@(t.PerformedBy ?? "—")</td>
-
-                                <td class="text-muted">
-                                    @(!string.IsNullOrWhiteSpace(t.Notes) ? t.Notes : "—")
-                                </td>
+                                <td class="text-muted">@(t.FromStorageLocation?.Name ?? "-")</td>
+                                <td class="text-muted">@(t.ToStorageLocation?.Name ?? "-")</td>
+                                <td class="text-muted">@(t.PerformedBy ?? "-")</td>
+                                <td class="text-muted">@(!string.IsNullOrWhiteSpace(t.Notes) ? t.Notes : "-")</td>
                             </tr>
                         }
                     }
                 </tbody>
             </table>
         </div>
+
+        @if (Model.TotalPages > 1)
+        {
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 p-3 border-top">
+                <div class="text-muted small">
+                    Page @Model.PageIndex of @Model.TotalPages
+                </div>
+
+                <nav aria-label="Stock transaction pagination">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
+                            <a class="page-link"
+                               asp-action="Index"
+                               asp-route-page="@(Model.PageIndex - 1)"
+                               asp-route-searchString="@currentFilter"
+                               asp-route-actionFilter="@currentAction"
+                               asp-route-pageSize="@currentPageSize">
+                                Previous
+                            </a>
+                        </li>
+
+                        @if (firstPage > 1)
+                        {
+                            <li class="page-item">
+                                <a class="page-link"
+                                   asp-action="Index"
+                                   asp-route-page="1"
+                                   asp-route-searchString="@currentFilter"
+                                   asp-route-actionFilter="@currentAction"
+                                   asp-route-pageSize="@currentPageSize">
+                                    1
+                                </a>
+                            </li>
+
+                            @if (firstPage > 2)
+                            {
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            }
+                        }
+
+                        @for (var p = firstPage; p <= lastPage; p++)
+                        {
+                            <li class="page-item @(p == Model.PageIndex ? "active" : "")">
+                                <a class="page-link"
+                                   asp-action="Index"
+                                   asp-route-page="@p"
+                                   asp-route-searchString="@currentFilter"
+                                   asp-route-actionFilter="@currentAction"
+                                   asp-route-pageSize="@currentPageSize">
+                                    @p
+                                </a>
+                            </li>
+                        }
+
+                        @if (lastPage < Model.TotalPages)
+                        {
+                            @if (lastPage < Model.TotalPages - 1)
+                            {
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            }
+
+                            <li class="page-item">
+                                <a class="page-link"
+                                   asp-action="Index"
+                                   asp-route-page="@Model.TotalPages"
+                                   asp-route-searchString="@currentFilter"
+                                   asp-route-actionFilter="@currentAction"
+                                   asp-route-pageSize="@currentPageSize">
+                                    @Model.TotalPages
+                                </a>
+                            </li>
+                        }
+
+                        <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
+                            <a class="page-link"
+                               asp-action="Index"
+                               asp-route-page="@(Model.PageIndex + 1)"
+                               asp-route-searchString="@currentFilter"
+                               asp-route-actionFilter="@currentAction"
+                               asp-route-pageSize="@currentPageSize">
+                                Next
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        }
     </div>
 </div>
 
 @section Scripts {
     <script>
         (function () {
-            const search = document.getElementById('txSearch');
-            const action = document.getElementById('txAction');
-            const rows = Array.from(document.querySelectorAll('.tx-row'));
-            const count = document.getElementById('txCount');
+            const pageSize = document.getElementById('pageSize');
+            const pageNumber = document.getElementById('pageNumber');
 
-            function apply() {
-                const q = (search.value || '').toLowerCase().trim();
-                const a = action.value;
-
-                let visible = 0;
-
-                rows.forEach(r => {
-                    const text = r.innerText.toLowerCase();
-                    const okText = !q || text.includes(q);
-
-                    const rowAction = r.getAttribute('data-action') || '';
-                    const okAction = (a === 'all') || (rowAction === a);
-
-                    const show = okText && okAction;
-                    r.style.display = show ? '' : 'none';
-                    if (show) visible++;
+            if (pageSize) {
+                pageSize.addEventListener('change', function () {
+                    if (pageNumber) pageNumber.value = 1;
+                    this.form.submit();
                 });
-
-                count.textContent = rows.length ? `${visible} of ${rows.length} transactions` : '';
             }
-
-            if (search) search.addEventListener('input', apply);
-            if (action) action.addEventListener('change', apply);
-            apply();
         })();
     </script>
 }

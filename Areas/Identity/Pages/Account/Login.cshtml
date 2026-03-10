@@ -3,6 +3,7 @@
 
 @{
     ViewData["Title"] = "Login";
+    var onboarded = Request.Query["onboarded"] == "1";
 }
 
 <div class="it-pagehead mb-3">
@@ -21,11 +22,18 @@
             <div class="it-panel-header">
                 <div>
                     <div class="fw-bold">Welcome back</div>
-                    <div class="text-muted small">Use your account to continue.</div>
+                    <div class="text-muted small">Use your assigned account to continue.</div>
                 </div>
             </div>
 
             <div class="it-panel-body">
+                @if (onboarded)
+                {
+                    <div class="alert alert-success">
+                        Your password has been set. You can now sign in.
+                    </div>
+                }
+
                 <form id="account" method="post">
                     <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
 
@@ -67,39 +75,9 @@
                     </button>
 
                     <div class="it-hint mt-3">
-                        New here?
-                        <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl" class="text-decoration-none fw-semibold">
-                            Create an account
-                        </a>.
-                    </div>
-
-                    <div class="mt-2">
-                        <a id="resend-confirmation" asp-page="./ResendEmailConfirmation" class="small text-decoration-none">
-                            Resend email confirmation
-                        </a>
+                        Accounts are created by an administrator. Contact your admin if you need access.
                     </div>
                 </form>
-
-                @if ((Model.ExternalLogins?.Count ?? 0) > 0)
-                {
-                    <hr class="my-4" />
-                    <div class="fw-semibold mb-2">Other sign-in options</div>
-
-                    <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post">
-                        <div class="d-grid gap-2">
-                            @foreach (var provider in Model.ExternalLogins!)
-                            {
-                                <button type="submit"
-                                        class="btn btn-outline-primary"
-                                        name="provider"
-                                        value="@provider.Name"
-                                        title="Log in using your @provider.DisplayName account">
-                                    Continue with @provider.DisplayName
-                                </button>
-                            }
-                        </div>
-                    </form>
-                }
             </div>
         </div>
     </div>
