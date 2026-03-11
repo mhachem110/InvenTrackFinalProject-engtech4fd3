@@ -486,3 +486,27 @@ html {
             flex: 1 1 auto;
         }
 }
+/* Details page polish */
+.it-mini .fs-4 {
+    letter-spacing: -0.3px;
+}
+
+.it-panel hr {
+    opacity: .15;
+}
+
+.it-panel .it-field .value {
+    font-weight: 600;
+}
+
+.it-table-pager .pagination {
+    margin-bottom: 0;
+}
+
+.it-table-pager .page-link {
+    border-radius: 10px;
+}
+
+.it-mini .fs-4 {
+    letter-spacing: -0.3px;
+}

@@ -7,6 +7,16 @@
     ViewData["Title"] = "Item Details";
     var stocks = ViewData["LocationStocks"] as List<InventoryItemStock> ?? new List<InventoryItemStock>();
     var locCount = (ViewData["LocationCount"] as int?) ?? stocks.Count(s => s.QuantityOnHand > 0);
+
+    var history = (Model.StockTransactions ?? new List<InvenTrack.Models.StockTransaction>())
+        .OrderByDescending(t => t.DateCreated)
+        .ToList();
+
+    string? imgSrc = null;
+    if (Model.ItemPhoto?.Content != null && Model.ItemPhoto.Content.Length > 0)
+    {
+        imgSrc = $"data:{Model.ItemPhoto.MimeType};base64,{Convert.ToBase64String(Model.ItemPhoto.Content)}";
+    }
 }
 
 <div class="it-pagehead mb-3">
@@ -19,39 +29,54 @@
     </div>
 
     <div class="d-flex gap-2">
-        <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-outline-primary">Edit</a>
+        @if (User.CanManage())
+        {
+            <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-outline-primary">Edit</a>
+        }
         <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
     </div>
 </div>
 
-<div class="it-panel">
+<!-- TOP SUMMARY CARD -->
+<div class="it-panel mb-3">
     <div class="it-panel-body">
-        <div class="row g-4">
-            <div class="col-lg-4">
+        <div class="row g-3 g-lg-4 align-items-start">
+            <!-- Photo -->
+            <div class="col-12 col-lg-4">
                 <div class="text-muted small mb-2">Photo</div>
 
-                @if (Model.ItemPhoto?.Content != null && Model.ItemPhoto.Content.Length > 0)
+                @if (!string.IsNullOrWhiteSpace(imgSrc))
                 {
-                    var imageSrc = $"data:{Model.ItemPhoto.MimeType};base64,{Convert.ToBase64String(Model.ItemPhoto.Content)}";
-                    <img src="@imageSrc" class="img-fluid rounded-4 border" alt="Photo of @Model.ItemName" />
+                    <img src="@imgSrc"
+                         class="img-fluid rounded-4 border w-100"
+                         alt="Photo of @Model.ItemName"
+                         style="max-height:260px;object-fit:cover;" />
                 }
                 else
                 {
-                    <div class="it-empty-photo rounded-4 border">
+                    <div class="it-empty-photo rounded-4 border" style="min-height:260px;">
                         📦
                         <div class="small text-muted mt-2">No photo</div>
                     </div>
                 }
             </div>
 
-            <div class="col-lg-8">
-                <div class="d-flex align-items-start justify-content-between gap-3">
-                    <div>
-                        <div class="fw-bold fs-4">@Model.ItemName</div>
-                        <div class="text-muted">SKU: <span class="fw-semibold">@Model.SKU</span></div>
+            <!-- Main Info -->
+            <div class="col-12 col-lg-8">
+                <div class="d-flex flex-column flex-md-row align-items-start justify-content-between gap-3">
+                    <div class="min-w-0">
+                        <div class="fw-bold fs-4 text-break">@Model.ItemName</div>
+                        <div class="text-muted">
+                            SKU: <span class="fw-semibold">@Model.SKU</span>
+                        </div>
+                        <div class="text-muted small mt-1">
+                            Category: <span class="fw-semibold">@(Model.Category?.Name ?? "—")</span>
+                            <span class="mx-2">•</span>
+                            Primary Location: <span class="fw-semibold">@(Model.StorageLocation?.Name ?? "—")</span>
+                        </div>
                     </div>
 
-                    <div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
                         @if (Model.IsActive)
                         {
                             <span class="badge bg-success-subtle text-success border it-badge">Active</span>
@@ -60,86 +85,82 @@
                         {
                             <span class="badge bg-secondary-subtle text-secondary border it-badge">Inactive</span>
                         }
+
+                        @if (Model.QuantityOnHand <= Model.ReorderLevel)
+                        {
+                            <span class="badge text-bg-warning it-badge">Low Stock</span>
+                        }
                     </div>
                 </div>
 
                 <hr class="my-3" />
 
+                <!-- Stats row -->
                 <div class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col-12 col-md-4">
+                        <div class="it-mini h-100">
+                            <div class="it-mini-title">Total On Hand</div>
+                            <div class="fw-bold fs-4">@Model.QuantityOnHand</div>
+                            <div class="text-muted small">Across all locations</div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <div class="it-mini h-100">
+                            <div class="it-mini-title">Reorder Level</div>
+                            <div class="fw-bold fs-4">@Model.ReorderLevel</div>
+                            <div class="text-muted small">Alert threshold</div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <div class="it-mini h-100">
+                            <div class="it-mini-title">Locations with Stock</div>
+                            <div class="fw-bold fs-4">@locCount</div>
+                            <div class="text-muted small">Where quantity &gt; 0</div>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
                         <div class="it-field">
                             <div class="label">Description</div>
                             <div class="value">@(!string.IsNullOrWhiteSpace(Model.Description) ? Model.Description : "—")</div>
                         </div>
                     </div>
-
-                    <div class="col-md-3">
-                        <div class="it-field">
-                            <div class="label">Total On Hand</div>
-                            <div class="value">
-                                <span class="it-qty">@Model.QuantityOnHand</span>
-                                @if (Model.QuantityOnHand <= Model.ReorderLevel)
-                                {
-                                    <span class="badge text-bg-warning ms-2">Low</span>
-                                }
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-3">
-                        <div class="it-field">
-                            <div class="label">Reorder Level</div>
-                            <div class="value">@Model.ReorderLevel</div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <div class="it-field">
-                            <div class="label">Category</div>
-                            <div class="value">@(Model.Category?.Name ?? "—")</div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <div class="it-field">
-                            <div class="label">Primary Location</div>
-                            <div class="value">
-                                @(Model.StorageLocation?.Name ?? "—")
-                                @if (locCount > 1)
-                                {
-                                    <span class="badge bg-primary-subtle text-primary border it-badge ms-2">@locCount locations</span>
-                                }
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
-                <div class="d-flex gap-2 mt-4">
-                    <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-primary">Edit Item</a>
-                    <a asp-action="Delete" asp-route-id="@Model.ID" class="btn btn-outline-danger">Delete</a>
+                <div class="d-flex flex-wrap gap-2 mt-4">
+                    @if (User.CanManage())
+                    {
+                        <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-primary">Edit Item</a>
+                        <a asp-action="Delete" asp-route-id="@Model.ID" class="btn btn-outline-danger">Delete</a>
+                    }
+                    <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="it-panel mt-3">
-    <div class="it-panel-header">
+<!-- STOCK BY LOCATION -->
+<div class="it-panel mb-3">
+    <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
         <div>
             <div class="fw-bold">Stock by Location</div>
             <div class="text-muted small">Per-location quantities (supports partial transfers).</div>
         </div>
 
-        <div class="d-flex gap-2">
+        @if (User.CanManage())
+        {
             <a asp-controller="StockTransactions" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-sm btn-primary">
                 + New Transaction
             </a>
-        </div>
+        }
     </div>
 
     <div class="it-panel-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 it-table">
+            <table id="stockTable" class="table table-hover align-middle mb-0 it-table">
                 <thead>
                     <tr>
                         <th>Location</th>
@@ -158,7 +179,7 @@
                         foreach (var s in stocks.OrderByDescending(x => x.QuantityOnHand))
                         {
                             <tr>
-                                <td class="text-muted">@(s.StorageLocation?.Name ?? "—")</td>
+                                <td class="text-muted">@((s.StorageLocation?.Name) ?? "—")</td>
                                 <td class="text-end"><span class="it-qty">@s.QuantityOnHand</span></td>
                             </tr>
                         }
@@ -166,55 +187,72 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pager -->
+        <div class="it-table-pager border-top p-3 d-flex flex-column flex-md-row gap-2 align-items-center justify-content-between">
+            <div class="text-muted small" id="stockInfo"></div>
+
+            <div class="d-flex gap-2 align-items-center">
+                <label class="text-muted small mb-0">Rows</label>
+                <select id="stockPageSize" class="form-select form-select-sm" style="width:auto;">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="25">25</option>
+                </select>
+
+                <nav aria-label="Stock pagination">
+                    <ul class="pagination pagination-sm mb-0" id="stockPagination"></ul>
+                </nav>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="it-panel mt-3">
-    <div class="it-panel-header">
+<!-- TRANSACTION HISTORY -->
+<div class="it-panel">
+    <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
         <div>
             <div class="fw-bold">Transaction History</div>
-            <div class="text-muted small">Check In, Check Out, Adjustment, and Transfer activity.</div>
+            <div class="text-muted small">Latest activity (paged).</div>
         </div>
 
-        <div class="d-flex gap-2">
+        @if (User.CanManage())
+        {
             <a asp-controller="StockTransactions" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-sm btn-primary">
                 + New Transaction
             </a>
-        </div>
+        }
     </div>
 
     <div class="it-panel-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 it-table">
+            <table id="txTable" class="table table-hover align-middle mb-0 it-table">
                 <thead>
                     <tr>
                         <th style="width:170px;">Date</th>
                         <th style="width:140px;">Action</th>
                         <th style="width:90px;">Qty</th>
-                        <th style="width:190px;">From</th>
-                        <th style="width:190px;">To</th>
-                        <th style="width:150px;">By</th>
+                        <th class="d-none d-lg-table-cell" style="width:190px;">From</th>
+                        <th class="d-none d-lg-table-cell" style="width:190px;">To</th>
+                        <th class="d-none d-md-table-cell" style="width:150px;">By</th>
                         <th>Notes</th>
                     </tr>
                 </thead>
 
                 <tbody>
-                    @{
-                        var history = (Model.StockTransactions ?? new List<InvenTrack.Models.StockTransaction>())
-                        .OrderByDescending(t => t.DateCreated)
-                        .Take(25)
-                        .ToList();
-                    }
-
                     @if (!history.Any())
                     {
                         <tr>
                             <td colspan="7" class="text-center text-muted py-5">
                                 <div class="fw-semibold mb-1">No transactions yet</div>
-                                <div class="small mb-3">Create a transaction to start tracking inventory changes.</div>
-                                <a asp-controller="StockTransactions" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-primary btn-sm">
-                                    + New Transaction
-                                </a>
+                                <div class="small mb-3">Transactions appear here once created.</div>
+
+                                @if (User.CanManage())
+                                {
+                                    <a asp-controller="StockTransactions" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-primary btn-sm">
+                                        + New Transaction
+                                    </a>
+                                }
                             </td>
                         </tr>
                     }
@@ -226,15 +264,15 @@
                                 <td class="text-muted">@t.DateCreated.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
 
                                 <td>
-                                    @if (t.ActionType.ToString() == "CheckIn")
+                                    @if (t.ActionType == StockActionType.CheckIn)
                                     {
                                         <span class="badge bg-success-subtle text-success border it-badge">Check In</span>
                                     }
-                                    else if (t.ActionType.ToString() == "CheckOut")
+                                    else if (t.ActionType == StockActionType.CheckOut)
                                     {
                                         <span class="badge bg-danger-subtle text-danger border it-badge">Check Out</span>
                                     }
-                                    else if (t.ActionType.ToString() == "Transfer")
+                                    else if (t.ActionType == StockActionType.Transfer)
                                     {
                                         <span class="badge bg-primary-subtle text-primary border it-badge">Transfer</span>
                                     }
@@ -245,9 +283,9 @@
                                 </td>
 
                                 <td><span class="it-qty">@t.QuantityChange</span></td>
-                                <td class="text-muted">@(t.FromStorageLocation?.Name ?? "—")</td>
-                                <td class="text-muted">@(t.ToStorageLocation?.Name ?? "—")</td>
-                                <td class="text-muted">@(t.PerformedBy ?? "—")</td>
+                                <td class="text-muted d-none d-lg-table-cell">@(t.FromStorageLocation?.Name ?? "—")</td>
+                                <td class="text-muted d-none d-lg-table-cell">@(t.ToStorageLocation?.Name ?? "—")</td>
+                                <td class="text-muted d-none d-md-table-cell">@(t.PerformedBy ?? "—")</td>
                                 <td class="text-muted">@(!string.IsNullOrWhiteSpace(t.Notes) ? t.Notes : "—")</td>
                             </tr>
                         }
@@ -256,5 +294,151 @@
 
             </table>
         </div>
+
+        <!-- Pager -->
+        <div class="it-table-pager border-top p-3 d-flex flex-column flex-md-row gap-2 align-items-center justify-content-between">
+            <div class="text-muted small" id="txInfo"></div>
+
+            <div class="d-flex gap-2 align-items-center">
+                <label class="text-muted small mb-0">Rows</label>
+                <select id="txPageSize" class="form-select form-select-sm" style="width:auto;">
+                    <option value="10" selected>10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                </select>
+
+                <nav aria-label="Transaction pagination">
+                    <ul class="pagination pagination-sm mb-0" id="txPagination"></ul>
+                </nav>
+            </div>
+        </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+
+          function paginateTable(options) {
+            const table = document.getElementById(options.tableId);
+            if (!table) return;
+
+            const tbody = table.querySelector("tbody");
+            if (!tbody) return;
+
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            const pagination = document.getElementById(options.paginationId);
+            const info = document.getElementById(options.infoId);
+            const pageSizeSelect = document.getElementById(options.pageSizeSelectId);
+
+            const realRows = rows.filter(r => !r.querySelector("td[colspan]"));
+            if (realRows.length <= 1) {
+              if (pagination) pagination.innerHTML = "";
+              if (info) info.textContent = realRows.length ? `Showing 1 of 1` : "";
+              return;
+            }
+
+            let pageSize = parseInt(pageSizeSelect?.value || options.defaultPageSize || 10, 10);
+            let currentPage = 1;
+
+            function render() {
+              pageSize = parseInt(pageSizeSelect?.value || pageSize, 10);
+
+              const total = realRows.length;
+              const totalPages = Math.max(1, Math.ceil(total / pageSize));
+              if (currentPage > totalPages) currentPage = totalPages;
+              if (currentPage < 1) currentPage = 1;
+
+              const startIdx = (currentPage - 1) * pageSize;
+              const endIdx = Math.min(startIdx + pageSize, total);
+
+              realRows.forEach(r => r.style.display = "none");
+              realRows.slice(startIdx, endIdx).forEach(r => r.style.display = "");
+
+              if (info) info.textContent = `Showing ${startIdx + 1} - ${endIdx} of ${total}`;
+
+              if (!pagination) return;
+              pagination.innerHTML = "";
+
+              function addPage(label, page, disabled, active) {
+                const li = document.createElement("li");
+                li.className = `page-item ${disabled ? "disabled" : ""} ${active ? "active" : ""}`;
+
+                const a = document.createElement("a");
+                a.className = "page-link";
+                a.href = "#";
+                a.textContent = label;
+
+                a.addEventListener("click", (e) => {
+                  e.preventDefault();
+                  if (disabled) return;
+                  currentPage = page;
+                  render();
+                });
+
+                li.appendChild(a);
+                pagination.appendChild(li);
+              }
+
+              addPage("Prev", currentPage - 1, currentPage === 1, false);
+
+              const windowSize = 2;
+              const first = Math.max(1, currentPage - windowSize);
+              const last = Math.min(totalPages, currentPage + windowSize);
+
+              if (first > 1) {
+                addPage("1", 1, false, false);
+                if (first > 2) {
+                  const li = document.createElement("li");
+                  li.className = "page-item disabled";
+                  li.innerHTML = `<span class="page-link">...</span>`;
+                  pagination.appendChild(li);
+                }
+              }
+
+              for (let p = first; p <= last; p++) {
+                addPage(String(p), p, false, p === currentPage);
+              }
+
+              if (last < totalPages) {
+                if (last < totalPages - 1) {
+                  const li = document.createElement("li");
+                  li.className = "page-item disabled";
+                  li.innerHTML = `<span class="page-link">...</span>`;
+                  pagination.appendChild(li);
+                }
+                addPage(String(totalPages), totalPages, false, false);
+              }
+
+              addPage("Next", currentPage + 1, currentPage === totalPages, false);
+            }
+
+            if (pageSizeSelect) {
+              pageSizeSelect.addEventListener("change", () => {
+                currentPage = 1;
+                render();
+              });
+            }
+
+            render();
+          }
+
+          paginateTable({
+            tableId: "stockTable",
+            paginationId: "stockPagination",
+            infoId: "stockInfo",
+            pageSizeSelectId: "stockPageSize",
+            defaultPageSize: 10
+          });
+
+          paginateTable({
+            tableId: "txTable",
+            paginationId: "txPagination",
+            infoId: "txInfo",
+            pageSizeSelectId: "txPageSize",
+            defaultPageSize: 10
+          });
+
+        })();
+    </script>
+}

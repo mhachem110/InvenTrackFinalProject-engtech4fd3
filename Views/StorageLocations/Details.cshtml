@@ -14,7 +14,10 @@
     </div>
 
     <div class="d-flex gap-2">
-        <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-outline-primary">Edit</a>
+        @if (User.CanManage())
+        {
+            <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-outline-primary">Edit</a>
+        }
         <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
     </div>
 </div>
@@ -45,8 +48,12 @@
         </div>
 
         <div class="d-flex gap-2 mt-4">
-            <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-primary">Edit Location</a>
-            <a asp-action="Delete" asp-route-id="@Model.ID" class="btn btn-outline-danger">Delete</a>
+            @if (User.CanManage())
+            {
+                <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-primary">Edit Location</a>
+                <a asp-action="Delete" asp-route-id="@Model.ID" class="btn btn-outline-danger">Delete</a>
+            }
+            <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
         </div>
     </div>
 </div>

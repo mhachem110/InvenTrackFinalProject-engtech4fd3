@@ -26,9 +26,12 @@
         <div class="text-muted small">Browse and manage items, quantities, and locations.</div>
     </div>
 
-    <div class="d-flex gap-2">
-        <a asp-action="Create" class="btn btn-primary">+ Add Item</a>
-    </div>
+    @if (User.CanManage())
+    {
+        <div class="d-flex gap-2">
+            <a asp-action="Create" class="btn btn-primary">+ Add Item</a>
+        </div>
+    }
 </div>
 
 <form asp-action="Index" method="get" class="it-panel mb-3">
@@ -88,7 +91,7 @@
                         <th style="width:180px;">Category</th>
                         <th style="width:210px;">Locations</th>
                         <th style="width:120px;">Status</th>
-                        <th class="text-end" style="width:220px;">Actions</th>
+                        <th class="text-end" style="width:220px;">@(User.CanManage() ? "Actions" : "View")</th>
                     </tr>
                 </thead>
 
@@ -99,7 +102,11 @@
                             <td colspan="8" class="text-center text-muted py-5">
                                 <div class="fw-semibold mb-1">No inventory items found</div>
                                 <div class="small mb-3">Try changing the filters or create a new inventory item.</div>
-                                <a asp-action="Create" class="btn btn-primary btn-sm">+ Add Item</a>
+
+                                @if (User.CanManage())
+                                {
+                                    <a asp-action="Create" class="btn btn-primary btn-sm">+ Add Item</a>
+                                }
                             </td>
                         </tr>
                     }
@@ -177,8 +184,12 @@
                                 <td class="text-end">
                                     <div class="btn-group" role="group">
                                         <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-sm btn-outline-secondary">Details</a>
-                                        <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-sm btn-outline-primary">Edit</a>
-                                        <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-sm btn-outline-danger">Delete</a>
+
+                                        @if (User.CanManage())
+                                        {
+                                            <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-sm btn-outline-primary">Edit</a>
+                                            <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-sm btn-outline-danger">Delete</a>
+                                        }
                                     </div>
                                 </td>
                             </tr>

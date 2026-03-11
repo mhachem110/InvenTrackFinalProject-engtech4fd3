@@ -1,4 +1,5 @@
-﻿@using InvenTrack.Data
+﻿@model object
+@using InvenTrack.Data
 @using InvenTrack.Models
 @using Microsoft.EntityFrameworkCore
 @inject InvenTrackContext Db
@@ -16,6 +17,7 @@
         .Where(i => i.QuantityOnHand <= i.ReorderLevel)
         .CountAsync();
 
+    // Admin/Manager uses this
     var recentTx = await Db.StockTransactions
         .AsNoTracking()
         .Include(t => t.InventoryItem)
@@ -26,219 +28,378 @@
         .ToListAsync();
 }
 
-<div class="row g-3 g-lg-4 mb-3">
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="it-kpi">
-            <div class="label">Inventory Items</div>
-            <div class="value">@itemCount</div>
-            <div class="text-muted small mt-2">Track quantities, reorder levels, and status.</div>
-            <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
-                <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-primary btn-sm">Open Inventory</a>
-                <a asp-controller="InventoryItems" asp-action="Create" class="btn btn-outline-primary btn-sm">Add Item</a>
-            </div>
-        </div>
-    </div>
+@if (User.CanManage())
+{
+    <!-- =========================
+         ADMIN / MANAGER DASHBOARD
+         ========================= -->
 
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="it-kpi">
-            <div class="label">Transactions</div>
-            <div class="value">@txCount</div>
-            <div class="text-muted small mt-2">Check in/out, adjustments, and transfers.</div>
-            <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
-                <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-outline-primary btn-sm">View Transactions</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="it-kpi">
-            <div class="label">Low Stock Items</div>
-            <div class="value">@lowStockCount</div>
-            <div class="text-muted small mt-2">Items currently at or below reorder level.</div>
-            <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
-                <a asp-controller="Reports" asp-action="LowStock" class="btn btn-outline-warning btn-sm">Open Low Stock</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="it-kpi">
-            <div class="label">Locations</div>
-            <div class="value">@locationCount</div>
-            <div class="text-muted small mt-2">Know exactly where stock is stored.</div>
-            <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
-                <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-outline-secondary btn-sm">Manage Locations</a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row g-3 g-lg-4 align-items-stretch">
-    <div class="col-12 col-xl-7">
-        <div class="it-panel h-100">
-            <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
-                <div>
-                    <div class="fw-bold">Quick Actions</div>
-                    <div class="text-muted small">Jump into common inventory tasks.</div>
+    <div class="row g-3 g-lg-4 mb-3">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-kpi">
+                <div class="label">Inventory Items</div>
+                <div class="value">@itemCount</div>
+                <div class="text-muted small mt-2">Track quantities, reorder levels, and status.</div>
+                <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
+                    <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-primary btn-sm">Open Inventory</a>
+                    <a asp-controller="InventoryItems" asp-action="Create" class="btn btn-outline-primary btn-sm">Add Item</a>
                 </div>
-                <span class="badge text-bg-primary-subtle">Dashboard</span>
             </div>
+        </div>
 
-            <div class="it-panel-body">
-                <div class="row g-3">
-                    <div class="col-12 col-md-6">
-                        <div class="it-panel p-3 h-100">
-                            <div class="fw-semibold mb-1">Add a new inventory item</div>
-                            <div class="text-muted small mb-3">Create item with SKU, quantity, reorder level, and photo.</div>
-                            <div class="d-grid d-sm-flex gap-2">
-                                <a asp-controller="InventoryItems" asp-action="Create" class="btn btn-primary btn-sm">+ Add Item</a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6">
-                        <div class="it-panel p-3 h-100">
-                            <div class="fw-semibold mb-1">Browse inventory list</div>
-                            <div class="text-muted small mb-3">View current items, quantities, category, and location.</div>
-                            <div class="d-grid d-sm-flex gap-2">
-                                <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-primary btn-sm">View Inventory</a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6">
-                        <div class="it-panel p-3 h-100">
-                            <div class="fw-semibold mb-1">Record a stock transaction</div>
-                            <div class="text-muted small mb-3">Check in/out, adjust stock, or transfer items between locations.</div>
-                            <div class="d-grid d-sm-flex gap-2">
-                                <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-outline-primary btn-sm">Transactions</a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6">
-                        <div class="it-panel p-3 h-100">
-                            <div class="fw-semibold mb-1">Manage locations</div>
-                            <div class="text-muted small mb-3">Add/edit locations (building/room) to organize inventory.</div>
-                            <div class="d-grid d-sm-flex gap-2">
-                                <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-outline-secondary btn-sm">Locations</a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6">
-                        <div class="it-panel p-3 h-100">
-                            <div class="fw-semibold mb-1">Open reports</div>
-                            <div class="text-muted small mb-3">Low stock, location summary, recent transactions, and CSV export.</div>
-                            <div class="d-grid d-sm-flex gap-2">
-                                <a asp-controller="Reports" asp-action="Index" class="btn btn-outline-primary btn-sm">Reports</a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6">
-                        <div class="it-panel p-3 h-100">
-                            <div class="fw-semibold mb-1">Review low stock</div>
-                            <div class="text-muted small mb-3">See which items need attention before they run out.</div>
-                            <div class="d-grid d-sm-flex gap-2">
-                                <a asp-controller="Reports" asp-action="LowStock" class="btn btn-outline-warning btn-sm">Low Stock Report</a>
-                            </div>
-                        </div>
-                    </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-kpi">
+                <div class="label">Transactions</div>
+                <div class="value">@txCount</div>
+                <div class="text-muted small mt-2">Check in/out, adjustments, and transfers.</div>
+                <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
+                    <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-outline-primary btn-sm">View Transactions</a>
                 </div>
+            </div>
+        </div>
 
-                <div class="mt-4 text-muted small">
-                    Reports and CSV export are now available from the Reports area.
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-kpi">
+                <div class="label">Low Stock Items</div>
+                <div class="value">@lowStockCount</div>
+                <div class="text-muted small mt-2">Items currently at or below reorder level.</div>
+                <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
+                    <a asp-controller="Reports" asp-action="LowStock" class="btn btn-outline-warning btn-sm">Open Low Stock</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-kpi">
+                <div class="label">Locations</div>
+                <div class="value">@locationCount</div>
+                <div class="text-muted small mt-2">Know exactly where stock is stored.</div>
+                <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
+                    <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-outline-secondary btn-sm">Manage Locations</a>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="col-12 col-xl-5">
-        <div class="it-panel h-100">
-            <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
-                <div>
-                    <div class="fw-bold">Recent Transactions</div>
-                    <div class="text-muted small">Latest inventory changes and transfers.</div>
+    <div class="row g-3 g-lg-4 align-items-stretch">
+        <div class="col-12 col-xl-7">
+            <div class="it-panel h-100">
+                <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
+                    <div>
+                        <div class="fw-bold">Quick Actions</div>
+                        <div class="text-muted small">Jump into common inventory tasks.</div>
+                    </div>
+                    <span class="badge text-bg-primary-subtle">Dashboard</span>
                 </div>
 
-                <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-sm btn-outline-secondary">
-                    View All
-                </a>
+                <div class="it-panel-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="it-panel p-3 h-100">
+                                <div class="fw-semibold mb-1">Add a new inventory item</div>
+                                <div class="text-muted small mb-3">Create item with SKU, quantity, reorder level, and photo.</div>
+                                <div class="d-grid d-sm-flex gap-2">
+                                    <a asp-controller="InventoryItems" asp-action="Create" class="btn btn-primary btn-sm">+ Add Item</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <div class="it-panel p-3 h-100">
+                                <div class="fw-semibold mb-1">Browse inventory list</div>
+                                <div class="text-muted small mb-3">View current items, quantities, category, and location.</div>
+                                <div class="d-grid d-sm-flex gap-2">
+                                    <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-primary btn-sm">View Inventory</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <div class="it-panel p-3 h-100">
+                                <div class="fw-semibold mb-1">Record a stock transaction</div>
+                                <div class="text-muted small mb-3">Check in/out, adjust stock, or transfer items between locations.</div>
+                                <div class="d-grid d-sm-flex gap-2">
+                                    <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-outline-primary btn-sm">Transactions</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <div class="it-panel p-3 h-100">
+                                <div class="fw-semibold mb-1">Manage locations</div>
+                                <div class="text-muted small mb-3">Add/edit locations (building/room) to organize inventory.</div>
+                                <div class="d-grid d-sm-flex gap-2">
+                                    <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-outline-secondary btn-sm">Locations</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <div class="it-panel p-3 h-100">
+                                <div class="fw-semibold mb-1">Open reports</div>
+                                <div class="text-muted small mb-3">Low stock, location summary, recent transactions, and CSV export.</div>
+                                <div class="d-grid d-sm-flex gap-2">
+                                    <a asp-controller="Reports" asp-action="Index" class="btn btn-outline-primary btn-sm">Reports</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <div class="it-panel p-3 h-100">
+                                <div class="fw-semibold mb-1">Review low stock</div>
+                                <div class="text-muted small mb-3">See which items need attention before they run out.</div>
+                                <div class="d-grid d-sm-flex gap-2">
+                                    <a asp-controller="Reports" asp-action="LowStock" class="btn btn-outline-warning btn-sm">Low Stock Report</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 text-muted small">
+                        Reports and CSV export are now available from the Reports area.
+                    </div>
+                </div>
             </div>
+        </div>
 
-            <div class="it-panel-body">
-                @if (!recentTx.Any())
-                {
-                    <div class="text-muted small">
-                        No transactions yet. Create one from an item’s details page.
+        <div class="col-12 col-xl-5">
+            <div class="it-panel h-100">
+                <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
+                    <div>
+                        <div class="fw-bold">Recent Transactions</div>
+                        <div class="text-muted small">Latest inventory changes and transfers.</div>
                     </div>
 
-                    <div class="d-grid gap-2 mt-3">
-                        <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-primary">Go to Inventory</a>
-                    </div>
-                }
-                else
-                {
-                    @foreach (var t in recentTx)
+                    <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-sm btn-outline-secondary">
+                        View All
+                    </a>
+                </div>
+
+                <div class="it-panel-body">
+                    @if (!recentTx.Any())
                     {
-                        <div class="d-flex align-items-start gap-3 mb-3">
-                            <div class="it-logo flex-shrink-0" style="width:36px;height:36px;border-radius:12px;">
-                                @(
-                                                        t.ActionType == StockActionType.CheckIn ? "➕" :
-                                                        t.ActionType == StockActionType.CheckOut ? "➖" :
-                                                        t.ActionType == StockActionType.Transfer ? "⇄" : "✎"
-                                                        )
-                            </div>
+                        <div class="text-muted small">
+                            No transactions yet. Create one from an item’s details page.
+                        </div>
 
-                            <div class="w-100 min-w-0">
-                                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-1">
-                                    <div class="fw-semibold text-break">@t.InventoryItem?.ItemName</div>
-                                    <div class="text-muted small flex-shrink-0">@t.DateCreated.ToLocalTime().ToString("MM-dd HH:mm")</div>
-                                </div>
-
-                                <div class="text-muted small text-break">
-                                    @if (t.ActionType == StockActionType.Transfer)
-                                    {
-                                        <span class="badge bg-primary-subtle text-primary border it-badge">Transfer</span>
-                                        <span class="ms-2">Qty: <span class="fw-semibold">@t.QuantityChange</span></span>
-                                        <span class="ms-2">@(t.FromStorageLocation?.Name ?? "-") → @(t.ToStorageLocation?.Name ?? "-")</span>
-                                    }
-                                    else if (t.ActionType == StockActionType.CheckIn)
-                                    {
-                                        <span class="badge bg-success-subtle text-success border it-badge">Check In</span>
-                                        <span class="ms-2">+<span class="fw-semibold">@Math.Abs(t.QuantityChange)</span></span>
-                                    }
-                                    else if (t.ActionType == StockActionType.CheckOut)
-                                    {
-                                        <span class="badge bg-danger-subtle text-danger border it-badge">Check Out</span>
-                                        <span class="ms-2">-<span class="fw-semibold">@Math.Abs(t.QuantityChange)</span></span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary-subtle text-secondary border it-badge">Adjustment</span>
-                                        <span class="ms-2"><span class="fw-semibold">@t.QuantityChange</span></span>
-                                    }
-                                </div>
-
-                                @if (!string.IsNullOrWhiteSpace(t.Notes))
-                                {
-                                    <div class="text-muted small mt-1 text-break">
-                                        "@t.Notes"
-                                    </div>
-                                }
-                            </div>
+                        <div class="d-grid gap-2 mt-3">
+                            <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-primary">Go to Inventory</a>
                         </div>
                     }
+                    else
+                    {
+                        @foreach (var t in recentTx)
+                        {
+                            <div class="d-flex align-items-start gap-3 mb-3">
+                                <div class="it-logo flex-shrink-0" style="width:36px;height:36px;border-radius:12px;">
+                                    @(
+                                                            t.ActionType == StockActionType.CheckIn ? "➕" :
+                                                            t.ActionType == StockActionType.CheckOut ? "➖" :
+                                                            t.ActionType == StockActionType.Transfer ? "⇄" : "✎"
+                                                            )
+                            </div>
 
-                    <hr class="my-3" />
+                                <div class="w-100 min-w-0">
+                                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-1">
+                                        <div class="fw-semibold text-break">@t.InventoryItem?.ItemName</div>
+                                        <div class="text-muted small flex-shrink-0">@t.DateCreated.ToLocalTime().ToString("MM-dd HH:mm")</div>
+                                    </div>
 
-                    <div class="d-grid gap-2 d-sm-flex flex-wrap">
-                        <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-primary">Go to Inventory</a>
-                        <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-primary">View Transactions</a>
-                    </div>
-                }
+                                    <div class="text-muted small text-break">
+                            @if (t.ActionType == StockActionType.Transfer)
+                                        {
+                                            <span class="badge bg-primary-subtle text-primary border it-badge">Transfer</span>
+                                            <span class="ms-2">Qty: <span class="fw-semibold">@t.QuantityChange</span></span>
+                                            <span class="ms-2">@(t.FromStorageLocation?.Name ?? "-") → @(t.ToStorageLocation?.Name ?? "-")</span>
+                                        }
+                                        else if (t.ActionType == StockActionType.CheckIn)
+                                        {
+                                            <span class="badge bg-success-subtle text-success border it-badge">Check In</span>
+                                            <span class="ms-2">+<span class="fw-semibold">@Math.Abs(t.QuantityChange)</span></span>
+                                        }
+                                        else if (t.ActionType == StockActionType.CheckOut)
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger border it-badge">Check Out</span>
+                                            <span class="ms-2">-<span class="fw-semibold">@Math.Abs(t.QuantityChange)</span></span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary border it-badge">Adjustment</span>
+                                            <span class="ms-2"><span class="fw-semibold">@t.QuantityChange</span></span>
+                                        }
+                                    </div>
+
+                                    @if (!string.IsNullOrWhiteSpace(t.Notes))
+                                    {
+                                        <div class="text-muted small mt-1 text-break">
+                                            "@t.Notes"
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        <hr class="my-3" />
+
+                        <div class="d-grid gap-2 d-sm-flex flex-wrap">
+                            <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-primary">Go to Inventory</a>
+                            <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-primary">View Transactions</a>
+                        </div>
+                    }
+                </div>
             </div>
         </div>
     </div>
-</div>
+}
+else
+{
+    <!-- =========================
+         VIEWER DASHBOARD (NO TRANSACTIONS)
+         ========================= -->
+
+    <div class="it-panel mb-3">
+        <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
+            <div>
+                <div class="fw-bold">Viewer Dashboard</div>
+                <div class="text-muted small">Read-only access — browse inventory and details.</div>
+            </div>
+            <span class="badge text-bg-secondary">Viewer</span>
+        </div>
+        <div class="it-panel-body">
+            <div class="it-hint">
+                You can view items, categories, locations, and item details. Editing, deleting, creating records, and transactions are disabled.
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 g-lg-4 mb-3">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-kpi">
+                <div class="label">Inventory Items</div>
+                <div class="value">@itemCount</div>
+                <div class="text-muted small mt-2">Browse item list and open details.</div>
+                <div class="mt-3 d-grid gap-2">
+                    <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-primary btn-sm">Browse Inventory</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-kpi">
+                <div class="label">Categories</div>
+                <div class="value">@categoryCount</div>
+                <div class="text-muted small mt-2">View category names and descriptions.</div>
+                <div class="mt-3 d-grid gap-2">
+                    <a asp-controller="Categories" asp-action="Index" class="btn btn-outline-secondary btn-sm">View Categories</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-kpi">
+                <div class="label">Locations</div>
+                <div class="value">@locationCount</div>
+                <div class="text-muted small mt-2">View building/room storage locations.</div>
+                <div class="mt-3 d-grid gap-2">
+                    <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-outline-secondary btn-sm">View Locations</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-kpi">
+                <div class="label">Low Stock</div>
+                <div class="value">@lowStockCount</div>
+                <div class="text-muted small mt-2">Items at/below reorder level (read-only).</div>
+                <div class="mt-3 d-grid gap-2">
+                    <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-warning btn-sm">
+                        Open Inventory (use filters)
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 g-lg-4">
+        <div class="col-12 col-xl-7">
+            <div class="it-panel h-100">
+                <div class="it-panel-header">
+                    <div class="fw-bold">Read-only Help</div>
+                    <div class="text-muted small">Suggested viewer workflow.</div>
+                </div>
+
+                <div class="it-panel-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="it-mini h-100">
+                                <div class="it-mini-title">1) Search & filter</div>
+                                <div class="text-muted small">
+                                    Use search and status filters in Inventory to find items quickly.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="it-mini h-100">
+                                <div class="it-mini-title">2) Open Details</div>
+                                <div class="text-muted small">
+                                    View per-location stock and the latest history (read-only).
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="it-mini h-100">
+                                <div class="it-mini-title">3) Low stock checks</div>
+                                <div class="text-muted small">
+                                    Look for “Low” badges and notify an Admin/Manager.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="it-mini h-100">
+                                <div class="it-mini-title">4) Request changes</div>
+                                <div class="text-muted small">
+                                    If something is incorrect, ask Admin/Manager to update it.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-sm-flex flex-wrap mt-4">
+                        <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-primary">Go to Inventory</a>
+                        <a asp-controller="Home" asp-action="Privacy" class="btn btn-outline-secondary">Privacy</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-5">
+            <div class="it-panel h-100">
+                <div class="it-panel-header">
+                    <div class="fw-bold">Viewer Notes</div>
+                    <div class="text-muted small">What you can do.</div>
+                </div>
+
+                <div class="it-panel-body">
+                    <ul class="text-muted small mb-3">
+                        <li>You can browse inventory, categories, and locations.</li>
+                        <li>You can open item details and view per-location stock.</li>
+                        <li>You cannot create/edit/delete or create transactions.</li>
+                    </ul>
+
+                    <div class="it-hint">
+                        Tip: If you need an update (quantity, location, SKU), message an Admin/Manager with the item name + SKU.
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-primary">Browse Inventory</a>
+                        <a asp-controller="Categories" asp-action="Index" class="btn btn-outline-secondary">Categories</a>
+                        <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-outline-secondary">Locations</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
