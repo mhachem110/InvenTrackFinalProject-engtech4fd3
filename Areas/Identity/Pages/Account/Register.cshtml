@@ -3,144 +3,46 @@
 
 @{
     ViewData["Title"] = "Register";
-    var returnUrl = Model.ReturnUrl ?? Url.Content("~/");
 }
 
 <div class="it-pagehead mb-3">
     <div>
         <div class="d-flex align-items-center gap-2">
             <div class="it-page-dot"></div>
-            <h1 class="h3 mb-0 fw-bold">Register</h1>
+            <h1 class="h3 mb-0 fw-bold">Registration Disabled</h1>
         </div>
-        <div class="text-muted small">Create your InvenTrack account.</div>
+        <div class="text-muted small">Accounts for InvenTrack are created by an administrator.</div>
     </div>
 
     <div class="d-flex gap-2">
-        <a asp-page="./Login" asp-route-returnUrl="@returnUrl" class="btn btn-outline-secondary">Back to Login</a>
+        <a asp-page="./Login" class="btn btn-outline-secondary">Back to Login</a>
     </div>
 </div>
 
-<div class="row g-3 g-lg-4">
-    <div class="col-12 col-lg-7">
+<div class="row justify-content-center">
+    <div class="col-12 col-md-10 col-lg-8 col-xl-6">
         <div class="it-panel">
             <div class="it-panel-header">
                 <div>
-                    <div class="fw-bold">Create account</div>
-                    <div class="text-muted small">Use an email and a strong password.</div>
+                    <div class="fw-bold">Internal access only</div>
+                    <div class="text-muted small">Self-registration is not available for this system.</div>
                 </div>
             </div>
 
             <div class="it-panel-body">
-                <form id="registerForm" asp-route-returnUrl="@returnUrl" method="post">
-                    <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
-
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label asp-for="Input.Email" class="form-label"></label>
-                            <input asp-for="Input.Email"
-                                   class="form-control"
-                                   autocomplete="username"
-                                   aria-required="true"
-                                   placeholder="name@example.com" />
-                            <span asp-validation-for="Input.Email" class="text-danger small"></span>
-                        </div>
-
-                        <div class="col-12">
-                            <label asp-for="Input.Password" class="form-label"></label>
-                            <input asp-for="Input.Password"
-                                   class="form-control"
-                                   autocomplete="new-password"
-                                   aria-required="true"
-                                   placeholder="At least 8 characters" />
-                            <span asp-validation-for="Input.Password" class="text-danger small"></span>
-                        </div>
-
-                        <div class="col-12">
-                            <label asp-for="Input.ConfirmPassword" class="form-label"></label>
-                            <input asp-for="Input.ConfirmPassword"
-                                   class="form-control"
-                                   autocomplete="new-password"
-                                   aria-required="true"
-                                   placeholder="Repeat password" />
-                            <span asp-validation-for="Input.ConfirmPassword" class="text-danger small"></span>
-                        </div>
-
-                        <div class="col-12">
-                            <button id="registerSubmit" type="submit" class="btn btn-primary w-100">
-                                Register
-                            </button>
-                        </div>
-
-                        <div class="col-12">
-                            <div class="it-hint">
-                                Already have an account?
-                                <a asp-page="./Login" asp-route-returnUrl="@returnUrl" class="text-decoration-none fw-semibold">Log in</a>.
-                            </div>
-                        </div>
-
-                        <div class="col-12 text-muted small">
-                            After registering, you’ll receive an email to confirm your account.
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-12 col-lg-5">
-        <div class="it-panel h-100">
-            <div class="it-panel-header">
-                <div>
-                    <div class="fw-bold">Password guidance</div>
-                    <div class="text-muted small">Keep accounts secure.</div>
+                <div class="it-hint mb-3">
+                    InvenTrack is an internal tool. New accounts must be created and assigned by an administrator.
                 </div>
-            </div>
 
-            <div class="it-panel-body">
-                <ul class="text-muted small mb-3">
-                    <li>Use at least 8 characters</li>
-                    <li>Include upper and lower case letters</li>
-                    <li>Include a number</li>
-                </ul>
+                <div class="text-muted small mb-3">
+                    If you need access, contact your administrator or project owner and ask them to create your account and assign your role.
+                </div>
 
-                @{
-                    var externalCount = Model.ExternalLogins?.Count ?? 0;
-                }
-
-                @if (externalCount > 0)
-                {
-                    <hr class="my-3" />
-                    <div class="fw-semibold mb-2">Register with another service</div>
-
-                    <form id="external-account"
-                          asp-page="./ExternalLogin"
-                          asp-route-returnUrl="@returnUrl"
-                          method="post">
-                        <div class="d-grid gap-2">
-                            @foreach (var provider in Model.ExternalLogins)
-                            {
-                                <button type="submit"
-                                        class="btn btn-outline-primary"
-                                        name="provider"
-                                        value="@provider.Name"
-                                        title="Register using your @provider.DisplayName account">
-                                    Continue with @provider.DisplayName
-                                </button>
-                            }
-                        </div>
-                    </form>
-                }
-                else
-                {
-                    <div class="it-hint">
-                        External registration providers are not configured.
-                    </div>
-                }
+                <div class="d-flex flex-wrap gap-2">
+                    <a asp-page="./Login" class="btn btn-primary">Go to Login</a>
+                    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">Home</a>
+                </div>
             </div>
         </div>
     </div>
 </div>
-
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-}

@@ -227,6 +227,7 @@ namespace InvenTrack.Controllers
             return View(item);
         }
 
+        [Authorize(Roles = "Admin,Manager")]
         public IActionResult Create()
         {
             PopulateDropDowns();

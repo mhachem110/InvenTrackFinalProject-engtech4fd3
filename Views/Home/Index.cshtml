@@ -11,6 +11,11 @@
     var locationCount = await Db.StorageLocations.CountAsync();
     var txCount = await Db.StockTransactions.CountAsync();
 
+    var lowStockCount = await Db.InventoryItems
+        .AsNoTracking()
+        .Where(i => i.QuantityOnHand <= i.ReorderLevel)
+        .CountAsync();
+
     var recentTx = await Db.StockTransactions
         .AsNoTracking()
         .Include(t => t.InventoryItem)
@@ -47,11 +52,11 @@
 
     <div class="col-12 col-sm-6 col-xl-3">
         <div class="it-kpi">
-            <div class="label">Categories</div>
-            <div class="value">@categoryCount</div>
-            <div class="text-muted small mt-2">Keep classification consistent for reporting.</div>
+            <div class="label">Low Stock Items</div>
+            <div class="value">@lowStockCount</div>
+            <div class="text-muted small mt-2">Items currently at or below reorder level.</div>
             <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
-                <a asp-controller="Categories" asp-action="Index" class="btn btn-outline-secondary btn-sm">Manage Categories</a>
+                <a asp-controller="Reports" asp-action="LowStock" class="btn btn-outline-warning btn-sm">Open Low Stock</a>
             </div>
         </div>
     </div>
@@ -120,10 +125,30 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="col-12 col-md-6">
+                        <div class="it-panel p-3 h-100">
+                            <div class="fw-semibold mb-1">Open reports</div>
+                            <div class="text-muted small mb-3">Low stock, location summary, recent transactions, and CSV export.</div>
+                            <div class="d-grid d-sm-flex gap-2">
+                                <a asp-controller="Reports" asp-action="Index" class="btn btn-outline-primary btn-sm">Reports</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <div class="it-panel p-3 h-100">
+                            <div class="fw-semibold mb-1">Review low stock</div>
+                            <div class="text-muted small mb-3">See which items need attention before they run out.</div>
+                            <div class="d-grid d-sm-flex gap-2">
+                                <a asp-controller="Reports" asp-action="LowStock" class="btn btn-outline-warning btn-sm">Low Stock Report</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="mt-4 text-muted small">
-                    Next step: Low-stock alerts and export reports (coming soon).
+                    Reports and CSV export are now available from the Reports area.
                 </div>
             </div>
         </div>

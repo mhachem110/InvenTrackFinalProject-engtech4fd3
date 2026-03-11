@@ -90,11 +90,14 @@ namespace InvenTrack.Controllers
         }
 
         // GET: StorageLocations/Create
+        [Authorize(Roles = "Admin,Manager")]
+
         public IActionResult Create()
         {
             return View();
         }
 
+        [Authorize(Roles = "Admin,Manager")]
         // POST: StorageLocations/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -127,6 +130,7 @@ namespace InvenTrack.Controllers
         }
 
         // GET: StorageLocations/Edit/5
+        [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
@@ -138,6 +142,7 @@ namespace InvenTrack.Controllers
         }
 
         // POST: StorageLocations/Edit/5
+        [Authorize(Roles = "Admin,Manager")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id)
@@ -180,6 +185,7 @@ namespace InvenTrack.Controllers
         }
 
         // GET: StorageLocations/Delete/5
+        [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
@@ -194,6 +200,7 @@ namespace InvenTrack.Controllers
         }
 
         // POST: StorageLocations/Delete/5
+        [Authorize(Roles = "Admin,Manager")]
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)

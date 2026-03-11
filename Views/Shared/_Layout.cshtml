@@ -101,6 +101,10 @@
                                 <span class="it-nav-ico">🧾</span> Transactions
                             </a>
 
+                            <a class="it-nav-link @(IsActive("Reports") ? "active" : "")" asp-controller="Reports" asp-action="Index">
+                                <span class="it-nav-ico">📊</span> Reports
+                            </a>
+
                             <a class="it-nav-link @(IsActive("Categories") ? "active" : "")" asp-controller="Categories" asp-action="Index">
                                 <span class="it-nav-ico">🗂️</span> Categories
                             </a>
@@ -142,12 +146,12 @@
                                 <div class="fw-semibold text-truncate">@ViewData["Title"]</div>
                             </div>
 
-                            <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                            @* <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
                                 @if (canWrite)
                                 {
                                     <a class="btn btn-sm btn-primary" asp-controller="InventoryItems" asp-action="Create">+ Add Item</a>
                                 }
-                            </div>
+                            </div> *@
                         </div>
                     </header>
 
@@ -195,6 +199,10 @@
 
                     <a class="it-nav-link @(IsActive("StockTransactions") ? "active" : "")" asp-controller="StockTransactions" asp-action="Index">
                         <span class="it-nav-ico">🧾</span> Transactions
+                    </a>
+
+                    <a class="it-nav-link @(IsActive("Reports") ? "active" : "")" asp-controller="Reports" asp-action="Index">
+                        <span class="it-nav-ico">📊</span> Reports
                     </a>
 
                     <a class="it-nav-link @(IsActive("Categories") ? "active" : "")" asp-controller="Categories" asp-action="Index">
