@@ -1,38 +1,128 @@
 ﻿@model object
 @using InvenTrack.Data
 @using InvenTrack.Models
+@using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject InvenTrackContext Db
+@inject UserManager<ApplicationUser> UserManager
 
 @{
     ViewData["Title"] = "Home";
 
-    var itemCount = await Db.InventoryItems.CountAsync();
-    var categoryCount = await Db.Categories.CountAsync();
-    var locationCount = await Db.StorageLocations.CountAsync();
-    var txCount = await Db.StockTransactions.CountAsync();
+    bool isAdmin = User.IsInRole(AppRoles.Admin);
+    bool isRegionalManager = User.IsInRole(AppRoles.RegionalManager);
+    bool isManager = User.IsInRole(AppRoles.Manager);
+    bool isSupervisor = User.IsInRole(AppRoles.Supervisor);
+    bool isEmployee = User.IsInRole(AppRoles.Employee);
 
-    var lowStockCount = await Db.InventoryItems
-        .AsNoTracking()
-        .Where(i => i.QuantityOnHand <= i.ReorderLevel)
-        .CountAsync();
+    bool canManage = isAdmin || isRegionalManager || isManager || isSupervisor;
+    bool canUseTransferRequests = isAdmin || isRegionalManager || isManager || isSupervisor || isEmployee;
+    bool hasGlobalLocationAccess = isAdmin || isRegionalManager;
 
-    // Admin/Manager uses this
-    var recentTx = await Db.StockTransactions
+    var currentUser = await UserManager.GetUserAsync(User);
+    int? assignedLocationId = currentUser?.AssignedStorageLocationId;
+    string assignedLocationName = "All Locations";
+
+    if (!hasGlobalLocationAccess)
+    {
+        if (assignedLocationId.HasValue)
+        {
+            assignedLocationName = await Db.StorageLocations
+                .AsNoTracking()
+                .Where(l => l.ID == assignedLocationId.Value)
+                .Select(l => l.Name)
+                .FirstOrDefaultAsync() ?? "-";
+        }
+        else
+        {
+            assignedLocationName = "-";
+        }
+    }
+
+    IQueryable<InventoryItem> inventoryQuery = Db.InventoryItems.AsNoTracking();
+    IQueryable<StockTransaction> transactionQuery = Db.StockTransactions
         .AsNoTracking()
         .Include(t => t.InventoryItem)
         .Include(t => t.FromStorageLocation)
-        .Include(t => t.ToStorageLocation)
+        .Include(t => t.ToStorageLocation);
+
+    IQueryable<StorageLocation> locationQuery = Db.StorageLocations.AsNoTracking();
+    IQueryable<StockTransferRequest> transferRequestQuery = Db.StockTransferRequests
+        .AsNoTracking()
+        .Include(r => r.InventoryItem)
+        .Include(r => r.FromStorageLocation)
+        .Include(r => r.ToStorageLocation);
+
+    if (!hasGlobalLocationAccess && assignedLocationId.HasValue)
+    {
+        var locationId = assignedLocationId.Value;
+
+        inventoryQuery = inventoryQuery.Where(i =>
+            i.StorageLocationID == locationId ||
+            Db.InventoryItemStocks.Any(s => s.InventoryItemID == i.ID && s.StorageLocationID == locationId));
+
+        transactionQuery = transactionQuery.Where(t =>
+            t.FromStorageLocationID == locationId ||
+            t.ToStorageLocationID == locationId);
+
+        locationQuery = locationQuery.Where(l => l.ID == locationId);
+
+        transferRequestQuery = transferRequestQuery.Where(r =>
+            r.FromStorageLocationID == locationId ||
+            r.ToStorageLocationID == locationId);
+    }
+
+    var itemCount = await inventoryQuery.CountAsync();
+    var categoryCount = await Db.Categories.AsNoTracking().CountAsync();
+    var locationCount = await locationQuery.CountAsync();
+    var txCount = await transactionQuery.CountAsync();
+
+    var lowStockCount = await inventoryQuery
+        .Where(i => i.QuantityOnHand <= i.ReorderLevel)
+        .CountAsync();
+
+    var openTransferCount = await transferRequestQuery
+        .Where(r => r.Status != TransferRequestStatus.Approved)
+        .CountAsync();
+
+    var recentTx = await transactionQuery
         .OrderByDescending(t => t.DateCreated)
         .Take(8)
         .ToListAsync();
+
+    var latestOpenRequests = await transferRequestQuery
+        .Where(r => r.Status != TransferRequestStatus.Approved)
+        .OrderBy(r => r.Status == TransferRequestStatus.Pending ? 0 : 1)
+        .ThenByDescending(r => r.DateRequested)
+        .Take(6)
+        .ToListAsync();
 }
 
-@if (User.CanManage())
+@if (canManage)
 {
-    <!-- =========================
-         ADMIN / MANAGER DASHBOARD
-         ========================= -->
+    <div class="it-panel mb-3">
+        <div class="it-panel-body d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+            <div>
+                <div class="fw-bold">Operations Dashboard</div>
+                <div class="text-muted small">
+                    @(hasGlobalLocationAccess ? "You are viewing all locations." : $"You are scoped to: {assignedLocationName}.")
+                </div>
+            </div>
+
+            @if (canUseTransferRequests)
+            {
+                <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-outline-primary position-relative">
+                    Open Transfer Requests
+                    @if (openTransferCount > 0)
+                    {
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            @openTransferCount
+                        </span>
+                    }
+                </a>
+            }
+        </div>
+    </div>
 
     <div class="row g-3 g-lg-4 mb-3">
         <div class="col-12 col-sm-6 col-xl-3">
@@ -51,9 +141,20 @@
             <div class="it-kpi">
                 <div class="label">Transactions</div>
                 <div class="value">@txCount</div>
-                <div class="text-muted small mt-2">Check in/out, adjustments, and transfers.</div>
+                <div class="text-muted small mt-2">Recent stock movement in your current scope.</div>
                 <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
                     <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-outline-primary btn-sm">View Transactions</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-kpi">
+                <div class="label">Open Requests</div>
+                <div class="value">@openTransferCount</div>
+                <div class="text-muted small mt-2">Transfer requests that still need attention.</div>
+                <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
+                    <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-outline-warning btn-sm">Open Requests</a>
                 </div>
             </div>
         </div>
@@ -64,18 +165,7 @@
                 <div class="value">@lowStockCount</div>
                 <div class="text-muted small mt-2">Items currently at or below reorder level.</div>
                 <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
-                    <a asp-controller="Reports" asp-action="LowStock" class="btn btn-outline-warning btn-sm">Open Low Stock</a>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="it-kpi">
-                <div class="label">Locations</div>
-                <div class="value">@locationCount</div>
-                <div class="text-muted small mt-2">Know exactly where stock is stored.</div>
-                <div class="mt-3 d-grid gap-2 d-sm-flex flex-wrap">
-                    <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-outline-secondary btn-sm">Manage Locations</a>
+                    <a asp-controller="Reports" asp-action="LowStock" class="btn btn-outline-secondary btn-sm">Open Low Stock</a>
                 </div>
             </div>
         </div>
@@ -87,7 +177,7 @@
                 <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
                     <div>
                         <div class="fw-bold">Quick Actions</div>
-                        <div class="text-muted small">Jump into common inventory tasks.</div>
+                        <div class="text-muted small">Jump into common inventory and request tasks.</div>
                     </div>
                     <span class="badge text-bg-primary-subtle">Dashboard</span>
                 </div>
@@ -117,7 +207,7 @@
                         <div class="col-12 col-md-6">
                             <div class="it-panel p-3 h-100">
                                 <div class="fw-semibold mb-1">Record a stock transaction</div>
-                                <div class="text-muted small mb-3">Check in/out, adjust stock, or transfer items between locations.</div>
+                                <div class="text-muted small mb-3">Check in, check out, adjust stock, or transfer items.</div>
                                 <div class="d-grid d-sm-flex gap-2">
                                     <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-outline-primary btn-sm">Transactions</a>
                                 </div>
@@ -126,10 +216,10 @@
 
                         <div class="col-12 col-md-6">
                             <div class="it-panel p-3 h-100">
-                                <div class="fw-semibold mb-1">Manage locations</div>
-                                <div class="text-muted small mb-3">Add/edit locations (building/room) to organize inventory.</div>
+                                <div class="fw-semibold mb-1">Review transfer requests</div>
+                                <div class="text-muted small mb-3">Approve, reject, or track requests in real time.</div>
                                 <div class="d-grid d-sm-flex gap-2">
-                                    <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-outline-secondary btn-sm">Locations</a>
+                                    <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-outline-warning btn-sm">Transfer Requests</a>
                                 </div>
                             </div>
                         </div>
@@ -146,17 +236,17 @@
 
                         <div class="col-12 col-md-6">
                             <div class="it-panel p-3 h-100">
-                                <div class="fw-semibold mb-1">Review low stock</div>
-                                <div class="text-muted small mb-3">See which items need attention before they run out.</div>
+                                <div class="fw-semibold mb-1">Manage locations</div>
+                                <div class="text-muted small mb-3">Review location setup for your current scope.</div>
                                 <div class="d-grid d-sm-flex gap-2">
-                                    <a asp-controller="Reports" asp-action="LowStock" class="btn btn-outline-warning btn-sm">Low Stock Report</a>
+                                    <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-outline-secondary btn-sm">Locations</a>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="mt-4 text-muted small">
-                        Reports and CSV export are now available from the Reports area.
+                        Notifications and transfer request counts update in real time while this app is open.
                     </div>
                 </div>
             </div>
@@ -166,20 +256,20 @@
             <div class="it-panel h-100">
                 <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
                     <div>
-                        <div class="fw-bold">Recent Transactions</div>
-                        <div class="text-muted small">Latest inventory changes and transfers.</div>
+                        <div class="fw-bold">Open Transfer Requests</div>
+                        <div class="text-muted small">Live operational queue for your current scope.</div>
                     </div>
 
-                    <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-sm btn-outline-secondary">
+                    <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-sm btn-outline-secondary">
                         View All
                     </a>
                 </div>
 
                 <div class="it-panel-body">
-                    @if (!recentTx.Any())
+                    @if (!latestOpenRequests.Any())
                     {
                         <div class="text-muted small">
-                            No transactions yet. Create one from an item’s details page.
+                            No open transfer requests right now.
                         </div>
 
                         <div class="d-grid gap-2 mt-3">
@@ -188,51 +278,37 @@
                     }
                     else
                     {
-                        @foreach (var t in recentTx)
+                        @foreach (var r in latestOpenRequests)
                         {
                             <div class="d-flex align-items-start gap-3 mb-3">
                                 <div class="it-logo flex-shrink-0" style="width:36px;height:36px;border-radius:12px;">
-                                    @(
-                                                            t.ActionType == StockActionType.CheckIn ? "➕" :
-                                                            t.ActionType == StockActionType.CheckOut ? "➖" :
-                                                            t.ActionType == StockActionType.Transfer ? "⇄" : "✎"
-                                                            )
-                            </div>
+                                    @(r.Status == TransferRequestStatus.Pending ? "⏳" : "⛔")
+                                </div>
 
                                 <div class="w-100 min-w-0">
                                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-1">
-                                        <div class="fw-semibold text-break">@t.InventoryItem?.ItemName</div>
-                                        <div class="text-muted small flex-shrink-0">@t.DateCreated.ToLocalTime().ToString("MM-dd HH:mm")</div>
+                                        <div class="fw-semibold text-break">@(r.InventoryItem?.ItemName ?? "-")</div>
+                                        <div class="text-muted small flex-shrink-0">@r.DateRequested.ToLocalTime().ToString("MM-dd HH:mm")</div>
                                     </div>
 
                                     <div class="text-muted small text-break">
-                            @if (t.ActionType == StockActionType.Transfer)
+                                        @if (r.Status == TransferRequestStatus.Pending)
                                         {
-                                            <span class="badge bg-primary-subtle text-primary border it-badge">Transfer</span>
-                                            <span class="ms-2">Qty: <span class="fw-semibold">@t.QuantityChange</span></span>
-                                            <span class="ms-2">@(t.FromStorageLocation?.Name ?? "-") → @(t.ToStorageLocation?.Name ?? "-")</span>
-                                        }
-                                        else if (t.ActionType == StockActionType.CheckIn)
-                                        {
-                                            <span class="badge bg-success-subtle text-success border it-badge">Check In</span>
-                                            <span class="ms-2">+<span class="fw-semibold">@Math.Abs(t.QuantityChange)</span></span>
-                                        }
-                                        else if (t.ActionType == StockActionType.CheckOut)
-                                        {
-                                            <span class="badge bg-danger-subtle text-danger border it-badge">Check Out</span>
-                                            <span class="ms-2">-<span class="fw-semibold">@Math.Abs(t.QuantityChange)</span></span>
+                                            <span class="badge bg-warning-subtle text-warning border it-badge">Pending</span>
                                         }
                                         else
                                         {
-                                            <span class="badge bg-secondary-subtle text-secondary border it-badge">Adjustment</span>
-                                            <span class="ms-2"><span class="fw-semibold">@t.QuantityChange</span></span>
+                                            <span class="badge bg-danger-subtle text-danger border it-badge">Rejected</span>
                                         }
+
+                                        <span class="ms-2">Qty: <span class="fw-semibold">@r.Quantity</span></span>
+                                        <span class="ms-2">@(r.FromStorageLocation?.Name ?? "-") → @(r.ToStorageLocation?.Name ?? "-")</span>
                                     </div>
 
-                                    @if (!string.IsNullOrWhiteSpace(t.Notes))
+                                    @if (!string.IsNullOrWhiteSpace(r.Notes))
                                     {
                                         <div class="text-muted small mt-1 text-break">
-                                            "@t.Notes"
+                                            "@r.Notes"
                                         </div>
                                     }
                                 </div>
@@ -242,8 +318,8 @@
                         <hr class="my-3" />
 
                         <div class="d-grid gap-2 d-sm-flex flex-wrap">
+                            <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-primary">Open Requests</a>
                             <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-primary">Go to Inventory</a>
-                            <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-primary">View Transactions</a>
                         </div>
                     }
                 </div>
@@ -253,22 +329,27 @@
 }
 else
 {
-    <!-- =========================
-         VIEWER DASHBOARD (NO TRANSACTIONS)
-         ========================= -->
-
     <div class="it-panel mb-3">
-        <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
+        <div class="it-panel-body d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
             <div>
-                <div class="fw-bold">Viewer Dashboard</div>
-                <div class="text-muted small">Read-only access — browse inventory and details.</div>
+                <div class="fw-bold">Employee Dashboard</div>
+                <div class="text-muted small">
+                    You are scoped to: @assignedLocationName
+                </div>
             </div>
-            <span class="badge text-bg-secondary">Viewer</span>
-        </div>
-        <div class="it-panel-body">
-            <div class="it-hint">
-                You can view items, categories, locations, and item details. Editing, deleting, creating records, and transactions are disabled.
-            </div>
+
+            @if (canUseTransferRequests)
+            {
+                <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-outline-primary position-relative">
+                    Transfer Requests
+                    @if (openTransferCount > 0)
+                    {
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            @openTransferCount
+                        </span>
+                    }
+                </a>
+            }
         </div>
     </div>
 
@@ -277,7 +358,7 @@ else
             <div class="it-kpi">
                 <div class="label">Inventory Items</div>
                 <div class="value">@itemCount</div>
-                <div class="text-muted small mt-2">Browse item list and open details.</div>
+                <div class="text-muted small mt-2">Items visible in your assigned location scope.</div>
                 <div class="mt-3 d-grid gap-2">
                     <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-primary btn-sm">Browse Inventory</a>
                 </div>
@@ -286,22 +367,11 @@ else
 
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="it-kpi">
-                <div class="label">Categories</div>
-                <div class="value">@categoryCount</div>
-                <div class="text-muted small mt-2">View category names and descriptions.</div>
+                <div class="label">Open Requests</div>
+                <div class="value">@openTransferCount</div>
+                <div class="text-muted small mt-2">Requests still awaiting completion.</div>
                 <div class="mt-3 d-grid gap-2">
-                    <a asp-controller="Categories" asp-action="Index" class="btn btn-outline-secondary btn-sm">View Categories</a>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="it-kpi">
-                <div class="label">Locations</div>
-                <div class="value">@locationCount</div>
-                <div class="text-muted small mt-2">View building/room storage locations.</div>
-                <div class="mt-3 d-grid gap-2">
-                    <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-outline-secondary btn-sm">View Locations</a>
+                    <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-outline-warning btn-sm">Open Requests</a>
                 </div>
             </div>
         </div>
@@ -310,11 +380,20 @@ else
             <div class="it-kpi">
                 <div class="label">Low Stock</div>
                 <div class="value">@lowStockCount</div>
-                <div class="text-muted small mt-2">Items at/below reorder level (read-only).</div>
+                <div class="text-muted small mt-2">Items at or below reorder level in your scope.</div>
                 <div class="mt-3 d-grid gap-2">
-                    <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-warning btn-sm">
-                        Open Inventory (use filters)
-                    </a>
+                    <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-secondary btn-sm">View Inventory</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-kpi">
+                <div class="label">Transactions</div>
+                <div class="value">@txCount</div>
+                <div class="text-muted small mt-2">Recent stock movement visible to you.</div>
+                <div class="mt-3 d-grid gap-2">
+                    <a asp-controller="StockTransactions" asp-action="Index" class="btn btn-outline-secondary btn-sm">View Transactions</a>
                 </div>
             </div>
         </div>
@@ -324,44 +403,44 @@ else
         <div class="col-12 col-xl-7">
             <div class="it-panel h-100">
                 <div class="it-panel-header">
-                    <div class="fw-bold">Read-only Help</div>
-                    <div class="text-muted small">Suggested viewer workflow.</div>
+                    <div class="fw-bold">Employee Actions</div>
+                    <div class="text-muted small">What you can do in your assigned location.</div>
                 </div>
 
                 <div class="it-panel-body">
                     <div class="row g-3">
                         <div class="col-md-6">
                             <div class="it-mini h-100">
-                                <div class="it-mini-title">1) Search & filter</div>
+                                <div class="it-mini-title">Browse inventory</div>
                                 <div class="text-muted small">
-                                    Use search and status filters in Inventory to find items quickly.
+                                    Search and open inventory items available in your assigned location scope.
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-md-6">
                             <div class="it-mini h-100">
-                                <div class="it-mini-title">2) Open Details</div>
+                                <div class="it-mini-title">View item details</div>
                                 <div class="text-muted small">
-                                    View per-location stock and the latest history (read-only).
+                                    Open details pages to inspect stock, photos, and transaction history.
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-md-6">
                             <div class="it-mini h-100">
-                                <div class="it-mini-title">3) Low stock checks</div>
+                                <div class="it-mini-title">Request stock transfers</div>
                                 <div class="text-muted small">
-                                    Look for “Low” badges and notify an Admin/Manager.
+                                    Submit transfer requests when items need to move between locations.
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-md-6">
                             <div class="it-mini h-100">
-                                <div class="it-mini-title">4) Request changes</div>
+                                <div class="it-mini-title">Watch notifications</div>
                                 <div class="text-muted small">
-                                    If something is incorrect, ask Admin/Manager to update it.
+                                    Use the bell button at the top to keep track of open transfer requests.
                                 </div>
                             </div>
                         </div>
@@ -369,7 +448,7 @@ else
 
                     <div class="d-grid gap-2 d-sm-flex flex-wrap mt-4">
                         <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-primary">Go to Inventory</a>
-                        <a asp-controller="Home" asp-action="Privacy" class="btn btn-outline-secondary">Privacy</a>
+                        <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-outline-warning">Transfer Requests</a>
                     </div>
                 </div>
             </div>
@@ -377,27 +456,73 @@ else
 
         <div class="col-12 col-xl-5">
             <div class="it-panel h-100">
-                <div class="it-panel-header">
-                    <div class="fw-bold">Viewer Notes</div>
-                    <div class="text-muted small">What you can do.</div>
+                <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
+                    <div>
+                        <div class="fw-bold">Open Transfer Requests</div>
+                        <div class="text-muted small">Requests visible in your current scope.</div>
+                    </div>
+
+                    <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-sm btn-outline-secondary">
+                        View All
+                    </a>
                 </div>
 
                 <div class="it-panel-body">
-                    <ul class="text-muted small mb-3">
-                        <li>You can browse inventory, categories, and locations.</li>
-                        <li>You can open item details and view per-location stock.</li>
-                        <li>You cannot create/edit/delete or create transactions.</li>
-                    </ul>
+                    @if (!latestOpenRequests.Any())
+                    {
+                        <div class="text-muted small">
+                            No open transfer requests right now.
+                        </div>
 
-                    <div class="it-hint">
-                        Tip: If you need an update (quantity, location, SKU), message an Admin/Manager with the item name + SKU.
-                    </div>
+                        <div class="d-grid gap-2 mt-3">
+                            <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-primary">Browse Inventory</a>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var r in latestOpenRequests)
+                        {
+                            <div class="d-flex align-items-start gap-3 mb-3">
+                                <div class="it-logo flex-shrink-0" style="width:36px;height:36px;border-radius:12px;">
+                                    @(r.Status == TransferRequestStatus.Pending ? "⏳" : "⛔")
+                                </div>
 
-                    <div class="d-grid gap-2 mt-4">
-                        <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-primary">Browse Inventory</a>
-                        <a asp-controller="Categories" asp-action="Index" class="btn btn-outline-secondary">Categories</a>
-                        <a asp-controller="StorageLocations" asp-action="Index" class="btn btn-outline-secondary">Locations</a>
-                    </div>
+                                <div class="w-100 min-w-0">
+                                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-1">
+                                        <div class="fw-semibold text-break">@(r.InventoryItem?.ItemName ?? "-")</div>
+                                        <div class="text-muted small flex-shrink-0">@r.DateRequested.ToLocalTime().ToString("MM-dd HH:mm")</div>
+                                    </div>
+
+                                    <div class="text-muted small text-break">
+                                        @if (r.Status == TransferRequestStatus.Pending)
+                                        {
+                                            <span class="badge bg-warning-subtle text-warning border it-badge">Pending</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger border it-badge">Rejected</span>
+                                        }
+
+                                        <span class="ms-2">Qty: <span class="fw-semibold">@r.Quantity</span></span>
+                                        <span class="ms-2">@(r.FromStorageLocation?.Name ?? "-") → @(r.ToStorageLocation?.Name ?? "-")</span>
+                                    </div>
+
+                                    @if (!string.IsNullOrWhiteSpace(r.Notes))
+                                    {
+                                        <div class="text-muted small mt-1 text-break">
+                                            "@r.Notes"
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        <hr class="my-3" />
+
+                        <div class="d-grid gap-2">
+                            <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-primary">Open Requests</a>
+                        </div>
+                    }
                 </div>
             </div>
         </div>

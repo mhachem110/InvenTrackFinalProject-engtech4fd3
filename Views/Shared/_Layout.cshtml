@@ -84,7 +84,24 @@
                         <span class="fw-semibold text-dark">InvenTrack</span>
                     </a>
 
-                    <div style="width:40px;"></div>
+                    @if (canUseTransferRequests)
+                    {
+                        <a id="topTransferButtonMobile"
+                           class="btn btn-outline-secondary it-icon-btn position-relative"
+                           asp-controller="StockTransferRequests"
+                           asp-action="Index"
+                           title="Transfer request notifications">
+                            🔔
+                            <span id="transferRequestsBadgeTopMobile"
+                                  class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
+                                0
+                            </span>
+                        </a>
+                    }
+                    else
+                    {
+                        <div style="width:40px;"></div>
+                    }
                 </div>
             </header>
 
@@ -114,8 +131,16 @@
 
                             @if (canUseTransferRequests)
                             {
-                                <a class="it-nav-link @(IsActive("StockTransferRequests") ? "active" : "")" asp-controller="StockTransferRequests" asp-action="Index">
-                                    <span class="it-nav-ico">🔁</span> Transfer Requests
+                                <a class="it-nav-link @(IsActive("StockTransferRequests") ? "active" : "") d-flex justify-content-between align-items-center"
+                                   asp-controller="StockTransferRequests"
+                                   asp-action="Index">
+                                    <span class="d-inline-flex align-items-center gap-2">
+                                        <span class="it-nav-ico">🔁</span> Transfer Requests
+                                    </span>
+                                    <span id="transferRequestsBadgeDesktop"
+                                          class="badge bg-danger-subtle text-danger border it-badge d-none">
+                                        0
+                                    </span>
                                 </a>
                             }
 
@@ -170,6 +195,22 @@
                             </div>
 
                             <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                                @if (canUseTransferRequests)
+                                {
+                                    <a id="topTransferButtonDesktop"
+                                       class="btn btn-sm btn-outline-secondary position-relative"
+                                       asp-controller="StockTransferRequests"
+                                       asp-action="Index"
+                                       title="Transfer request notifications">
+                                        <span class="me-1">🔔</span>
+                                        <span class="d-none d-md-inline">Notifications</span>
+                                        <span id="transferRequestsBadgeTopDesktop"
+                                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
+                                            0
+                                        </span>
+                                    </a>
+                                }
+
                                 @if (canCreateEditInventory)
                                 {
                                     <a class="btn btn-sm btn-primary" asp-controller="InventoryItems" asp-action="Create">+ Add Item</a>
@@ -226,8 +267,16 @@
 
                     @if (canUseTransferRequests)
                     {
-                        <a class="it-nav-link @(IsActive("StockTransferRequests") ? "active" : "")" asp-controller="StockTransferRequests" asp-action="Index">
-                            <span class="it-nav-ico">🔁</span> Transfer Requests
+                        <a class="it-nav-link @(IsActive("StockTransferRequests") ? "active" : "") d-flex justify-content-between align-items-center"
+                           asp-controller="StockTransferRequests"
+                           asp-action="Index">
+                            <span class="d-inline-flex align-items-center gap-2">
+                                <span class="it-nav-ico">🔁</span> Transfer Requests
+                            </span>
+                            <span id="transferRequestsBadgeMobile"
+                                  class="badge bg-danger-subtle text-danger border it-badge d-none">
+                                0
+                            </span>
                         </a>
                     }
 
@@ -266,11 +315,131 @@
                 </nav>
             </div>
         </div>
+
+        <div class="position-fixed top-0 end-0 p-3" style="z-index: 1085;">
+            <div id="transferToastContainer" class="d-flex flex-column gap-2"></div>
+        </div>
     }
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @if (signedIn && canUseTransferRequests)
+    {
+        <script>
+            (function () {
+                const badgeIds = [
+                    'transferRequestsBadgeDesktop',
+                    'transferRequestsBadgeMobile',
+                    'transferRequestsBadgeTopDesktop',
+                    'transferRequestsBadgeTopMobile'
+                ];
+
+                function escapeHtml(text) {
+                    return (text || '')
+                        .replaceAll('&', '&amp;')
+                        .replaceAll('<', '&lt;')
+                        .replaceAll('>', '&gt;')
+                        .replaceAll('"', '&quot;')
+                        .replaceAll("'", '&#039;');
+                }
+
+                function setBadgeCount(count) {
+                    badgeIds.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (!el) return;
+
+                        if (count > 0) {
+                            el.textContent = count;
+                            el.classList.remove('d-none');
+                        } else {
+                            el.textContent = '0';
+                            el.classList.add('d-none');
+                        }
+                    });
+                }
+
+                async function refreshTransferBadge() {
+                    try {
+                        const response = await fetch('/StockTransferRequests/BadgeCount', {
+                            method: 'GET',
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+
+                        if (!response.ok) return;
+
+                        const data = await response.json();
+                        setBadgeCount(data.count || 0);
+                    } catch {
+                    }
+                }
+
+                function showTransferToast(message) {
+                    const container = document.getElementById('transferToastContainer');
+                    if (!container || !message) return;
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'toast';
+                    wrapper.setAttribute('role', 'alert');
+                    wrapper.setAttribute('aria-live', 'assertive');
+                    wrapper.setAttribute('aria-atomic', 'true');
+
+                    wrapper.innerHTML = `
+                        <div class="toast-header">
+                            <strong class="me-auto">Transfer Requests</strong>
+                            <small>just now</small>
+                            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                        <div class="toast-body">
+                            ${escapeHtml(message)}
+                        </div>
+                    `;
+
+                    container.appendChild(wrapper);
+
+                    const toast = new bootstrap.Toast(wrapper, { delay: 5000 });
+                    toast.show();
+
+                    wrapper.addEventListener('hidden.bs.toast', function () {
+                        wrapper.remove();
+                    });
+                }
+
+                async function startTransferNotifications() {
+                    await refreshTransferBadge();
+
+                    if (typeof signalR === 'undefined') return;
+
+                    const connection = new signalR.HubConnectionBuilder()
+                        .withUrl('/hubs/transfer-requests')
+                        .withAutomaticReconnect()
+                        .build();
+
+                    connection.on('TransferRequestsChanged', function (payload) {
+                        refreshTransferBadge();
+
+                        if (payload && payload.message) {
+                            showTransferToast(payload.message);
+                        }
+                    });
+
+                    connection.onreconnected(function () {
+                        refreshTransferBadge();
+                    });
+
+                    try {
+                        await connection.start();
+                    } catch {
+                    }
+                }
+
+                startTransferNotifications();
+            })();
+        </script>
+    }
+
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

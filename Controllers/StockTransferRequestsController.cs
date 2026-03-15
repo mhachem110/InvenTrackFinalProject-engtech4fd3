@@ -17,17 +17,20 @@ namespace InvenTrack.Controllers
         private readonly StockService _stockService;
         private readonly AppAccessService _accessService;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly TransferRequestNotificationService _notificationService;
 
         public StockTransferRequestsController(
             InvenTrackContext context,
             StockService stockService,
             AppAccessService accessService,
-            UserManager<ApplicationUser> userManager)
+            UserManager<ApplicationUser> userManager,
+            TransferRequestNotificationService notificationService)
         {
             _context = context;
             _stockService = stockService;
             _accessService = accessService;
             _userManager = userManager;
+            _notificationService = notificationService;
         }
 
         public async Task<IActionResult> Index()
@@ -44,10 +47,27 @@ namespace InvenTrack.Controllers
             query = _accessService.ApplyTransferRequestScope(query, scope);
 
             var rows = await query
-                .OrderByDescending(r => r.DateRequested)
+                .OrderBy(r => r.Status == TransferRequestStatus.Pending ? 0 : 1)
+                .ThenByDescending(r => r.DateRequested)
                 .ToListAsync();
 
             return View(rows);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> BadgeCount()
+        {
+            var scope = await _accessService.GetScopeAsync(User);
+
+            var query = _context.StockTransferRequests
+                .AsNoTracking()
+                .Where(r => r.Status != TransferRequestStatus.Approved);
+
+            query = _accessService.ApplyTransferRequestScope(query, scope);
+
+            var count = await query.CountAsync();
+
+            return Json(new { count });
         }
 
         public async Task<IActionResult> Create(int inventoryItemId)
@@ -160,6 +180,10 @@ namespace InvenTrack.Controllers
             _context.StockTransferRequests.Add(request);
             await _context.SaveChangesAsync();
 
+            await _notificationService.NotifyTransferRequestChangedAsync(
+                request,
+                $"New transfer request submitted for {vm.ItemName}.");
+
             TempData["TransferMsg"] = "Transfer request submitted.";
             return RedirectToAction(nameof(Index));
         }
@@ -220,6 +244,10 @@ namespace InvenTrack.Controllers
 
             await _context.SaveChangesAsync();
 
+            await _notificationService.NotifyTransferRequestChangedAsync(
+                request,
+                $"Transfer request #{request.ID} was approved.");
+
             TempData["TransferMsg"] = "Transfer request approved.";
             return RedirectToAction(nameof(Index));
         }
@@ -258,6 +286,10 @@ namespace InvenTrack.Controllers
             request.DateReviewed = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            await _notificationService.NotifyTransferRequestChangedAsync(
+                request,
+                $"Transfer request #{request.ID} was rejected.");
 
             TempData["TransferMsg"] = "Transfer request rejected.";
             return RedirectToAction(nameof(Index));

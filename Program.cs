@@ -1,4 +1,5 @@
 using InvenTrack.Data;
+using InvenTrack.Hubs;
 using InvenTrack.Models;
 using InvenTrack.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -74,6 +75,9 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<AppAccessService>();
 
+builder.Services.AddSignalR();
+builder.Services.AddScoped<TransferRequestNotificationService>();
+
 builder.Services.Configure<SendGridSettings>(builder.Configuration.GetSection("SendGrid"));
 builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
 
@@ -111,4 +115,5 @@ app.MapRazorPages();
 InvenTrackInitializer.Seed(app);
 await IdentitySeeder.SeedAsync(app.Services);
 
+app.MapHub<TransferRequestHub>("/hubs/transfer-requests");
 app.Run();

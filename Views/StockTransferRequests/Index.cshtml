@@ -1,10 +1,23 @@
 ﻿@model IEnumerable<InvenTrack.Models.StockTransferRequest>
+@using InvenTrack.Models
+@using System.Linq
 
 @{
     ViewData["Title"] = "Transfer Requests";
-    var canConfirm = User.IsInRole(InvenTrack.Models.AppRoles.Admin) ||
-                     User.IsInRole(InvenTrack.Models.AppRoles.RegionalManager) ||
-                     User.IsInRole(InvenTrack.Models.AppRoles.Manager);
+
+    var requests = Model?.ToList() ?? new List<StockTransferRequest>();
+
+    bool isAdmin = User.IsInRole(AppRoles.Admin);
+    bool isRegionalManager = User.IsInRole(AppRoles.RegionalManager);
+    bool isManager = User.IsInRole(AppRoles.Manager);
+    bool isSupervisor = User.IsInRole(AppRoles.Supervisor);
+    bool isEmployee = User.IsInRole(AppRoles.Employee);
+
+    bool canApproveOrReject = isAdmin || isRegionalManager || isManager;
+
+    var pendingCount = requests.Count(r => r.Status == TransferRequestStatus.Pending);
+    var rejectedCount = requests.Count(r => r.Status == TransferRequestStatus.Rejected);
+    var approvedCount = requests.Count(r => r.Status == TransferRequestStatus.Approved);
 }
 
 <div class="it-pagehead mb-3">
@@ -13,7 +26,11 @@
             <div class="it-page-dot"></div>
             <h1 class="h3 mb-0 fw-bold">Transfer Requests</h1>
         </div>
-        <div class="text-muted small">Pending and completed stock transfer requests.</div>
+        <div class="text-muted small">Review transfer requests between storage locations.</div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-secondary">Back to Inventory</a>
     </div>
 </div>
 
@@ -22,66 +39,175 @@
     <div class="alert alert-success">@TempData["TransferMsg"]</div>
 }
 
+<div class="row g-3 g-lg-4 mb-3">
+    <div class="col-12 col-md-4">
+        <div class="it-kpi">
+            <div class="label">Pending</div>
+            <div class="value">@pendingCount</div>
+            <div class="text-muted small mt-2">Requests waiting for approval or rejection.</div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+        <div class="it-kpi">
+            <div class="label">Approved</div>
+            <div class="value">@approvedCount</div>
+            <div class="text-muted small mt-2">Requests that were completed successfully.</div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+        <div class="it-kpi">
+            <div class="label">Rejected</div>
+            <div class="value">@rejectedCount</div>
+            <div class="text-muted small mt-2">Requests that were reviewed but not accepted.</div>
+        </div>
+    </div>
+</div>
+
+<div class="it-panel mb-3">
+    <div class="it-panel-header d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2">
+        <div>
+            <div class="fw-bold">Status Guide</div>
+            <div class="text-muted small">Requests are shown newest first, with pending requests on top.</div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+            <span class="badge bg-warning-subtle text-warning border it-badge">Pending</span>
+            <span class="badge bg-success-subtle text-success border it-badge">Approved</span>
+            <span class="badge bg-danger-subtle text-danger border it-badge">Rejected</span>
+        </div>
+    </div>
+</div>
+
 <div class="it-panel">
     <div class="it-panel-body p-0">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0 it-table">
                 <thead>
                     <tr>
-                        <th>Date</th>
+                        <th style="width:160px;">Requested</th>
                         <th>Item</th>
-                        <th>Qty</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th>Status</th>
-                        <th>Requested By</th>
-                        <th class="text-end">Actions</th>
+                        <th style="width:110px;">Qty</th>
+                        <th style="width:180px;">From</th>
+                        <th style="width:180px;">To</th>
+                        <th style="width:130px;">Status</th>
+                        <th style="width:170px;">Requested By</th>
+                        <th>Notes</th>
+                        <th class="text-end" style="width:240px;">Actions</th>
                     </tr>
                 </thead>
+
                 <tbody>
-                    @if (Model == null || !Model.Any())
+                    @if (!requests.Any())
                     {
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-5">No transfer requests found.</td>
+                            <td colspan="9" class="text-center text-muted py-5">
+                                <div class="fw-semibold mb-1">No transfer requests found</div>
+                                <div class="small">Transfer requests will appear here after they are submitted.</div>
+                            </td>
                         </tr>
                     }
                     else
                     {
-                        foreach (var r in Model)
+                        foreach (var r in requests)
                         {
-                            <tr>
-                                <td class="text-muted">@r.DateRequested.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                <td class="fw-semibold">@r.InventoryItem?.ItemName</td>
-                                <td>@r.Quantity</td>
-                                <td class="text-muted">@r.FromStorageLocation?.Name</td>
-                                <td class="text-muted">@r.ToStorageLocation?.Name</td>
+                            var rowClass = r.Status == TransferRequestStatus.Pending
+                            ? "table-warning-subtle"
+                            : "";
+
+                            <tr class="@rowClass">
+                                <td class="text-muted">
+                                    <div>@r.DateRequested.ToLocalTime().ToString("yyyy-MM-dd")</div>
+                                    <div class="small">@r.DateRequested.ToLocalTime().ToString("HH:mm")</div>
+                                </td>
+
                                 <td>
-                                    @if (r.Status == InvenTrack.Models.TransferRequestStatus.Pending)
+                                    <div class="fw-semibold">@(r.InventoryItem?.ItemName ?? "-")</div>
+                                    <div class="text-muted small">
+                                        SKU: <span class="fw-semibold">@(r.InventoryItem?.SKU ?? "-")</span>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <span class="it-qty">@r.Quantity</span>
+                                </td>
+
+                                <td class="text-muted">
+                                    @(r.FromStorageLocation?.Name ?? "-")
+                                </td>
+
+                                <td class="text-muted">
+                                    @(r.ToStorageLocation?.Name ?? "-")
+                                </td>
+
+                                <td>
+                                    @if (r.Status == TransferRequestStatus.Pending)
                                     {
                                         <span class="badge bg-warning-subtle text-warning border it-badge">Pending</span>
                                     }
-                                    else if (r.Status == InvenTrack.Models.TransferRequestStatus.Approved)
+                                    else if (r.Status == TransferRequestStatus.Approved)
                                     {
                                         <span class="badge bg-success-subtle text-success border it-badge">Approved</span>
                                     }
                                     else
                                     {
-                                        <span class="badge bg-secondary-subtle text-secondary border it-badge">@r.Status</span>
+                                        <span class="badge bg-danger-subtle text-danger border it-badge">Rejected</span>
                                     }
                                 </td>
-                                <td class="text-muted">@r.RequestedByName</td>
-                                <td class="text-end">
-                                    @if (canConfirm && r.Status == InvenTrack.Models.TransferRequestStatus.Pending)
-                                    {
-                                        <form asp-action="Approve" asp-route-id="@r.ID" method="post" class="d-inline">
-                                            @Html.AntiForgeryToken()
-                                            <button type="submit" class="btn btn-sm btn-outline-success">Approve</button>
-                                        </form>
 
-                                        <form asp-action="Reject" asp-route-id="@r.ID" method="post" class="d-inline ms-2">
-                                            @Html.AntiForgeryToken()
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
-                                        </form>
+                                <td class="text-muted">
+                                    @(string.IsNullOrWhiteSpace(r.RequestedByName) ? "-" : r.RequestedByName)
+                                </td>
+
+                                <td>
+                                    <div class="text-muted small">
+                                        @(!string.IsNullOrWhiteSpace(r.Notes) ? r.Notes : "—")
+                                    </div>
+
+                                    @if (r.Status != TransferRequestStatus.Pending)
+                                    {
+                                        <div class="text-muted small mt-2">
+                                            Reviewed by:
+                                            <span class="fw-semibold">@(!string.IsNullOrWhiteSpace(r.ReviewedByName) ? r.ReviewedByName : "-")</span>
+                                        </div>
+
+                                        <div class="text-muted small">
+                                            On:
+                                            <span class="fw-semibold">@(r.DateReviewed?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")</span>
+                                        </div>
+
+                                        @if (!string.IsNullOrWhiteSpace(r.ReviewNotes))
+                                        {
+                                            <div class="text-muted small mt-1">
+                                                Review Notes: <span class="fw-semibold">@r.ReviewNotes</span>
+                                            </div>
+                                        }
+                                    }
+                                </td>
+
+                                <td class="text-end">
+                                    @if (r.Status == TransferRequestStatus.Pending && canApproveOrReject)
+                                    {
+                                        <div class="d-flex flex-column flex-md-row justify-content-end gap-2">
+                                            <form asp-action="Approve" asp-route-id="@r.ID" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-sm btn-outline-success">
+                                                    Approve
+                                                </button>
+                                            </form>
+
+                                            <form asp-action="Reject" asp-route-id="@r.ID" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    Reject
+                                                </button>
+                                            </form>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">No actions</span>
                                     }
                                 </td>
                             </tr>
