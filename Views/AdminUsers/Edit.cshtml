@@ -1,16 +1,17 @@
 ﻿@model InvenTrack.ViewModels.Admin.EditUserRoleVM
+@using InvenTrack.Models
 
 @{
-    ViewData["Title"] = "Edit Role";
+    ViewData["Title"] = "Edit Access";
 }
 
 <div class="it-pagehead mb-3">
     <div>
         <div class="d-flex align-items-center gap-2">
             <div class="it-page-dot"></div>
-            <h1 class="h3 mb-0 fw-bold">Edit Role</h1>
+            <h1 class="h3 mb-0 fw-bold">Edit Access</h1>
         </div>
-        <div class="text-muted small">Assign exactly one role to this user.</div>
+        <div class="text-muted small">Assign a role and location scope for this user.</div>
     </div>
 
     <div class="d-flex gap-2">
@@ -23,45 +24,92 @@
         <div class="it-panel">
             <div class="it-panel-header">
                 <div>
-                    <div class="fw-bold">Role assignment</div>
-                    <div class="text-muted small">Admin / Manager / Viewer</div>
+                    <div class="fw-bold">User access</div>
+                    <div class="text-muted small">Update role and assigned location.</div>
                 </div>
             </div>
 
             <div class="it-panel-body">
+                <div class="it-hint mb-3">
+                    Admin and Regional Manager are global roles. Manager, Supervisor, and Employee require an assigned location.
+                </div>
+
                 <form asp-action="Edit" method="post">
                     <div asp-validation-summary="All" class="text-danger mb-3"></div>
 
                     <input type="hidden" asp-for="UserId" />
 
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <div class="text-muted small">Email</div>
                         <div class="fw-semibold">@Model.Email</div>
                     </div>
 
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <div class="text-muted small">Username</div>
                         <div class="fw-semibold">@Model.UserName</div>
                     </div>
 
                     <div class="mb-3">
                         <div class="text-muted small">Current role</div>
-                        <div class="fw-semibold">@Model.CurrentRole</div>
+                        <div class="fw-semibold">
+                            @if (Model.CurrentRole == AppRoles.Admin)
+                            {
+                                <span class="badge bg-primary-subtle text-primary border it-badge">Admin</span>
+                            }
+                            else if (Model.CurrentRole == AppRoles.RegionalManager)
+                            {
+                                <span class="badge bg-info-subtle text-info border it-badge">Regional Manager</span>
+                            }
+                            else if (Model.CurrentRole == AppRoles.Manager)
+                            {
+                                <span class="badge bg-success-subtle text-success border it-badge">Manager</span>
+                            }
+                            else if (Model.CurrentRole == AppRoles.Supervisor)
+                            {
+                                <span class="badge bg-warning-subtle text-warning border it-badge">Supervisor</span>
+                            }
+                            else if (Model.CurrentRole == AppRoles.Employee)
+                            {
+                                <span class="badge bg-secondary-subtle text-secondary border it-badge">Employee</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-light text-dark border it-badge">None</span>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="text-muted small">Current location</div>
+                        <div class="fw-semibold">@(string.IsNullOrWhiteSpace(Model.CurrentLocationName) ? "All Locations" : Model.CurrentLocationName)</div>
                     </div>
 
                     <div class="mb-3">
                         <label asp-for="SelectedRole" class="form-label"></label>
-                        <select asp-for="SelectedRole" class="form-select">
+                        <select asp-for="SelectedRole" class="form-select" id="roleSelect">
                             @foreach (var r in Model.AvailableRoles)
                             {
-                                <option value="@r">@r</option>
+                                var label = r == AppRoles.RegionalManager ? "Regional Manager" : r;
+                                <option value="@r">@label</option>
                             }
                         </select>
                         <span asp-validation-for="SelectedRole" class="text-danger small"></span>
                     </div>
 
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">Save</button>
+                    <div class="mb-3">
+                        <label asp-for="AssignedStorageLocationId" class="form-label"></label>
+                        <select asp-for="AssignedStorageLocationId" class="form-select" id="locationSelect">
+                            <option value="">No assigned location</option>
+                            @foreach (var loc in Model.AvailableLocations)
+                            {
+                                <option value="@loc.Value">@loc.Text</option>
+                            }
+                        </select>
+                        <span asp-validation-for="AssignedStorageLocationId" class="text-danger small"></span>
+                    </div>
+
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
                         <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
                     </div>
                 </form>
@@ -70,28 +118,85 @@
     </div>
 
     <div class="col-lg-5">
-        <div class="it-panel">
+        <div class="it-panel mb-3">
             <div class="it-panel-header">
-                <div class="fw-bold">Permissions</div>
-                <div class="text-muted small">What each role can do.</div>
+                <div class="fw-bold">Role guide</div>
+                <div class="text-muted small">Access summary by role.</div>
             </div>
 
             <div class="it-panel-body">
                 <div class="mb-3">
                     <span class="badge bg-primary-subtle text-primary border it-badge">Admin</span>
-                    <div class="text-muted small mt-1">Full access, including delete and user admin.</div>
+                    <div class="text-muted small mt-1">Full system access, all locations, and user administration.</div>
+                </div>
+
+                <div class="mb-3">
+                    <span class="badge bg-info-subtle text-info border it-badge">Regional Manager</span>
+                    <div class="text-muted small mt-1">Full operational access across all locations, except user administration.</div>
                 </div>
 
                 <div class="mb-3">
                     <span class="badge bg-success-subtle text-success border it-badge">Manager</span>
-                    <div class="text-muted small mt-1">Can create/edit items and create stock transactions.</div>
+                    <div class="text-muted small mt-1">Operational access for one assigned location. Can manage stock and handle transfer approvals in scope.</div>
+                </div>
+
+                <div class="mb-3">
+                    <span class="badge bg-warning-subtle text-warning border it-badge">Supervisor</span>
+                    <div class="text-muted small mt-1">Can manage most stock actions in one assigned location, but cannot directly confirm transfers between locations.</div>
                 </div>
 
                 <div>
-                    <span class="badge bg-secondary-subtle text-secondary border it-badge">Viewer</span>
-                    <div class="text-muted small mt-1">Read-only access to inventory and transaction history.</div>
+                    <span class="badge bg-secondary-subtle text-secondary border it-badge">Employee</span>
+                    <div class="text-muted small mt-1">Read-only in one assigned location, with the ability to request stock transfers.</div>
                 </div>
+            </div>
+        </div>
+
+        <div class="it-panel">
+            <div class="it-panel-header">
+                <div class="fw-bold">Location rules</div>
+                <div class="text-muted small">How assignment works.</div>
+            </div>
+
+            <div class="it-panel-body">
+                <ul class="text-muted small mb-0">
+                    <li>Admin and Regional Manager should not have a location assigned.</li>
+                    <li>Manager, Supervisor, and Employee must have one assigned location.</li>
+                    <li>Changing the location changes what data the user can see and act on.</li>
+                </ul>
             </div>
         </div>
     </div>
 </div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    <script>
+        (function () {
+            const roleSelect = document.getElementById('roleSelect');
+            const locationSelect = document.getElementById('locationSelect');
+            const globalRoles = ['@AppRoles.Admin', '@AppRoles.RegionalManager'];
+
+            function applyRoleRules() {
+                if (!roleSelect || !locationSelect) return;
+
+                const isGlobal = globalRoles.includes(roleSelect.value);
+
+                if (isGlobal) {
+                    locationSelect.value = '';
+                    locationSelect.setAttribute('disabled', 'disabled');
+                } else {
+                    locationSelect.removeAttribute('disabled');
+                }
+            }
+
+            if (roleSelect) {
+                roleSelect.addEventListener('change', applyRoleRules);
+                applyRoleRules();
+            }
+        })();
+    </script>
+}

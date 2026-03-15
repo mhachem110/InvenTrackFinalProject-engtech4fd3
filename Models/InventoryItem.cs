@@ -7,6 +7,7 @@ namespace InvenTrack.Models
         public InventoryItem()
         {
             StockTransactions = new HashSet<StockTransaction>();
+            InventoryItemStocks = new HashSet<InventoryItemStock>();
         }
 
         public int ID { get; set; }
@@ -47,6 +48,8 @@ namespace InvenTrack.Models
         public StorageLocation? StorageLocation { get; set; }
 
         public ICollection<StockTransaction> StockTransactions { get; set; }
+
+        public ICollection<InventoryItemStock> InventoryItemStocks { get; set; }
 
         public ItemPhoto? ItemPhoto { get; set; }
         public ItemThumbnail? ItemThumbnail { get; set; }

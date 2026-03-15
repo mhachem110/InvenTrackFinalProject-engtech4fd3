@@ -1,0 +1,94 @@
+﻿@model IEnumerable<InvenTrack.Models.StockTransferRequest>
+
+@{
+    ViewData["Title"] = "Transfer Requests";
+    var canConfirm = User.IsInRole(InvenTrack.Models.AppRoles.Admin) ||
+                     User.IsInRole(InvenTrack.Models.AppRoles.RegionalManager) ||
+                     User.IsInRole(InvenTrack.Models.AppRoles.Manager);
+}
+
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">Transfer Requests</h1>
+        </div>
+        <div class="text-muted small">Pending and completed stock transfer requests.</div>
+    </div>
+</div>
+
+@if (TempData["TransferMsg"] != null)
+{
+    <div class="alert alert-success">@TempData["TransferMsg"]</div>
+}
+
+<div class="it-panel">
+    <div class="it-panel-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 it-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Status</th>
+                        <th>Requested By</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model == null || !Model.Any())
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-5">No transfer requests found.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var r in Model)
+                        {
+                            <tr>
+                                <td class="text-muted">@r.DateRequested.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="fw-semibold">@r.InventoryItem?.ItemName</td>
+                                <td>@r.Quantity</td>
+                                <td class="text-muted">@r.FromStorageLocation?.Name</td>
+                                <td class="text-muted">@r.ToStorageLocation?.Name</td>
+                                <td>
+                                    @if (r.Status == InvenTrack.Models.TransferRequestStatus.Pending)
+                                    {
+                                        <span class="badge bg-warning-subtle text-warning border it-badge">Pending</span>
+                                    }
+                                    else if (r.Status == InvenTrack.Models.TransferRequestStatus.Approved)
+                                    {
+                                        <span class="badge bg-success-subtle text-success border it-badge">Approved</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border it-badge">@r.Status</span>
+                                    }
+                                </td>
+                                <td class="text-muted">@r.RequestedByName</td>
+                                <td class="text-end">
+                                    @if (canConfirm && r.Status == InvenTrack.Models.TransferRequestStatus.Pending)
+                                    {
+                                        <form asp-action="Approve" asp-route-id="@r.ID" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-success">Approve</button>
+                                        </form>
+
+                                        <form asp-action="Reject" asp-route-id="@r.ID" method="post" class="d-inline ms-2">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

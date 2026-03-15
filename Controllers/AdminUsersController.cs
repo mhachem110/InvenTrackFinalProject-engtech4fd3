@@ -1,9 +1,11 @@
-﻿using InvenTrack.Models;
+﻿using InvenTrack.Data;
+using InvenTrack.Models;
 using InvenTrack.ViewModels.Admin;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
@@ -12,20 +14,21 @@ using System.Text.Encodings.Web;
 
 namespace InvenTrack.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = AppRoles.Admin)]
     public class AdminUsersController : Controller
     {
+        private readonly InvenTrackContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IEmailSender _emailSender;
 
-        private static readonly string[] AllowedRoles = new[] { "Admin", "Manager", "Viewer" };
-
         public AdminUsersController(
+            InvenTrackContext context,
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
             IEmailSender emailSender)
         {
+            _context = context;
             _userManager = userManager;
             _roleManager = roleManager;
             _emailSender = emailSender;
@@ -41,14 +44,24 @@ namespace InvenTrack.Controllers
             if (!allowedPageSizes.Contains(pageSize))
                 pageSize = 10;
 
-            var query = _userManager.Users.AsNoTracking();
+            var query = _userManager.Users
+                .AsNoTracking()
+                .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(q))
             {
                 q = q.Trim();
+
+                var matchingLocationIds = await _context.StorageLocations
+                    .AsNoTracking()
+                    .Where(l => l.Name.Contains(q))
+                    .Select(l => l.ID)
+                    .ToListAsync();
+
                 query = query.Where(u =>
                     (u.Email ?? "").Contains(q) ||
-                    (u.UserName ?? "").Contains(q));
+                    (u.UserName ?? "").Contains(q) ||
+                    (u.AssignedStorageLocationId.HasValue && matchingLocationIds.Contains(u.AssignedStorageLocationId.Value)));
             }
 
             var totalCount = await query.CountAsync();
@@ -63,6 +76,19 @@ namespace InvenTrack.Controllers
                 .Take(pageSize)
                 .ToListAsync();
 
+            var locationIds = users
+                .Where(u => u.AssignedStorageLocationId.HasValue)
+                .Select(u => u.AssignedStorageLocationId!.Value)
+                .Distinct()
+                .ToList();
+
+            var locationMap = locationIds.Count == 0
+                ? new Dictionary<int, string>()
+                : await _context.StorageLocations
+                    .AsNoTracking()
+                    .Where(l => locationIds.Contains(l.ID))
+                    .ToDictionaryAsync(l => l.ID, l => l.Name);
+
             var vm = new UserRolesIndexVM
             {
                 Query = q,
@@ -75,8 +101,15 @@ namespace InvenTrack.Controllers
             foreach (var u in users)
             {
                 var roles = await _userManager.GetRolesAsync(u);
-                var role = roles.FirstOrDefault(r => AllowedRoles.Contains(r)) ?? "None";
+                var role = roles.FirstOrDefault(r => AppRoles.All.Contains(r)) ?? "None";
                 var isLockedOut = u.LockoutEnabled && u.LockoutEnd.HasValue && u.LockoutEnd.Value > DateTimeOffset.UtcNow;
+
+                string locationName = "All Locations";
+                if (u.AssignedStorageLocationId.HasValue &&
+                    locationMap.TryGetValue(u.AssignedStorageLocationId.Value, out var resolvedName))
+                {
+                    locationName = resolvedName;
+                }
 
                 vm.Users.Add(new UserRoleRowVM
                 {
@@ -84,6 +117,7 @@ namespace InvenTrack.Controllers
                     Email = u.Email ?? "-",
                     UserName = u.UserName ?? "-",
                     Role = role,
+                    AssignedLocationName = locationName,
                     IsLockedOut = isLockedOut,
                     LockoutEnd = u.LockoutEnd
                 });
@@ -98,8 +132,9 @@ namespace InvenTrack.Controllers
 
             var vm = new CreateUserVM
             {
-                AvailableRoles = AllowedRoles.ToList(),
-                SelectedRole = "Viewer"
+                AvailableRoles = AppRoles.All.ToList(),
+                SelectedRole = AppRoles.Employee,
+                AvailableLocations = await GetLocationSelectListAsync()
             };
 
             return View(vm);
@@ -110,25 +145,30 @@ namespace InvenTrack.Controllers
         public async Task<IActionResult> Create(CreateUserVM vm)
         {
             await EnsureRolesExistAsync();
-            vm.AvailableRoles = AllowedRoles.ToList();
 
-            if (!AllowedRoles.Contains(vm.SelectedRole))
-                ModelState.AddModelError(nameof(vm.SelectedRole), "Please select a valid role.");
+            vm.AvailableRoles = AppRoles.All.ToList();
+            vm.AvailableLocations = await GetLocationSelectListAsync();
+
+            vm.Email = (vm.Email ?? string.Empty).Trim();
+            vm.UserName = (vm.UserName ?? string.Empty).Trim();
+            vm.SelectedRole = NormalizeRole(vm.SelectedRole);
+
+            await ValidateRoleAndLocationAsync(vm.SelectedRole, vm.AssignedStorageLocationId);
+
+            if (AppRoles.GlobalRoles.Contains(vm.SelectedRole))
+                vm.AssignedStorageLocationId = null;
 
             if (!ModelState.IsValid)
                 return View(vm);
 
-            var email = vm.Email.Trim();
-            var userName = vm.UserName.Trim();
-
-            var existingEmail = await _userManager.FindByEmailAsync(email);
+            var existingEmail = await _userManager.FindByEmailAsync(vm.Email);
             if (existingEmail != null)
             {
                 ModelState.AddModelError(nameof(vm.Email), "Email already exists.");
                 return View(vm);
             }
 
-            var existingUser = await _userManager.FindByNameAsync(userName);
+            var existingUser = await _userManager.FindByNameAsync(vm.UserName);
             if (existingUser != null)
             {
                 ModelState.AddModelError(nameof(vm.UserName), "Username already exists.");
@@ -139,9 +179,10 @@ namespace InvenTrack.Controllers
 
             var user = new ApplicationUser
             {
-                Email = email,
-                UserName = userName,
-                EmailConfirmed = true
+                Email = vm.Email,
+                UserName = vm.UserName,
+                EmailConfirmed = true,
+                AssignedStorageLocationId = vm.AssignedStorageLocationId
             };
 
             var createRes = await _userManager.CreateAsync(user, temporaryPassword);
@@ -170,7 +211,7 @@ namespace InvenTrack.Controllers
                 var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(resetToken));
 
                 var setPasswordUrl = Url.Action(
-                    nameof(SetInitialPassword),
+                    "SetInitialPassword",
                     "AdminUsers",
                     new { email = user.Email, code = encodedToken },
                     protocol: Request.Scheme);
@@ -182,24 +223,29 @@ namespace InvenTrack.Controllers
                     return View(vm);
                 }
 
-                var safeUser = HtmlEncoder.Default.Encode(user.UserName ?? user.Email ?? "");
-                var safeRole = HtmlEncoder.Default.Encode(vm.SelectedRole);
-                var safeTempPassword = HtmlEncoder.Default.Encode(temporaryPassword);
-                var safeUrl = HtmlEncoder.Default.Encode(setPasswordUrl);
+                var locationName = "All Locations";
+                if (vm.AssignedStorageLocationId.HasValue)
+                {
+                    locationName = await _context.StorageLocations
+                        .Where(x => x.ID == vm.AssignedStorageLocationId.Value)
+                        .Select(x => x.Name)
+                        .FirstOrDefaultAsync() ?? "-";
+                }
 
                 var subject = "Your InvenTrack account";
                 var body = $@"
-<p>Hello {safeUser},</p>
+<p>Hello {HtmlEncoder.Default.Encode(user.UserName ?? user.Email ?? "")},</p>
 <p>An administrator created your InvenTrack account.</p>
-<p><strong>Username:</strong> {HtmlEncoder.Default.Encode(user.UserName ?? "-")}<br />
-<strong>Role:</strong> {safeRole}<br />
-<strong>Temporary password:</strong> {safeTempPassword}</p>
+<p>
+<strong>Username:</strong> {HtmlEncoder.Default.Encode(user.UserName ?? "-")}<br />
+<strong>Role:</strong> {HtmlEncoder.Default.Encode(GetRoleDisplayName(vm.SelectedRole))}<br />
+<strong>Assigned location:</strong> {HtmlEncoder.Default.Encode(locationName)}<br />
+<strong>Temporary password:</strong> {HtmlEncoder.Default.Encode(temporaryPassword)}
+</p>
 <p>Please use the link below to set your own password:</p>
-<p><a href=""{safeUrl}"">Set your password</a></p>
-<p>You will be asked for the temporary password once, then you can choose your own password.</p>
-<p>If you were not expecting this account, please contact your administrator.</p>";
+<p><a href=""{HtmlEncoder.Default.Encode(setPasswordUrl)}"">Set your password</a></p>";
 
-                await _emailSender.SendEmailAsync(email, subject, body);
+                await _emailSender.SendEmailAsync(vm.Email, subject, body);
             }
             catch
             {
@@ -208,7 +254,7 @@ namespace InvenTrack.Controllers
                 return View(vm);
             }
 
-            TempData["RoleMsg"] = $"Created user {email} with role {vm.SelectedRole}. An onboarding email was sent.";
+            TempData["RoleMsg"] = $"Created user {vm.Email} with role {GetRoleDisplayName(vm.SelectedRole)}.";
             return RedirectToAction(nameof(Index));
         }
 
@@ -280,7 +326,17 @@ namespace InvenTrack.Controllers
             if (user == null) return NotFound();
 
             var roles = await _userManager.GetRolesAsync(user);
-            var current = roles.FirstOrDefault(r => AllowedRoles.Contains(r)) ?? "None";
+            var current = roles.FirstOrDefault(r => AppRoles.All.Contains(r)) ?? "None";
+
+            var currentLocationName = "All Locations";
+            if (user.AssignedStorageLocationId.HasValue)
+            {
+                currentLocationName = await _context.StorageLocations
+                    .AsNoTracking()
+                    .Where(x => x.ID == user.AssignedStorageLocationId.Value)
+                    .Select(x => x.Name)
+                    .FirstOrDefaultAsync() ?? "-";
+            }
 
             var vm = new EditUserRoleVM
             {
@@ -288,8 +344,11 @@ namespace InvenTrack.Controllers
                 Email = user.Email ?? "-",
                 UserName = user.UserName ?? "-",
                 CurrentRole = current,
-                SelectedRole = current == "None" ? "Viewer" : current,
-                AvailableRoles = AllowedRoles.ToList()
+                SelectedRole = current == "None" ? AppRoles.Employee : current,
+                AssignedStorageLocationId = user.AssignedStorageLocationId,
+                CurrentLocationName = currentLocationName,
+                AvailableRoles = AppRoles.All.ToList(),
+                AvailableLocations = await GetLocationSelectListAsync()
             };
 
             return View(vm);
@@ -300,7 +359,9 @@ namespace InvenTrack.Controllers
         public async Task<IActionResult> Edit(EditUserRoleVM vm)
         {
             await EnsureRolesExistAsync();
-            vm.AvailableRoles = AllowedRoles.ToList();
+
+            vm.AvailableRoles = AppRoles.All.ToList();
+            vm.AvailableLocations = await GetLocationSelectListAsync();
 
             if (string.IsNullOrWhiteSpace(vm.UserId))
                 return NotFound();
@@ -311,16 +372,37 @@ namespace InvenTrack.Controllers
             vm.Email = user.Email ?? "-";
             vm.UserName = user.UserName ?? "-";
 
-            if (string.IsNullOrWhiteSpace(vm.SelectedRole) || !AllowedRoles.Contains(vm.SelectedRole))
+            if (user.AssignedStorageLocationId.HasValue)
             {
-                ModelState.AddModelError(nameof(vm.SelectedRole), "Please select a valid role.");
+                vm.CurrentLocationName = await _context.StorageLocations
+                    .AsNoTracking()
+                    .Where(x => x.ID == user.AssignedStorageLocationId.Value)
+                    .Select(x => x.Name)
+                    .FirstOrDefaultAsync() ?? "-";
+            }
+            else
+            {
+                vm.CurrentLocationName = "All Locations";
+            }
+
+            vm.SelectedRole = NormalizeRole(vm.SelectedRole);
+
+            await ValidateRoleAndLocationAsync(vm.SelectedRole, vm.AssignedStorageLocationId);
+
+            if (AppRoles.GlobalRoles.Contains(vm.SelectedRole))
+                vm.AssignedStorageLocationId = null;
+
+            if (!ModelState.IsValid)
+            {
                 var currentRoles = await _userManager.GetRolesAsync(user);
-                vm.CurrentRole = currentRoles.FirstOrDefault(r => AllowedRoles.Contains(r)) ?? "None";
+                vm.CurrentRole = currentRoles.FirstOrDefault(r => AppRoles.All.Contains(r)) ?? "None";
                 return View(vm);
             }
 
+            user.AssignedStorageLocationId = vm.AssignedStorageLocationId;
+
             var existing = await _userManager.GetRolesAsync(user);
-            var toRemove = existing.Where(r => AllowedRoles.Contains(r)).ToList();
+            var toRemove = existing.Where(r => AppRoles.All.Contains(r)).ToList();
 
             if (toRemove.Count > 0)
             {
@@ -328,7 +410,7 @@ namespace InvenTrack.Controllers
                 if (!removeRes.Succeeded)
                 {
                     ModelState.AddModelError(string.Empty, "Failed to remove old role(s).");
-                    vm.CurrentRole = existing.FirstOrDefault(r => AllowedRoles.Contains(r)) ?? "None";
+                    vm.CurrentRole = existing.FirstOrDefault(r => AppRoles.All.Contains(r)) ?? "None";
                     return View(vm);
                 }
             }
@@ -337,12 +419,17 @@ namespace InvenTrack.Controllers
             if (!addRes.Succeeded)
             {
                 ModelState.AddModelError(string.Empty, "Failed to assign the new role.");
-                var currentRoles = await _userManager.GetRolesAsync(user);
-                vm.CurrentRole = currentRoles.FirstOrDefault(r => AllowedRoles.Contains(r)) ?? "None";
                 return View(vm);
             }
 
-            TempData["RoleMsg"] = $"Updated role for {user.Email ?? user.UserName} to {vm.SelectedRole}.";
+            var updateRes = await _userManager.UpdateAsync(user);
+            if (!updateRes.Succeeded)
+            {
+                ModelState.AddModelError(string.Empty, "Failed to update the assigned location.");
+                return View(vm);
+            }
+
+            TempData["RoleMsg"] = $"Updated access for {user.Email ?? user.UserName}.";
             return RedirectToAction(nameof(Index));
         }
 
@@ -467,8 +554,6 @@ namespace InvenTrack.Controllers
 
         public async Task<IActionResult> Delete(string id)
         {
-            await EnsureRolesExistAsync();
-
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound();
 
@@ -476,13 +561,10 @@ namespace InvenTrack.Controllers
             var isSelf = string.Equals(currentUserId, user.Id, StringComparison.Ordinal);
 
             var roles = await _userManager.GetRolesAsync(user);
-            var role = roles.FirstOrDefault(r => AllowedRoles.Contains(r)) ?? "None";
+            var role = roles.FirstOrDefault(r => AppRoles.All.Contains(r)) ?? "None";
 
             var isLockedOut = user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd.Value > DateTimeOffset.UtcNow;
-
-            var isLastAdmin = false;
-            if (role == "Admin")
-                isLastAdmin = await IsLastAdminAsync(user.Id);
+            var isLastAdmin = role == AppRoles.Admin && await IsLastAdminAsync(user.Id);
 
             var vm = new DeleteUserVM
             {
@@ -503,8 +585,6 @@ namespace InvenTrack.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(DeleteUserVM vm)
         {
-            await EnsureRolesExistAsync();
-
             if (string.IsNullOrWhiteSpace(vm.UserId))
                 return NotFound();
 
@@ -523,9 +603,9 @@ namespace InvenTrack.Controllers
             }
 
             var roles = await _userManager.GetRolesAsync(user);
-            var role = roles.FirstOrDefault(r => AllowedRoles.Contains(r)) ?? "None";
+            var role = roles.FirstOrDefault(r => AppRoles.All.Contains(r)) ?? "None";
 
-            if (role == "Admin" && await IsLastAdminAsync(user.Id))
+            if (role == AppRoles.Admin && await IsLastAdminAsync(user.Id))
             {
                 TempData["RoleMsg"] = "Cannot delete the last Admin account.";
                 return RedirectToAction(nameof(Index));
@@ -543,19 +623,75 @@ namespace InvenTrack.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        private async Task<List<SelectListItem>> GetLocationSelectListAsync()
+        {
+            return await _context.StorageLocations
+                .AsNoTracking()
+                .OrderBy(x => x.Name)
+                .Select(x => new SelectListItem
+                {
+                    Value = x.ID.ToString(),
+                    Text = x.Name
+                })
+                .ToListAsync();
+        }
+
         private async Task<bool> IsLastAdminAsync(string userId)
         {
-            var admins = await _userManager.GetUsersInRoleAsync("Admin");
+            var admins = await _userManager.GetUsersInRoleAsync(AppRoles.Admin);
             return admins.Count == 1 && admins[0].Id == userId;
         }
 
         private async Task EnsureRolesExistAsync()
         {
-            foreach (var r in AllowedRoles)
+            foreach (var role in AppRoles.All)
             {
-                if (!await _roleManager.RoleExistsAsync(r))
-                    await _roleManager.CreateAsync(new IdentityRole(r));
+                if (!await _roleManager.RoleExistsAsync(role))
+                    await _roleManager.CreateAsync(new IdentityRole(role));
             }
+        }
+
+        private async Task ValidateRoleAndLocationAsync(string selectedRole, int? assignedStorageLocationId)
+        {
+            if (string.IsNullOrWhiteSpace(selectedRole) || !AppRoles.All.Contains(selectedRole))
+            {
+                ModelState.AddModelError("SelectedRole", "Please select a valid role.");
+                return;
+            }
+
+            if (AppRoles.ScopedRoles.Contains(selectedRole) && !assignedStorageLocationId.HasValue)
+            {
+                ModelState.AddModelError("AssignedStorageLocationId", "This role requires an assigned location.");
+                return;
+            }
+
+            if (assignedStorageLocationId.HasValue)
+            {
+                var exists = await _context.StorageLocations
+                    .AsNoTracking()
+                    .AnyAsync(x => x.ID == assignedStorageLocationId.Value);
+
+                if (!exists)
+                {
+                    ModelState.AddModelError("AssignedStorageLocationId", "Selected location was not found.");
+                }
+            }
+        }
+
+        private static string NormalizeRole(string? role)
+            => (role ?? string.Empty).Trim();
+
+        private static string GetRoleDisplayName(string role)
+        {
+            return role switch
+            {
+                AppRoles.Admin => "Admin",
+                AppRoles.RegionalManager => "Regional Manager",
+                AppRoles.Manager => "Manager",
+                AppRoles.Supervisor => "Supervisor",
+                AppRoles.Employee => "Employee",
+                _ => role
+            };
         }
 
         private static string GenerateTemporaryPassword(int length = 12)
@@ -564,6 +700,7 @@ namespace InvenTrack.Controllers
             const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
             const string digits = "23456789";
             const string special = "!@$?_-.";
+
             var all = lower + upper + digits + special;
 
             var chars = new List<char>
@@ -575,9 +712,7 @@ namespace InvenTrack.Controllers
             };
 
             while (chars.Count < length)
-            {
                 chars.Add(all[RandomNumberGenerator.GetInt32(all.Length)]);
-            }
 
             for (int i = chars.Count - 1; i > 0; i--)
             {

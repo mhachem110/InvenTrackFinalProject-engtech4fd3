@@ -31,8 +31,8 @@ builder.Services.AddDbContext<InvenTrackContext>(options =>
 builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
-        options.SignIn.RequireConfirmedAccount = true;
-        options.SignIn.RequireConfirmedEmail = true;
+        options.SignIn.RequireConfirmedAccount = false;
+        options.SignIn.RequireConfirmedEmail = false;
 
         options.User.RequireUniqueEmail = true;
 
@@ -51,12 +51,9 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Login");
-    options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Register");
-    options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/RegisterConfirmation");
     options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Logout");
     options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ForgotPassword");
     options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ResetPassword");
-    options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ResendEmailConfirmation");
     options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ConfirmEmail");
     options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/AccessDenied");
 });
@@ -75,13 +72,10 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 
 builder.Services.AddScoped<StockService>();
+builder.Services.AddScoped<AppAccessService>();
 
 builder.Services.Configure<SendGridSettings>(builder.Configuration.GetSection("SendGrid"));
 builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
-
-// SMTP (optional)
-// builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
-// builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
 
 var app = builder.Build();
 

@@ -1,6 +1,7 @@
 ﻿@model InvenTrack.Utilities.PaginatedList<InvenTrack.Models.StockTransaction>
 @using System
 @using System.Linq
+@using InvenTrack.Models
 
 @{
     ViewData["Title"] = "Stock Transactions";
@@ -14,6 +15,13 @@
 
     var firstPage = Math.Max(1, Model.PageIndex - 2);
     var lastPage = Math.Min(Model.TotalPages, Model.PageIndex + 2);
+
+    bool isAdmin = User.IsInRole(AppRoles.Admin);
+    bool isRegionalManager = User.IsInRole(AppRoles.RegionalManager);
+    bool isManager = User.IsInRole(AppRoles.Manager);
+    bool isSupervisor = User.IsInRole(AppRoles.Supervisor);
+
+    bool canUseTransferRequests = isAdmin || isRegionalManager || isManager || isSupervisor;
 }
 
 <div class="it-pagehead mb-3">
@@ -22,10 +30,14 @@
             <div class="it-page-dot"></div>
             <h1 class="h3 mb-0 fw-bold">Stock Transactions</h1>
         </div>
-        <div class="text-muted small">Recent inventory changes and transfers.</div>
+        <div class="text-muted small">Recent inventory changes and transfers for your visible scope.</div>
     </div>
 
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+        @if (canUseTransferRequests)
+        {
+            <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-outline-dark">Transfer Requests</a>
+        }
         <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-secondary">Back to Inventory</a>
     </div>
 </div>
@@ -122,15 +134,15 @@
                                 </td>
 
                                 <td>
-                                    @if (t.ActionType == InvenTrack.Models.StockActionType.CheckIn)
+                                    @if (t.ActionType == StockActionType.CheckIn)
                                     {
                                         <span class="badge bg-success-subtle text-success border it-badge">Check In</span>
                                     }
-                                    else if (t.ActionType == InvenTrack.Models.StockActionType.CheckOut)
+                                    else if (t.ActionType == StockActionType.CheckOut)
                                     {
                                         <span class="badge bg-danger-subtle text-danger border it-badge">Check Out</span>
                                     }
-                                    else if (t.ActionType == InvenTrack.Models.StockActionType.Transfer)
+                                    else if (t.ActionType == StockActionType.Transfer)
                                     {
                                         <span class="badge bg-primary-subtle text-primary border it-badge">Transfer</span>
                                     }

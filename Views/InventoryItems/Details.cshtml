@@ -12,6 +12,17 @@
         .OrderByDescending(t => t.DateCreated)
         .ToList();
 
+    bool isAdmin = User.IsInRole(AppRoles.Admin);
+    bool isRegionalManager = User.IsInRole(AppRoles.RegionalManager);
+    bool isManager = User.IsInRole(AppRoles.Manager);
+    bool isSupervisor = User.IsInRole(AppRoles.Supervisor);
+    bool isEmployee = User.IsInRole(AppRoles.Employee);
+
+    bool canCreateEditInventory = isAdmin || isRegionalManager || isManager || isSupervisor;
+    bool canDeleteInventory = canCreateEditInventory;
+    bool canCreateTransactions = isAdmin || isRegionalManager || isManager || isSupervisor;
+    bool canRequestTransfers = isAdmin || isRegionalManager || isManager || isSupervisor || isEmployee;
+
     string? imgSrc = null;
     if (Model.ItemPhoto?.Content != null && Model.ItemPhoto.Content.Length > 0)
     {
@@ -28,20 +39,29 @@
         <div class="text-muted small">View item information, per-location stock, and transaction history.</div>
     </div>
 
-    <div class="d-flex gap-2">
-        @if (User.CanManage())
+    <div class="d-flex gap-2 flex-wrap">
+        @if (canCreateEditInventory)
         {
             <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-outline-primary">Edit</a>
         }
+
+        @if (canRequestTransfers)
+        {
+            <a asp-controller="StockTransferRequests"
+               asp-action="Create"
+               asp-route-inventoryItemId="@Model.ID"
+               class="btn btn-outline-dark">
+                Request Transfer
+            </a>
+        }
+
         <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
     </div>
 </div>
 
-<!-- TOP SUMMARY CARD -->
 <div class="it-panel mb-3">
     <div class="it-panel-body">
         <div class="row g-3 g-lg-4 align-items-start">
-            <!-- Photo -->
             <div class="col-12 col-lg-4">
                 <div class="text-muted small mb-2">Photo</div>
 
@@ -61,7 +81,6 @@
                 }
             </div>
 
-            <!-- Main Info -->
             <div class="col-12 col-lg-8">
                 <div class="d-flex flex-column flex-md-row align-items-start justify-content-between gap-3">
                     <div class="min-w-0">
@@ -95,13 +114,12 @@
 
                 <hr class="my-3" />
 
-                <!-- Stats row -->
                 <div class="row g-3">
                     <div class="col-12 col-md-4">
                         <div class="it-mini h-100">
                             <div class="it-mini-title">Total On Hand</div>
                             <div class="fw-bold fs-4">@Model.QuantityOnHand</div>
-                            <div class="text-muted small">Across all locations</div>
+                            <div class="text-muted small">Visible total for this item</div>
                         </div>
                     </div>
 
@@ -130,11 +148,26 @@
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 mt-4">
-                    @if (User.CanManage())
+                    @if (canCreateEditInventory)
                     {
                         <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-primary">Edit Item</a>
+                    }
+
+                    @if (canDeleteInventory)
+                    {
                         <a asp-action="Delete" asp-route-id="@Model.ID" class="btn btn-outline-danger">Delete</a>
                     }
+
+                    @if (canRequestTransfers)
+                    {
+                        <a asp-controller="StockTransferRequests"
+                           asp-action="Create"
+                           asp-route-inventoryItemId="@Model.ID"
+                           class="btn btn-outline-dark">
+                            Request Transfer
+                        </a>
+                    }
+
                     <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
                 </div>
             </div>
@@ -142,7 +175,6 @@
     </div>
 </div>
 
-<!-- STOCK BY LOCATION -->
 <div class="it-panel mb-3">
     <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
         <div>
@@ -150,12 +182,21 @@
             <div class="text-muted small">Per-location quantities (supports partial transfers).</div>
         </div>
 
-        @if (User.CanManage())
-        {
-            <a asp-controller="StockTransactions" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-sm btn-primary">
-                + New Transaction
-            </a>
-        }
+        <div class="d-flex gap-2 flex-wrap">
+            @if (canCreateTransactions)
+            {
+                <a asp-controller="StockTransactions" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-sm btn-primary">
+                    + New Transaction
+                </a>
+            }
+
+            @if (canRequestTransfers)
+            {
+                <a asp-controller="StockTransferRequests" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-sm btn-outline-dark">
+                    Request Transfer
+                </a>
+            }
+        </div>
     </div>
 
     <div class="it-panel-body p-0">
@@ -188,7 +229,6 @@
             </table>
         </div>
 
-        <!-- Pager -->
         <div class="it-table-pager border-top p-3 d-flex flex-column flex-md-row gap-2 align-items-center justify-content-between">
             <div class="text-muted small" id="stockInfo"></div>
 
@@ -208,20 +248,28 @@
     </div>
 </div>
 
-<!-- TRANSACTION HISTORY -->
 <div class="it-panel">
     <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
         <div>
             <div class="fw-bold">Transaction History</div>
-            <div class="text-muted small">Latest activity (paged).</div>
+            <div class="text-muted small">Latest visible activity for this item.</div>
         </div>
 
-        @if (User.CanManage())
-        {
-            <a asp-controller="StockTransactions" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-sm btn-primary">
-                + New Transaction
-            </a>
-        }
+        <div class="d-flex gap-2 flex-wrap">
+            @if (canCreateTransactions)
+            {
+                <a asp-controller="StockTransactions" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-sm btn-primary">
+                    + New Transaction
+                </a>
+            }
+
+            @if (canRequestTransfers)
+            {
+                <a asp-controller="StockTransferRequests" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-sm btn-outline-dark">
+                    Request Transfer
+                </a>
+            }
+        </div>
     </div>
 
     <div class="it-panel-body p-0">
@@ -247,12 +295,21 @@
                                 <div class="fw-semibold mb-1">No transactions yet</div>
                                 <div class="small mb-3">Transactions appear here once created.</div>
 
-                                @if (User.CanManage())
-                                {
-                                    <a asp-controller="StockTransactions" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-primary btn-sm">
-                                        + New Transaction
-                                    </a>
-                                }
+                                <div class="d-flex justify-content-center flex-wrap gap-2">
+                                    @if (canCreateTransactions)
+                                    {
+                                        <a asp-controller="StockTransactions" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-primary btn-sm">
+                                            + New Transaction
+                                        </a>
+                                    }
+
+                                    @if (canRequestTransfers)
+                                    {
+                                        <a asp-controller="StockTransferRequests" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-outline-dark btn-sm">
+                                            Request Transfer
+                                        </a>
+                                    }
+                                </div>
                             </td>
                         </tr>
                     }
@@ -291,11 +348,9 @@
                         }
                     }
                 </tbody>
-
             </table>
         </div>
 
-        <!-- Pager -->
         <div class="it-table-pager border-top p-3 d-flex flex-column flex-md-row gap-2 align-items-center justify-content-between">
             <div class="text-muted small" id="txInfo"></div>
 

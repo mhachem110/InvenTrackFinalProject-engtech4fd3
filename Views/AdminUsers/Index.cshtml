@@ -1,5 +1,6 @@
 ﻿@model InvenTrack.ViewModels.Admin.UserRolesIndexVM
 @using System
+@using InvenTrack.Models
 
 @{
     ViewData["Title"] = "User Admin";
@@ -42,7 +43,7 @@
                            value="@Model.Query"
                            type="search"
                            class="form-control it-input-field"
-                           placeholder="Search by email or username..." />
+                           placeholder="Search by email, username, or location..." />
                 </div>
             </div>
 
@@ -74,7 +75,8 @@
                     <tr>
                         <th>Email</th>
                         <th style="width:220px;">Username</th>
-                        <th style="width:140px;">Role</th>
+                        <th style="width:180px;">Role</th>
+                        <th style="width:180px;">Location</th>
                         <th style="width:170px;">Status</th>
                         <th class="text-end" style="width:420px;">Actions</th>
                     </tr>
@@ -83,7 +85,7 @@
                     @if (Model.Users == null || !Model.Users.Any())
                     {
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-5">
+                            <td colspan="6" class="text-center text-muted py-5">
                                 <div class="fw-semibold mb-1">No users found</div>
                                 <div class="small">Try a different search.</div>
                             </td>
@@ -97,23 +99,32 @@
                                 <td class="fw-semibold">@u.Email</td>
                                 <td class="text-muted">@u.UserName</td>
                                 <td>
-                                    @if (u.Role == "Admin")
+                                    @if (u.Role == AppRoles.Admin)
                                     {
                                         <span class="badge bg-primary-subtle text-primary border it-badge">Admin</span>
                                     }
-                                    else if (u.Role == "Manager")
+                                    else if (u.Role == AppRoles.RegionalManager)
+                                    {
+                                        <span class="badge bg-info-subtle text-info border it-badge">Regional Manager</span>
+                                    }
+                                    else if (u.Role == AppRoles.Manager)
                                     {
                                         <span class="badge bg-success-subtle text-success border it-badge">Manager</span>
                                     }
-                                    else if (u.Role == "Viewer")
+                                    else if (u.Role == AppRoles.Supervisor)
                                     {
-                                        <span class="badge bg-secondary-subtle text-secondary border it-badge">Viewer</span>
+                                        <span class="badge bg-warning-subtle text-warning border it-badge">Supervisor</span>
+                                    }
+                                    else if (u.Role == AppRoles.Employee)
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border it-badge">Employee</span>
                                     }
                                     else
                                     {
                                         <span class="badge bg-light text-dark border it-badge">None</span>
                                     }
                                 </td>
+                                <td class="text-muted">@(u.AssignedLocationName ?? "-")</td>
                                 <td>
                                     @if (u.IsLockedOut)
                                     {

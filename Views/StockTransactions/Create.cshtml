@@ -14,10 +14,24 @@
             <div class="it-page-dot"></div>
             <h1 class="h3 mb-0 fw-bold">New Transaction</h1>
         </div>
-        <div class="text-muted small">Check in, check out, adjust, or transfer inventory for this item.</div>
+        <div class="text-muted small">
+            @(Model.AllowTransfer
+                        ? "Check in, check out, adjust, or transfer inventory for this item."
+                        : "Check in, check out, or adjust inventory for this item. Transfers must be requested separately.")
+        </div>
     </div>
 
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+        @if (!Model.AllowTransfer)
+        {
+            <a asp-controller="StockTransferRequests"
+               asp-action="Create"
+               asp-route-inventoryItemId="@Model.InventoryItemID"
+               class="btn btn-outline-dark">
+                Request Transfer Instead
+            </a>
+        }
+
         <a asp-controller="InventoryItems" asp-action="Details" asp-route-id="@Model.InventoryItemID" class="btn btn-outline-secondary">
             Back
         </a>
@@ -40,14 +54,27 @@
                     <input type="hidden" asp-for="ItemName" />
                     <input type="hidden" asp-for="SKU" />
                     <input type="hidden" asp-for="TotalQuantityOnHand" id="totalHidden" />
+                    <input type="hidden" asp-for="AllowTransfer" />
+
+                    @if (!Model.AllowTransfer)
+                    {
+                        <div class="it-hint mb-3">
+                            Your role cannot directly confirm stock transfers between locations. Use a transfer request instead.
+                        </div>
+                    }
 
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label asp-for="ActionType" class="form-label"></label>
-                            <select asp-for="ActionType"
-                                    class="form-select"
-                                    asp-items="Html.GetEnumSelectList<StockActionType>()"
-                                    id="actionSelect"></select>
+                            <select asp-for="ActionType" class="form-select" id="actionSelect">
+                                <option value="@((int)StockActionType.CheckIn)" selected="@(Model.ActionType == StockActionType.CheckIn ? "selected" : null)">CheckIn</option>
+                                <option value="@((int)StockActionType.CheckOut)" selected="@(Model.ActionType == StockActionType.CheckOut ? "selected" : null)">CheckOut</option>
+                                <option value="@((int)StockActionType.Adjustment)" selected="@(Model.ActionType == StockActionType.Adjustment ? "selected" : null)">Adjustment</option>
+                                @if (Model.AllowTransfer)
+                                {
+                                    <option value="@((int)StockActionType.Transfer)" selected="@(Model.ActionType == StockActionType.Transfer ? "selected" : null)">Transfer</option>
+                                }
+                            </select>
                             <span asp-validation-for="ActionType" class="text-danger small"></span>
                         </div>
 
@@ -64,7 +91,9 @@
                                 <option value="">-- Select Location --</option>
                                 @foreach (var l in fromList)
                                 {
-                                    <option value="@l.LocationID" data-qty="@l.QuantityOnHand">
+                                    <option value="@l.LocationID"
+                                            data-qty="@l.QuantityOnHand"
+                                            selected="@(Model.FromLocationID == l.LocationID ? "selected" : null)">
                                         @l.LocationName (@l.QuantityOnHand)
                                     </option>
                                 }
@@ -79,7 +108,9 @@
                                 <option value="">-- Select Location --</option>
                                 @foreach (var l in allList)
                                 {
-                                    <option value="@l.LocationID">@l.LocationName</option>
+                                    <option value="@l.LocationID" selected="@(Model.ToLocationID == l.LocationID ? "selected" : null)">
+                                        @l.LocationName
+                                    </option>
                                 }
                             </select>
                             <span asp-validation-for="ToLocationID" class="text-danger small"></span>
@@ -98,8 +129,19 @@
                         </div>
 
                         <div class="col-12">
-                            <div class="d-flex gap-2 mt-2">
+                            <div class="d-flex gap-2 mt-2 flex-wrap">
                                 <button type="submit" class="btn btn-primary">Apply Transaction</button>
+
+                                @if (!Model.AllowTransfer)
+                                {
+                                    <a asp-controller="StockTransferRequests"
+                                       asp-action="Create"
+                                       asp-route-inventoryItemId="@Model.InventoryItemID"
+                                       class="btn btn-outline-dark">
+                                        Request Transfer
+                                    </a>
+                                }
+
                                 <a asp-controller="InventoryItems" asp-action="Details" asp-route-id="@Model.InventoryItemID" class="btn btn-outline-secondary">
                                     Cancel
                                 </a>
@@ -151,7 +193,14 @@
                 </div>
 
                 <div class="it-hint mt-3">
-                    Tip: Transfer supports partial quantities. Checkout/Transfer is limited by available stock in the selected source location.
+                    @if (Model.AllowTransfer)
+                    {
+                        <span>Tip: Transfer supports partial quantities. Checkout/Transfer is limited by available stock in the selected source location.</span>
+                    }
+                    else
+                    {
+                        <span>Tip: Supervisors can check in, check out, and adjust stock. Transfers should be submitted through Transfer Requests.</span>
+                    }
                 </div>
             </div>
         </div>
@@ -174,6 +223,7 @@
             const fromLabel = document.getElementById('fromLabel');
             const fromHelp = document.getElementById('fromHelp');
             const qtyHelp = document.getElementById('qtyHelp');
+            const allowTransfer = '@Model.AllowTransfer'.toLowerCase() === 'true';
 
             function availableFrom() {
                 const opt = fromSelect?.selectedOptions?.[0];
@@ -184,14 +234,15 @@
             function refresh() {
                 const v = action.value;
 
-                if (v === "1") { // CheckIn
+                if (v === "1") {
                     fromBlock.style.display = "none";
                     toBlock.style.display = "";
                     qty.readOnly = false;
                     qtyHelp.innerText = "Enter a positive quantity to add.";
                     fromHelp.innerText = "";
+                    qty.removeAttribute("max");
                 }
-                else if (v === "2") { // CheckOut
+                else if (v === "2") {
                     fromBlock.style.display = "";
                     toBlock.style.display = "none";
                     fromLabel.innerText = "Location";
@@ -202,7 +253,7 @@
                     fromHelp.innerText = av > 0 ? `Available in selected location: ${av}` : "";
                     qtyHelp.innerText = "Enter a positive quantity to remove.";
                 }
-                else if (v === "3") { // Adjustment
+                else if (v === "3") {
                     fromBlock.style.display = "";
                     toBlock.style.display = "none";
                     fromLabel.innerText = "Location";
@@ -211,7 +262,7 @@
                     fromHelp.innerText = "";
                     qtyHelp.innerText = "Can be positive or negative (notes required).";
                 }
-                else if (v === "4") { // Transfer
+                else if (v === "4" && allowTransfer) {
                     fromBlock.style.display = "";
                     toBlock.style.display = "";
                     fromLabel.innerText = "From Location";
@@ -226,6 +277,13 @@
                     Array.from(toSelect.options).forEach(o => {
                         o.disabled = fromVal && o.value === fromVal;
                     });
+                }
+                else {
+                    fromBlock.style.display = "none";
+                    toBlock.style.display = "none";
+                    qty.removeAttribute("max");
+                    fromHelp.innerText = "";
+                    qtyHelp.innerText = "";
                 }
             }
 

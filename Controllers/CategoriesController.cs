@@ -7,7 +7,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InvenTrack.Controllers
 {
-    [Authorize(Roles = "Admin,Manager,Viewer")]
+    [Authorize(Roles =
+        AppRoles.Admin + "," +
+        AppRoles.RegionalManager + "," +
+        AppRoles.Manager + "," +
+        AppRoles.Supervisor + "," +
+        AppRoles.Employee)]
     public class CategoriesController : Controller
     {
         private readonly InvenTrackContext _context;
@@ -16,10 +21,6 @@ namespace InvenTrack.Controllers
         {
             _context = context;
         }
-
-        // ---------------------------
-        // Helpers
-        // ---------------------------
 
         private static string Clean(string? s) => (s ?? string.Empty).Trim();
 
@@ -32,7 +33,6 @@ namespace InvenTrack.Controllers
                 c.Name == name && (!excludeId.HasValue || c.ID != excludeId.Value));
         }
 
-        // GET: Categories
         public async Task<IActionResult> Index(string? searchString, int page = 1, int pageSize = 10)
         {
             if (page < 1) page = 1;
@@ -74,7 +74,6 @@ namespace InvenTrack.Controllers
             return View(pagedCategories);
         }
 
-        // GET: Categories/Details/5
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null) return NotFound();
@@ -88,15 +87,13 @@ namespace InvenTrack.Controllers
             return View(category);
         }
 
-        [Authorize(Roles = "Admin,Manager")]
-        // GET: Categories/Create
+        [Authorize(Roles = AppRoles.Admin + "," + AppRoles.RegionalManager)]
         public IActionResult Create()
         {
             return View();
         }
 
-        [Authorize(Roles = "Admin,Manager")]
-        // POST: Categories/Create
+        [Authorize(Roles = AppRoles.Admin + "," + AppRoles.RegionalManager)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Name,Description")] Category category)
@@ -126,8 +123,7 @@ namespace InvenTrack.Controllers
             return View(category);
         }
 
-        [Authorize(Roles = "Admin,Manager")]
-        // GET: Categories/Edit/5
+        [Authorize(Roles = AppRoles.Admin + "," + AppRoles.RegionalManager)]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
@@ -138,8 +134,7 @@ namespace InvenTrack.Controllers
             return View(category);
         }
 
-        [Authorize(Roles = "Admin,Manager")]
-        // POST: Categories/Edit/5
+        [Authorize(Roles = AppRoles.Admin + "," + AppRoles.RegionalManager)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id)
@@ -180,8 +175,7 @@ namespace InvenTrack.Controllers
             return View(categoryToUpdate);
         }
 
-        [Authorize(Roles = "Admin,Manager")]
-        // GET: Categories/Delete/5
+        [Authorize(Roles = AppRoles.Admin + "," + AppRoles.RegionalManager)]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
@@ -195,8 +189,7 @@ namespace InvenTrack.Controllers
             return View(category);
         }
 
-        [Authorize(Roles = "Admin,Manager")]
-        // POST: Categories/Delete/5
+        [Authorize(Roles = AppRoles.Admin + "," + AppRoles.RegionalManager)]
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)

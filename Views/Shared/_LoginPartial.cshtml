@@ -1,13 +1,59 @@
 ﻿@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using InvenTrack.Data
 @using InvenTrack.Models
 @inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject InvenTrackContext Db
 
 @{
     bool signedIn = SignInManager.IsSignedIn(User);
-    string roleLabel =
-        User.IsInRole("Admin") ? "Admin" :
-        User.IsInRole("Manager") ? "Manager" :
-        User.IsInRole("Viewer") ? "Viewer" : "";
+
+    string roleValue =
+        User.IsInRole(AppRoles.Admin) ? AppRoles.Admin :
+        User.IsInRole(AppRoles.RegionalManager) ? AppRoles.RegionalManager :
+        User.IsInRole(AppRoles.Manager) ? AppRoles.Manager :
+        User.IsInRole(AppRoles.Supervisor) ? AppRoles.Supervisor :
+        User.IsInRole(AppRoles.Employee) ? AppRoles.Employee : "";
+
+    string roleLabel = roleValue switch
+    {
+        AppRoles.Admin => "Admin",
+        AppRoles.RegionalManager => "Regional Manager",
+        AppRoles.Manager => "Manager",
+        AppRoles.Supervisor => "Supervisor",
+        AppRoles.Employee => "Employee",
+        _ => ""
+    };
+
+    string assignedLocation = "-";
+
+    if (signedIn)
+    {
+        var userId = UserManager.GetUserId(User);
+
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            var assignedLocationId = await UserManager.Users
+                .AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => u.AssignedStorageLocationId)
+                .FirstOrDefaultAsync();
+
+            if (User.IsInRole(AppRoles.Admin) || User.IsInRole(AppRoles.RegionalManager))
+            {
+                assignedLocation = "All Locations";
+            }
+            else if (assignedLocationId.HasValue)
+            {
+                assignedLocation = await Db.StorageLocations
+                    .AsNoTracking()
+                    .Where(l => l.ID == assignedLocationId.Value)
+                    .Select(l => l.Name)
+                    .FirstOrDefaultAsync() ?? "-";
+            }
+        }
+    }
 }
 
 @if (signedIn)
@@ -16,10 +62,15 @@
 
     <div class="small mb-3">
         <div class="fw-semibold text-break">@User.Identity?.Name</div>
+
         @if (!string.IsNullOrWhiteSpace(roleLabel))
         {
             <span class="badge bg-primary-subtle text-primary border it-badge mt-2">@roleLabel</span>
         }
+
+        <div class="text-muted small mt-2">
+            Location: @assignedLocation
+        </div>
     </div>
 
     <a class="it-nav-link" asp-area="Identity" asp-page="/Account/Manage/Index">

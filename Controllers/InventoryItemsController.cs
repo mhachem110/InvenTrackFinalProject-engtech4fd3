@@ -1,5 +1,6 @@
 using InvenTrack.Data;
 using InvenTrack.Models;
+using InvenTrack.Services;
 using InvenTrack.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,14 +9,21 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InvenTrack.Controllers
 {
-    [Authorize(Roles = "Admin,Manager,Viewer")]
+    [Authorize(Roles =
+        AppRoles.Admin + "," +
+        AppRoles.RegionalManager + "," +
+        AppRoles.Manager + "," +
+        AppRoles.Supervisor + "," +
+        AppRoles.Employee)]
     public class InventoryItemsController : Controller
     {
         private readonly InvenTrackContext _context;
+        private readonly AppAccessService _accessService;
 
-        public InventoryItemsController(InvenTrackContext context)
+        public InventoryItemsController(InvenTrackContext context, AppAccessService accessService)
         {
             _context = context;
+            _accessService = accessService;
         }
 
         private static string NormalizeSku(string? sku)
@@ -30,10 +38,49 @@ namespace InvenTrack.Controllers
                 i.SKU == sku && (!excludeId.HasValue || i.ID != excludeId.Value));
         }
 
-        private void PopulateDropDowns(int? categoryID = null, int? locationID = null)
+        private IQueryable<InventoryItem> ApplyInventoryScope(IQueryable<InventoryItem> query, AccessScope scope)
         {
-            ViewData["CategoryID"] = new SelectList(_context.Categories.OrderBy(c => c.Name), "ID", "Name", categoryID);
-            ViewData["StorageLocationID"] = new SelectList(_context.StorageLocations.OrderBy(l => l.Name), "ID", "Name", locationID);
+            if (scope.HasGlobalLocationAccess)
+                return query;
+
+            var locationId = scope.AssignedLocationId!.Value;
+
+            return query.Where(i =>
+                i.StorageLocationID == locationId ||
+                _context.InventoryItemStocks.Any(s =>
+                    s.InventoryItemID == i.ID &&
+                    s.StorageLocationID == locationId));
+        }
+
+        private async Task PopulateDropDownsAsync(
+            AccessScope scope,
+            int? categoryID = null,
+            int? locationID = null)
+        {
+            ViewData["CategoryID"] = new SelectList(
+                await _context.Categories
+                    .AsNoTracking()
+                    .OrderBy(c => c.Name)
+                    .ToListAsync(),
+                "ID",
+                "Name",
+                categoryID);
+
+            IQueryable<StorageLocation> locationsQuery = _context.StorageLocations
+                .AsNoTracking()
+                .OrderBy(l => l.Name);
+
+            if (scope.IsScopedUser)
+            {
+                var locationId = scope.AssignedLocationId!.Value;
+                locationsQuery = locationsQuery.Where(l => l.ID == locationId);
+            }
+
+            ViewData["StorageLocationID"] = new SelectList(
+                await locationsQuery.ToListAsync(),
+                "ID",
+                "Name",
+                locationID);
         }
 
         private async Task<byte[]?> ResizeWebpWithTimeoutAsync(byte[] bytes, int w, int h, int timeoutMs)
@@ -107,6 +154,8 @@ namespace InvenTrack.Controllers
             int page = 1,
             int pageSize = 10)
         {
+            var scope = await _accessService.GetScopeAsync(User);
+
             if (page < 1) page = 1;
 
             var allowedPageSizes = new[] { 10, 25, 50 };
@@ -115,13 +164,15 @@ namespace InvenTrack.Controllers
 
             statusFilter = string.IsNullOrWhiteSpace(statusFilter)
                 ? "all"
-                : statusFilter.Trim().ToLower();
+                : statusFilter.Trim().ToLowerInvariant();
 
             IQueryable<InventoryItem> query = _context.InventoryItems
                 .AsNoTracking()
                 .Include(i => i.ItemThumbnail)
                 .Include(i => i.Category)
                 .Include(i => i.StorageLocation);
+
+            query = ApplyInventoryScope(query, scope);
 
             if (!string.IsNullOrWhiteSpace(searchString))
             {
@@ -158,14 +209,21 @@ namespace InvenTrack.Controllers
             }
 
             var itemIds = pagedItems.Select(i => i.ID).ToList();
-
-            Dictionary<int, int> dict = new();
+            var dict = new Dictionary<int, int>();
 
             if (itemIds.Count > 0)
             {
-                var counts = await _context.InventoryItemStocks
+                var stockQuery = _context.InventoryItemStocks
                     .AsNoTracking()
-                    .Where(s => itemIds.Contains(s.InventoryItemID))
+                    .Where(s => itemIds.Contains(s.InventoryItemID));
+
+                if (scope.IsScopedUser)
+                {
+                    var locationId = scope.AssignedLocationId!.Value;
+                    stockQuery = stockQuery.Where(s => s.StorageLocationID == locationId);
+                }
+
+                var counts = await stockQuery
                     .GroupBy(s => s.InventoryItemID)
                     .Select(g => new
                     {
@@ -175,6 +233,32 @@ namespace InvenTrack.Controllers
                     .ToListAsync();
 
                 dict = counts.ToDictionary(x => x.InventoryItemID, x => x.LocationCount);
+            }
+
+            foreach (var item in pagedItems)
+            {
+                if (!dict.ContainsKey(item.ID))
+                {
+                    if (scope.HasGlobalLocationAccess)
+                    {
+                        dict[item.ID] = item.QuantityOnHand > 0 ? 1 : 0;
+                    }
+                    else
+                    {
+                        dict[item.ID] = item.StorageLocationID == scope.AssignedLocationId && item.QuantityOnHand > 0 ? 1 : 0;
+                    }
+                }
+
+                if (scope.IsScopedUser &&
+                    item.StorageLocationID != scope.AssignedLocationId &&
+                    !string.IsNullOrWhiteSpace(scope.AssignedLocationName))
+                {
+                    item.StorageLocation = new StorageLocation
+                    {
+                        ID = scope.AssignedLocationId!.Value,
+                        Name = scope.AssignedLocationName
+                    };
+                }
             }
 
             ViewData["LocationCounts"] = dict;
@@ -189,35 +273,86 @@ namespace InvenTrack.Controllers
         {
             if (id == null) return NotFound();
 
-            var item = await _context.InventoryItems
+            var scope = await _accessService.GetScopeAsync(User);
+
+            IQueryable<InventoryItem> itemQuery = _context.InventoryItems
+                .AsNoTracking()
                 .Include(i => i.ItemPhoto)
                 .Include(i => i.ItemThumbnail)
                 .Include(i => i.Category)
-                .Include(i => i.StorageLocation)
-                .Include(i => i.StockTransactions).ThenInclude(t => t.FromStorageLocation)
-                .Include(i => i.StockTransactions).ThenInclude(t => t.ToStorageLocation)
-                .FirstOrDefaultAsync(m => m.ID == id);
+                .Include(i => i.StorageLocation);
 
+            itemQuery = ApplyInventoryScope(itemQuery, scope);
+
+            var item = await itemQuery.FirstOrDefaultAsync(m => m.ID == id);
             if (item == null) return NotFound();
 
-            var stocks = await _context.InventoryItemStocks
+            var stocksQuery = _context.InventoryItemStocks
                 .AsNoTracking()
                 .Include(s => s.StorageLocation)
                 .Where(s => s.InventoryItemID == item.ID)
                 .OrderByDescending(s => s.QuantityOnHand)
-                .ToListAsync();
+                .AsQueryable();
+
+            if (scope.IsScopedUser)
+            {
+                var locationId = scope.AssignedLocationId!.Value;
+                stocksQuery = stocksQuery.Where(s => s.StorageLocationID == locationId);
+            }
+
+            var stocks = await stocksQuery.ToListAsync();
 
             if (stocks.Count == 0)
             {
-                stocks = new List<InventoryItemStock>
+                if (scope.HasGlobalLocationAccess || item.StorageLocationID == scope.AssignedLocationId)
                 {
-                    new InventoryItemStock
+                    stocks = new List<InventoryItemStock>
                     {
-                        InventoryItemID = item.ID,
-                        StorageLocationID = item.StorageLocationID,
-                        StorageLocation = item.StorageLocation ?? new StorageLocation { Name = "-" },
-                        QuantityOnHand = item.QuantityOnHand
-                    }
+                        new InventoryItemStock
+                        {
+                            InventoryItemID = item.ID,
+                            StorageLocationID = scope.IsScopedUser
+                                ? scope.AssignedLocationId!.Value
+                                : item.StorageLocationID,
+                            StorageLocation = scope.IsScopedUser
+                                ? new StorageLocation
+                                {
+                                    ID = scope.AssignedLocationId!.Value,
+                                    Name = scope.AssignedLocationName ?? "-"
+                                }
+                                : (item.StorageLocation ?? new StorageLocation { Name = "-" }),
+                            QuantityOnHand = item.QuantityOnHand
+                        }
+                    };
+                }
+            }
+
+            var txQuery = _context.StockTransactions
+                .AsNoTracking()
+                .Include(t => t.FromStorageLocation)
+                .Include(t => t.ToStorageLocation)
+                .Where(t => t.InventoryItemID == item.ID)
+                .OrderByDescending(t => t.DateCreated)
+                .AsQueryable();
+
+            if (scope.IsScopedUser)
+            {
+                var locationId = scope.AssignedLocationId!.Value;
+                txQuery = txQuery.Where(t =>
+                    t.FromStorageLocationID == locationId ||
+                    t.ToStorageLocationID == locationId);
+            }
+
+            item.StockTransactions = await txQuery.ToListAsync();
+
+            if (scope.IsScopedUser &&
+                item.StorageLocationID != scope.AssignedLocationId &&
+                !string.IsNullOrWhiteSpace(scope.AssignedLocationName))
+            {
+                item.StorageLocation = new StorageLocation
+                {
+                    ID = scope.AssignedLocationId!.Value,
+                    Name = scope.AssignedLocationName
                 };
             }
 
@@ -227,21 +362,37 @@ namespace InvenTrack.Controllers
             return View(item);
         }
 
-        [Authorize(Roles = "Admin,Manager")]
-        public IActionResult Create()
+        [Authorize(Roles =
+            AppRoles.Admin + "," +
+            AppRoles.RegionalManager + "," +
+            AppRoles.Manager + "," +
+            AppRoles.Supervisor)]
+        public async Task<IActionResult> Create()
         {
-            PopulateDropDowns();
+            var scope = await _accessService.GetScopeAsync(User);
+            await PopulateDropDownsAsync(scope);
             return View();
         }
 
-        [Authorize(Roles = "Admin,Manager")]
+        [Authorize(Roles =
+            AppRoles.Admin + "," +
+            AppRoles.RegionalManager + "," +
+            AppRoles.Manager + "," +
+            AppRoles.Supervisor)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(
             [Bind("ID,ItemName,SKU,Description,QuantityOnHand,ReorderLevel,IsActive,CategoryID,StorageLocationID")] InventoryItem item,
             IFormFile? thePicture)
         {
+            var scope = await _accessService.GetScopeAsync(User);
+
             item.SKU = NormalizeSku(item.SKU);
+
+            if (scope.IsScopedUser)
+            {
+                item.StorageLocationID = scope.AssignedLocationId!.Value;
+            }
 
             if (await SkuExistsAsync(item.SKU))
                 ModelState.AddModelError(nameof(InventoryItem.SKU), "SKU / Asset Tag must be unique. This value already exists.");
@@ -259,13 +410,14 @@ namespace InvenTrack.Controllers
             if (ModelState.IsValid)
             {
                 var strategy = _context.Database.CreateExecutionStrategy();
+
                 try
                 {
                     await strategy.ExecuteAsync(async () =>
                     {
                         await using var tx = await _context.Database.BeginTransactionAsync();
 
-                        _context.Add(item);
+                        _context.InventoryItems.Add(item);
                         await _context.SaveChangesAsync();
 
                         _context.InventoryItemStocks.Add(new InventoryItemStock
@@ -287,14 +439,20 @@ namespace InvenTrack.Controllers
                 }
             }
 
-            PopulateDropDowns(item.CategoryID, item.StorageLocationID);
+            await PopulateDropDownsAsync(scope, item.CategoryID, item.StorageLocationID);
             return View(item);
         }
 
-        [Authorize(Roles = "Admin,Manager")]
+        [Authorize(Roles =
+            AppRoles.Admin + "," +
+            AppRoles.RegionalManager + "," +
+            AppRoles.Manager + "," +
+            AppRoles.Supervisor)]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
+
+            var scope = await _accessService.GetScopeAsync(User);
 
             var item = await _context.InventoryItems
                 .Include(p => p.ItemPhoto)
@@ -303,11 +461,18 @@ namespace InvenTrack.Controllers
 
             if (item == null) return NotFound();
 
-            PopulateDropDowns(item.CategoryID, item.StorageLocationID);
+            if (scope.IsScopedUser && item.StorageLocationID != scope.AssignedLocationId)
+                return Forbid();
+
+            await PopulateDropDownsAsync(scope, item.CategoryID, item.StorageLocationID);
             return View(item);
         }
 
-        [Authorize(Roles = "Admin,Manager")]
+        [Authorize(Roles =
+            AppRoles.Admin + "," +
+            AppRoles.RegionalManager + "," +
+            AppRoles.Manager + "," +
+            AppRoles.Supervisor)]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(
@@ -318,12 +483,17 @@ namespace InvenTrack.Controllers
         {
             if (id != item.ID) return NotFound();
 
+            var scope = await _accessService.GetScopeAsync(User);
+
             var itemToUpdate = await _context.InventoryItems
                 .Include(p => p.ItemPhoto)
                 .Include(p => p.ItemThumbnail)
                 .FirstOrDefaultAsync(i => i.ID == id);
 
             if (itemToUpdate == null) return NotFound();
+
+            if (scope.IsScopedUser && itemToUpdate.StorageLocationID != scope.AssignedLocationId)
+                return Forbid();
 
             item.SKU = NormalizeSku(item.SKU);
 
@@ -339,7 +509,7 @@ namespace InvenTrack.Controllers
             if (item.StorageLocationID != itemToUpdate.StorageLocationID)
             {
                 ModelState.AddModelError(nameof(InventoryItem.StorageLocationID),
-                    "Use Stock Transactions (Transfer) to move quantities between locations.");
+                    "Use Stock Transactions or Transfer Requests to move quantities between locations.");
             }
 
             itemToUpdate.ItemName = item.ItemName;
@@ -387,14 +557,20 @@ namespace InvenTrack.Controllers
                 }
             }
 
-            PopulateDropDowns(item.CategoryID, itemToUpdate.StorageLocationID);
+            await PopulateDropDownsAsync(scope, item.CategoryID, itemToUpdate.StorageLocationID);
             return View(itemToUpdate);
         }
 
-        [Authorize(Roles = "Admin,Manager")]
+        [Authorize(Roles =
+            AppRoles.Admin + "," +
+            AppRoles.RegionalManager + "," +
+            AppRoles.Manager + "," +
+            AppRoles.Supervisor)]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
+
+            var scope = await _accessService.GetScopeAsync(User);
 
             var item = await _context.InventoryItems
                 .Include(i => i.Category)
@@ -403,16 +579,28 @@ namespace InvenTrack.Controllers
 
             if (item == null) return NotFound();
 
+            if (scope.IsScopedUser && item.StorageLocationID != scope.AssignedLocationId)
+                return Forbid();
+
             return View(item);
         }
 
-        [Authorize(Roles = "Admin,Manager")]
+        [Authorize(Roles =
+            AppRoles.Admin + "," +
+            AppRoles.RegionalManager + "," +
+            AppRoles.Manager + "," +
+            AppRoles.Supervisor)]
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
+            var scope = await _accessService.GetScopeAsync(User);
+
             var item = await _context.InventoryItems.FindAsync(id);
             if (item == null) return RedirectToAction(nameof(Index));
+
+            if (scope.IsScopedUser && item.StorageLocationID != scope.AssignedLocationId)
+                return Forbid();
 
             try
             {

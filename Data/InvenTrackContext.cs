@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using InvenTrack.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace InvenTrack.Data
 {
@@ -17,6 +17,7 @@ namespace InvenTrack.Data
         public DbSet<ItemPhoto> ItemPhotos { get; set; }
         public DbSet<ItemThumbnail> ItemThumbnails { get; set; }
         public DbSet<InventoryItemStock> InventoryItemStocks { get; set; }
+        public DbSet<StockTransferRequest> StockTransferRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -28,13 +29,13 @@ namespace InvenTrack.Data
 
             modelBuilder.Entity<StockTransaction>()
                 .HasOne(t => t.FromStorageLocation)
-                .WithMany()
+                .WithMany(l => l.FromStockTransactions)
                 .HasForeignKey(t => t.FromStorageLocationID)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<StockTransaction>()
                 .HasOne(t => t.ToStorageLocation)
-                .WithMany()
+                .WithMany(l => l.ToStockTransactions)
                 .HasForeignKey(t => t.ToStorageLocationID)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -70,7 +71,8 @@ namespace InvenTrack.Data
 
             modelBuilder.Entity<StockTransaction>()
                 .HasIndex(t => t.ReferenceNumber)
-                .IsUnique();
+                .IsUnique()
+                .HasFilter("[ReferenceNumber] IS NOT NULL");
 
             modelBuilder.Entity<InventoryItemStock>()
                 .HasIndex(x => new { x.InventoryItemID, x.StorageLocationID })
@@ -78,15 +80,41 @@ namespace InvenTrack.Data
 
             modelBuilder.Entity<InventoryItemStock>()
                 .HasOne(x => x.InventoryItem)
-                .WithMany()
+                .WithMany(i => i.InventoryItemStocks)
                 .HasForeignKey(x => x.InventoryItemID)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<InventoryItemStock>()
                 .HasOne(x => x.StorageLocation)
-                .WithMany()
+                .WithMany(l => l.InventoryItemStocks)
                 .HasForeignKey(x => x.StorageLocationID)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<StockTransferRequest>()
+                .HasOne(r => r.InventoryItem)
+                .WithMany()
+                .HasForeignKey(r => r.InventoryItemID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<StockTransferRequest>()
+                .HasOne(r => r.FromStorageLocation)
+                .WithMany(l => l.TransferRequestsFromHere)
+                .HasForeignKey(r => r.FromStorageLocationID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<StockTransferRequest>()
+                .HasOne(r => r.ToStorageLocation)
+                .WithMany(l => l.TransferRequestsToHere)
+                .HasForeignKey(r => r.ToStorageLocationID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<StockTransferRequest>()
+                .Property(r => r.RequestedByUserId)
+                .HasMaxLength(450);
+
+            modelBuilder.Entity<StockTransferRequest>()
+                .Property(r => r.ReviewedByUserId)
+                .HasMaxLength(450);
 
             base.OnModelCreating(modelBuilder);
         }

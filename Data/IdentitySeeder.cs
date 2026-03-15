@@ -12,20 +12,30 @@ namespace InvenTrack.Data
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-            string[] roles = { "Admin", "Manager", "Viewer" };
+            await EnsureRolesExistAsync(roleManager);
+            await EnsureAdminUserAsync(userManager);
+        }
 
-            foreach (var r in roles)
+        private static async Task EnsureRolesExistAsync(RoleManager<IdentityRole> roleManager)
+        {
+            foreach (var role in AppRoles.All)
             {
-                if (!await roleManager.RoleExistsAsync(r))
+                if (await roleManager.RoleExistsAsync(role))
+                    continue;
+
+                var createRoleResult = await roleManager.CreateAsync(new IdentityRole(role));
+                if (!createRoleResult.Succeeded)
                 {
-                    var roleRes = await roleManager.CreateAsync(new IdentityRole(r));
-                    if (!roleRes.Succeeded)
-                        throw new InvalidOperationException("Failed to create role: " + r);
+                    var msg = string.Join("; ", createRoleResult.Errors.Select(e => e.Description));
+                    throw new InvalidOperationException($"Failed to create role '{role}': {msg}");
                 }
             }
+        }
 
-            var adminEmail = "admin@inventrack.local";
-            var adminPass = "Admin@2026";
+        private static async Task EnsureAdminUserAsync(UserManager<ApplicationUser> userManager)
+        {
+            const string adminEmail = "admin@inventrack.local";
+            const string adminPassword = "Admin@2026";
 
             var admin = await userManager.FindByEmailAsync(adminEmail);
 
@@ -35,23 +45,66 @@ namespace InvenTrack.Data
                 {
                     UserName = adminEmail,
                     Email = adminEmail,
-                    EmailConfirmed = true
+                    EmailConfirmed = true,
+                    AssignedStorageLocationId = null
                 };
 
-                var createRes = await userManager.CreateAsync(admin, adminPass);
-                if (!createRes.Succeeded)
+                var createUserResult = await userManager.CreateAsync(admin, adminPassword);
+                if (!createUserResult.Succeeded)
                 {
-                    var msg = string.Join("; ", createRes.Errors.Select(e => e.Description));
+                    var msg = string.Join("; ", createUserResult.Errors.Select(e => e.Description));
                     throw new InvalidOperationException("Failed to create admin user: " + msg);
                 }
             }
-
-            if (!await userManager.IsInRoleAsync(admin, "Admin"))
+            else
             {
-                var addRoleRes = await userManager.AddToRoleAsync(admin, "Admin");
-                if (!addRoleRes.Succeeded)
+                var needsUpdate = false;
+
+                if (!admin.EmailConfirmed)
                 {
-                    var msg = string.Join("; ", addRoleRes.Errors.Select(e => e.Description));
+                    admin.EmailConfirmed = true;
+                    needsUpdate = true;
+                }
+
+                if (admin.AssignedStorageLocationId != null)
+                {
+                    admin.AssignedStorageLocationId = null;
+                    needsUpdate = true;
+                }
+
+                if (needsUpdate)
+                {
+                    var updateUserResult = await userManager.UpdateAsync(admin);
+                    if (!updateUserResult.Succeeded)
+                    {
+                        var msg = string.Join("; ", updateUserResult.Errors.Select(e => e.Description));
+                        throw new InvalidOperationException("Failed to update admin user: " + msg);
+                    }
+                }
+            }
+
+            var currentRoles = await userManager.GetRolesAsync(admin);
+
+            var rolesToRemove = currentRoles
+                .Where(r => r != AppRoles.Admin)
+                .ToList();
+
+            if (rolesToRemove.Count > 0)
+            {
+                var removeRolesResult = await userManager.RemoveFromRolesAsync(admin, rolesToRemove);
+                if (!removeRolesResult.Succeeded)
+                {
+                    var msg = string.Join("; ", removeRolesResult.Errors.Select(e => e.Description));
+                    throw new InvalidOperationException("Failed to remove non-admin roles from admin user: " + msg);
+                }
+            }
+
+            if (!await userManager.IsInRoleAsync(admin, AppRoles.Admin))
+            {
+                var addAdminRoleResult = await userManager.AddToRoleAsync(admin, AppRoles.Admin);
+                if (!addAdminRoleResult.Succeeded)
+                {
+                    var msg = string.Join("; ", addAdminRoleResult.Errors.Select(e => e.Description));
                     throw new InvalidOperationException("Failed to assign Admin role: " + msg);
                 }
             }

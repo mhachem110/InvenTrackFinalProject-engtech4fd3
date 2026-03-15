@@ -12,6 +12,7 @@ namespace InvenTrack.ViewModels
 
         public int TotalQuantityOnHand { get; set; }
 
+        [Display(Name = "Action")]
         public StockActionType ActionType { get; set; } = StockActionType.CheckIn;
 
         [Display(Name = "Quantity")]
@@ -30,6 +31,8 @@ namespace InvenTrack.ViewModels
         [StringLength(120)]
         public string? PerformedBy { get; set; }
 
+        public bool AllowTransfer { get; set; } = true;
+
         public List<LocationStockVM> Locations { get; set; } = new();
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
@@ -42,6 +45,9 @@ namespace InvenTrack.ViewModels
                 if (Quantity < 0)
                     yield return new ValidationResult("Quantity must be positive for this action.", new[] { nameof(Quantity) });
             }
+
+            if (!AllowTransfer && ActionType == StockActionType.Transfer)
+                yield return new ValidationResult("Your role cannot directly create transfer transactions. Please use a transfer request.", new[] { nameof(ActionType) });
 
             if (ActionType == StockActionType.Adjustment && string.IsNullOrWhiteSpace(Notes))
                 yield return new ValidationResult("Notes are required for an Adjustment.", new[] { nameof(Notes) });

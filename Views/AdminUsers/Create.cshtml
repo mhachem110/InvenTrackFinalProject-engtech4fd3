@@ -1,4 +1,5 @@
 ﻿@model InvenTrack.ViewModels.Admin.CreateUserVM
+@using InvenTrack.Models
 
 @{
     ViewData["Title"] = "Create User";
@@ -10,7 +11,7 @@
             <div class="it-page-dot"></div>
             <h1 class="h3 mb-0 fw-bold">Create User</h1>
         </div>
-        <div class="text-muted small">Admin-only: create an account and assign a role.</div>
+        <div class="text-muted small">Admin-only: create an account, assign a role, and optionally assign a location.</div>
     </div>
 
     <div class="d-flex gap-2">
@@ -21,7 +22,7 @@
 <div class="it-panel">
     <div class="it-panel-body">
         <div class="it-hint mb-3">
-            A temporary password and a one-time password setup link will be emailed automatically to this user.
+            Admin and Regional Manager are global roles. Manager, Supervisor, and Employee must have an assigned location.
         </div>
 
         <form asp-action="Create" method="post">
@@ -42,13 +43,26 @@
 
                 <div class="col-md-6">
                     <label asp-for="SelectedRole" class="form-label"></label>
-                    <select asp-for="SelectedRole" class="form-select">
+                    <select asp-for="SelectedRole" class="form-select" id="roleSelect">
                         @foreach (var r in Model.AvailableRoles)
                         {
-                            <option value="@r">@r</option>
+                            var label = r == AppRoles.RegionalManager ? "Regional Manager" : r;
+                            <option value="@r">@label</option>
                         }
                     </select>
                     <span asp-validation-for="SelectedRole" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="AssignedStorageLocationId" class="form-label"></label>
+                    <select asp-for="AssignedStorageLocationId" class="form-select" id="locationSelect">
+                        <option value="">No assigned location</option>
+                        @foreach (var loc in Model.AvailableLocations)
+                        {
+                            <option value="@loc.Value">@loc.Text</option>
+                        }
+                    </select>
+                    <span asp-validation-for="AssignedStorageLocationId" class="text-danger small"></span>
                 </div>
 
                 <div class="col-12">
@@ -66,4 +80,30 @@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
+
+    <script>
+        (function () {
+            const roleSelect = document.getElementById('roleSelect');
+            const locationSelect = document.getElementById('locationSelect');
+            const globalRoles = ['@AppRoles.Admin', '@AppRoles.RegionalManager'];
+
+            function applyRoleRules() {
+                if (!roleSelect || !locationSelect) return;
+
+                const isGlobal = globalRoles.includes(roleSelect.value);
+
+                if (isGlobal) {
+                    locationSelect.value = '';
+                    locationSelect.setAttribute('disabled', 'disabled');
+                } else {
+                    locationSelect.removeAttribute('disabled');
+                }
+            }
+
+            if (roleSelect) {
+                roleSelect.addEventListener('change', applyRoleRules);
+                applyRoleRules();
+            }
+        })();
+    </script>
 }

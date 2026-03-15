@@ -4,10 +4,21 @@
 
 @{
     var controller = (ViewContext.RouteData.Values["controller"]?.ToString() ?? "").ToLowerInvariant();
+
     bool IsActive(string c) => controller == (c ?? "").ToLowerInvariant();
 
     bool signedIn = SignInManager.IsSignedIn(User);
-    bool canWrite = User.IsInRole("Admin") || User.IsInRole("Manager");
+
+    bool isAdmin = User.IsInRole(AppRoles.Admin);
+    bool isRegionalManager = User.IsInRole(AppRoles.RegionalManager);
+    bool isManager = User.IsInRole(AppRoles.Manager);
+    bool isSupervisor = User.IsInRole(AppRoles.Supervisor);
+    bool isEmployee = User.IsInRole(AppRoles.Employee);
+
+    bool canCreateEditInventory = isAdmin || isRegionalManager || isManager || isSupervisor;
+    bool canUseTransferRequests = isAdmin || isRegionalManager || isManager || isSupervisor || isEmployee;
+    bool canSeeUserAdmin = isAdmin;
+    bool canSeeReports = signedIn;
 }
 
 <!DOCTYPE html>
@@ -101,9 +112,19 @@
                                 <span class="it-nav-ico">🧾</span> Transactions
                             </a>
 
-                            <a class="it-nav-link @(IsActive("Reports") ? "active" : "")" asp-controller="Reports" asp-action="Index">
-                                <span class="it-nav-ico">📊</span> Reports
-                            </a>
+                            @if (canUseTransferRequests)
+                            {
+                                <a class="it-nav-link @(IsActive("StockTransferRequests") ? "active" : "")" asp-controller="StockTransferRequests" asp-action="Index">
+                                    <span class="it-nav-ico">🔁</span> Transfer Requests
+                                </a>
+                            }
+
+                            @if (canSeeReports)
+                            {
+                                <a class="it-nav-link @(IsActive("Reports") ? "active" : "")" asp-controller="Reports" asp-action="Index">
+                                    <span class="it-nav-ico">📊</span> Reports
+                                </a>
+                            }
 
                             <a class="it-nav-link @(IsActive("Categories") ? "active" : "")" asp-controller="Categories" asp-action="Index">
                                 <span class="it-nav-ico">🗂️</span> Categories
@@ -113,7 +134,7 @@
                                 <span class="it-nav-ico">📍</span> Locations
                             </a>
 
-                            @if (User.IsInRole("Admin"))
+                            @if (canSeeUserAdmin)
                             {
                                 <div class="it-nav-divider"></div>
                                 <a class="it-nav-link @(IsActive("AdminUsers") ? "active" : "")" asp-controller="AdminUsers" asp-action="Index">
@@ -133,7 +154,9 @@
                         </nav>
 
                         <div class="it-sidebar-footer mt-auto">
-                            <div class="small text-muted">Tip: keep SKUs unique for clean reporting.</div>
+                            <div class="small text-muted">
+                                Tip: scoped users only see data for their assigned location.
+                            </div>
                         </div>
                     </div>
                 </aside>
@@ -146,12 +169,12 @@
                                 <div class="fw-semibold text-truncate">@ViewData["Title"]</div>
                             </div>
 
-                            @* <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-                                @if (canWrite)
+                            <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                                @if (canCreateEditInventory)
                                 {
                                     <a class="btn btn-sm btn-primary" asp-controller="InventoryItems" asp-action="Create">+ Add Item</a>
                                 }
-                            </div> *@
+                            </div>
                         </div>
                     </header>
 
@@ -201,9 +224,19 @@
                         <span class="it-nav-ico">🧾</span> Transactions
                     </a>
 
-                    <a class="it-nav-link @(IsActive("Reports") ? "active" : "")" asp-controller="Reports" asp-action="Index">
-                        <span class="it-nav-ico">📊</span> Reports
-                    </a>
+                    @if (canUseTransferRequests)
+                    {
+                        <a class="it-nav-link @(IsActive("StockTransferRequests") ? "active" : "")" asp-controller="StockTransferRequests" asp-action="Index">
+                            <span class="it-nav-ico">🔁</span> Transfer Requests
+                        </a>
+                    }
+
+                    @if (canSeeReports)
+                    {
+                        <a class="it-nav-link @(IsActive("Reports") ? "active" : "")" asp-controller="Reports" asp-action="Index">
+                            <span class="it-nav-ico">📊</span> Reports
+                        </a>
+                    }
 
                     <a class="it-nav-link @(IsActive("Categories") ? "active" : "")" asp-controller="Categories" asp-action="Index">
                         <span class="it-nav-ico">🗂️</span> Categories
@@ -213,7 +246,7 @@
                         <span class="it-nav-ico">📍</span> Locations
                     </a>
 
-                    @if (User.IsInRole("Admin"))
+                    @if (canSeeUserAdmin)
                     {
                         <div class="it-nav-divider"></div>
                         <a class="it-nav-link @(IsActive("AdminUsers") ? "active" : "")" asp-controller="AdminUsers" asp-action="Index">
