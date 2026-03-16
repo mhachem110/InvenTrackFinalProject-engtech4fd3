@@ -1,5 +1,6 @@
 ﻿using InvenTrack.Data;
 using InvenTrack.Models;
+using InvenTrack.ViewModels.AI;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
@@ -12,17 +13,20 @@ namespace InvenTrack.Services
         private readonly InvenTrackContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IEmailSender _emailSender;
+        private readonly InventoryAiService _inventoryAiService;
         private readonly ILogger<StockService> _logger;
 
         public StockService(
             InvenTrackContext context,
             UserManager<ApplicationUser> userManager,
             IEmailSender emailSender,
+            InventoryAiService inventoryAiService,
             ILogger<StockService> logger)
         {
             _context = context;
             _userManager = userManager;
             _emailSender = emailSender;
+            _inventoryAiService = inventoryAiService;
             _logger = logger;
         }
 
@@ -96,6 +100,7 @@ namespace InvenTrack.Services
                     bool shouldAlertAfterCommit = false;
                     int afterTotal = beforeTotal;
                     List<InventoryItemStock> stocksForEmail = new();
+                    InventoryAiPredictionVM? aiPrediction = null;
 
                     await using var dbTx = await _context.Database.BeginTransactionAsync();
                     try
@@ -260,8 +265,21 @@ namespace InvenTrack.Services
 
                         var crossedAboveToLow = beforeTotal > reorderLevel && afterTotal <= reorderLevel;
                         var droppedFromEqualToBelow = beforeTotal == reorderLevel && afterTotal < reorderLevel;
+                        var stockWentDown = afterTotal < beforeTotal;
 
-                        if (item.IsActive && reorderLevel >= 0 && (crossedAboveToLow || droppedFromEqualToBelow))
+                        if (item.IsActive)
+                        {
+                            aiPrediction = await _inventoryAiService.GetPredictionAsync(item.ID, BuildGlobalScope());
+                        }
+
+                        var crossedIntoForecastWindow = false;
+                        if (stockWentDown && aiPrediction != null && aiPrediction.IsPredictionAvailable && aiPrediction.DaysUntilReorder.HasValue)
+                        {
+                            var previousDaysUntilReorder = _inventoryAiService.EstimateDaysUntilReorder(beforeTotal, reorderLevel, aiPrediction.AverageDailyUsage);
+                            crossedIntoForecastWindow = aiPrediction.DaysUntilReorder.Value <= 14 && (!previousDaysUntilReorder.HasValue || previousDaysUntilReorder.Value > 14);
+                        }
+
+                        if (item.IsActive && reorderLevel >= 0 && (crossedAboveToLow || droppedFromEqualToBelow || crossedIntoForecastWindow))
                         {
                             shouldAlertAfterCommit = true;
                             stocksForEmail = stocks;
@@ -270,16 +288,21 @@ namespace InvenTrack.Services
                         if (shouldAlertAfterCommit)
                         {
                             _logger.LogInformation(
-                                "Reorder alert trigger: ItemId={ItemId} SKU={SKU} Before={Before} After={After} Reorder={Reorder}",
-                                item.ID, item.SKU, beforeTotal, afterTotal, reorderLevel);
+                                "Stock alert trigger: ItemId={ItemId} SKU={SKU} Before={Before} After={After} Reorder={Reorder} AlertLevel={AlertLevel}",
+                                item.ID,
+                                item.SKU,
+                                beforeTotal,
+                                afterTotal,
+                                reorderLevel,
+                                aiPrediction?.AlertLevel ?? "None");
 
                             try
                             {
-                                await SendReorderAlertAsync(item, afterTotal, reorderLevel, stocksForEmail);
+                                await SendStockAlertAsync(item, afterTotal, reorderLevel, stocksForEmail, aiPrediction);
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogError(ex, "Reorder alert email failed for ItemId={ItemId}", item.ID);
+                                _logger.LogError(ex, "Stock alert email failed for ItemId={ItemId}", item.ID);
                             }
                         }
 
@@ -298,25 +321,32 @@ namespace InvenTrack.Services
             }
         }
 
-        private async Task SendReorderAlertAsync(InventoryItem item, int qtyNow, int reorderLevel, List<InventoryItemStock> stocks)
+        private static AccessScope BuildGlobalScope()
+            => new AccessScope { IsAdmin = true };
+
+        private async Task SendStockAlertAsync(
+            InventoryItem item,
+            int qtyNow,
+            int reorderLevel,
+            List<InventoryItemStock> stocks,
+            InventoryAiPredictionVM? aiPrediction)
         {
             var recipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var role in new[] { "Admin", "Manager", "Viewer" })
+            foreach (var role in new[] { AppRoles.Admin, AppRoles.RegionalManager, AppRoles.Manager })
             {
                 var users = await _userManager.GetUsersInRoleAsync(role);
                 foreach (var u in users)
                 {
                     if (string.IsNullOrWhiteSpace(u.Email)) continue;
                     if (!u.EmailConfirmed) continue;
-
                     recipients.Add(u.Email);
                 }
             }
 
             if (recipients.Count == 0)
             {
-                _logger.LogWarning("Reorder alert: no recipients found (Admin/Manager with confirmed emails). ItemId={ItemId}", item.ID);
+                _logger.LogWarning("Stock alert: no recipients found (Admin/RegionalManager/Manager with confirmed emails). ItemId={ItemId}", item.ID);
                 return;
             }
 
@@ -332,19 +362,37 @@ namespace InvenTrack.Services
 
             string LocName(int id) => locNames.TryGetValue(id, out var n) ? n : $"Location #{id}";
 
-            var subject = $"[InvenTrack] Reorder Alert: {item.ItemName} ({item.SKU})";
+            var isAiForecastAlert = aiPrediction != null && aiPrediction.AlertLevel == "ReorderSoon" && qtyNow > reorderLevel;
+            var subject = isAiForecastAlert
+                ? $"[InvenTrack] AI Forecast Alert: {item.ItemName} ({item.SKU})"
+                : $"[InvenTrack] Reorder Alert: {item.ItemName} ({item.SKU})";
 
             var sb = new StringBuilder();
             sb.Append("<div style='font-family:Segoe UI,Arial,sans-serif;line-height:1.5'>");
-            sb.Append("<h2 style='margin:0 0 8px 0'>Reorder Alert</h2>");
+            sb.Append(isAiForecastAlert
+                ? "<h2 style='margin:0 0 8px 0'>AI Forecast Alert</h2>"
+                : "<h2 style='margin:0 0 8px 0'>Reorder Alert</h2>");
             sb.Append($"<div><strong>Item:</strong> {System.Net.WebUtility.HtmlEncode(item.ItemName)}</div>");
             sb.Append($"<div><strong>SKU:</strong> {System.Net.WebUtility.HtmlEncode(item.SKU)}</div>");
             sb.Append($"<div><strong>Total Quantity On Hand:</strong> {qtyNow}</div>");
             sb.Append($"<div><strong>Reorder Level:</strong> {reorderLevel}</div>");
 
+            if (aiPrediction != null)
+            {
+                sb.Append("<hr style='margin:12px 0' />");
+                sb.Append("<div style='font-weight:600;margin-bottom:6px'>AI summary</div>");
+                sb.Append($"<div><strong>Status:</strong> {System.Net.WebUtility.HtmlEncode(aiPrediction.AlertLabel)}</div>");
+                sb.Append($"<div><strong>Average Daily Usage:</strong> {aiPrediction.AverageDailyUsageDisplay}</div>");
+                sb.Append($"<div><strong>Days Until Reorder:</strong> {aiPrediction.DaysUntilReorderDisplay}</div>");
+                sb.Append($"<div><strong>Predicted Reorder Date:</strong> {System.Net.WebUtility.HtmlEncode(aiPrediction.PredictedReorderDateDisplay)}</div>");
+                sb.Append($"<div><strong>Suggested Reorder Quantity:</strong> {aiPrediction.SuggestedReorderQuantity}</div>");
+                sb.Append($"<div style='margin-top:6px'><strong>Insight:</strong> {System.Net.WebUtility.HtmlEncode(aiPrediction.InsightSummary)}</div>");
+                sb.Append($"<div style='margin-top:6px'><strong>Recommended Action:</strong> {System.Net.WebUtility.HtmlEncode(aiPrediction.RecommendedAction)}</div>");
+            }
+
             if (stocks != null && stocks.Count > 0)
             {
-                sb.Append("<hr style='margin:12px 0'/>");
+                sb.Append("<hr style='margin:12px 0' />");
                 sb.Append("<div style='font-weight:600;margin-bottom:6px'>Per-location stock</div>");
                 sb.Append("<ul style='margin:0;padding-left:18px'>");
 
@@ -357,7 +405,7 @@ namespace InvenTrack.Services
                 sb.Append("</ul>");
             }
 
-            sb.Append("<hr style='margin:12px 0'/>");
+            sb.Append("<hr style='margin:12px 0' />");
             sb.Append("<div style='color:#6c757d;font-size:12px'>This message was generated automatically by InvenTrack.</div>");
             sb.Append("</div>");
 
@@ -366,7 +414,7 @@ namespace InvenTrack.Services
             foreach (var email in recipients)
             {
                 await _emailSender.SendEmailAsync(email, subject, body);
-                _logger.LogInformation("Reorder alert email sent to {Email} for ItemId={ItemId}", email, item.ID);
+                _logger.LogInformation("Stock alert email sent to {Email} for ItemId={ItemId}", email, item.ID);
             }
         }
     }

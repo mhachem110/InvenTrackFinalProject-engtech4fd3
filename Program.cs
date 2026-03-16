@@ -74,6 +74,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<AppAccessService>();
+builder.Services.AddScoped<InventoryAiService>();
 
 builder.Services.AddSignalR();
 builder.Services.AddScoped<TransferRequestNotificationService>();

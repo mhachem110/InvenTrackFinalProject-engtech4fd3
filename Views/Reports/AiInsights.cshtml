@@ -1,0 +1,1738 @@
+﻿@using System
+@using System.Linq
+@using System.Collections.Generic
+@model InvenTrack.ViewModels.AI.AiInsightsDashboardVM
+
+@{
+    ViewData["Title"] = "AI Insights";
+
+    var items = (Model.Items ?? new List<InvenTrack.ViewModels.AI.InventoryAiPredictionVM>()).ToList();
+    IEnumerable<InvenTrack.ViewModels.AI.InventoryAiPredictionVM> prioritySource = Model.TopPriorityItems ?? items;
+    var priorityItems = prioritySource.Take(3).ToList();
+
+    var categories = (Model.AvailableCategories ?? Enumerable.Empty<string>()).ToList();
+    var locations = (Model.AvailableLocations ?? Enumerable.Empty<string>()).ToList();
+
+    var pagerStart = Math.Max(1, Model.Page - 2);
+    var pagerEnd = Math.Min(Model.TotalPages, Model.Page + 2);
+
+    var hasSearch = !string.IsNullOrWhiteSpace(Model.Query);
+    var hasAlertFilter = !string.Equals(Model.AlertFilter, "all", StringComparison.OrdinalIgnoreCase);
+    var hasCategoryFilter = !string.Equals(Model.CategoryFilter, "all", StringComparison.OrdinalIgnoreCase);
+    var hasLocationFilter = !string.Equals(Model.LocationFilter, "all", StringComparison.OrdinalIgnoreCase);
+    var hasNonDefaultSort = !string.Equals(Model.SortBy, "urgency", StringComparison.OrdinalIgnoreCase);
+
+    var riskCount = Model.ReorderNowCount + Model.ReorderSoonCount;
+    var stableLearningCount = Model.StableCount + Model.InsufficientDataCount;
+    var hasAnyFilters = hasSearch || hasAlertFilter || hasCategoryFilter || hasLocationFilter || hasNonDefaultSort;
+
+    var exportUrl = Url.Action("ExportAiInsightsCsv", new
+    {
+        q = Model.Query,
+        lookbackDays = Model.LookbackDays,
+        targetCoverageDays = Model.TargetCoverageDays,
+        reorderSoonDays = Model.ReorderSoonDays,
+        alertFilter = Model.AlertFilter,
+        categoryFilter = Model.CategoryFilter,
+        locationFilter = Model.LocationFilter,
+        sortBy = Model.SortBy
+    });
+
+    var resetUrl = Url.Action("AiInsights");
+    var backUrl = Url.Action("Index");
+
+    var allUrl = Url.Action("AiInsights", new
+    {
+        q = Model.Query,
+        lookbackDays = Model.LookbackDays,
+        targetCoverageDays = Model.TargetCoverageDays,
+        reorderSoonDays = Model.ReorderSoonDays,
+        alertFilter = "all",
+        categoryFilter = Model.CategoryFilter,
+        locationFilter = Model.LocationFilter,
+        sortBy = Model.SortBy,
+        page = 1,
+        pageSize = Model.PageSize
+    });
+
+    var reorderNowUrl = Url.Action("AiInsights", new
+    {
+        q = Model.Query,
+        lookbackDays = Model.LookbackDays,
+        targetCoverageDays = Model.TargetCoverageDays,
+        reorderSoonDays = Model.ReorderSoonDays,
+        alertFilter = "ReorderNow",
+        categoryFilter = Model.CategoryFilter,
+        locationFilter = Model.LocationFilter,
+        sortBy = Model.SortBy,
+        page = 1,
+        pageSize = Model.PageSize
+    });
+
+    var reorderSoonUrl = Url.Action("AiInsights", new
+    {
+        q = Model.Query,
+        lookbackDays = Model.LookbackDays,
+        targetCoverageDays = Model.TargetCoverageDays,
+        reorderSoonDays = Model.ReorderSoonDays,
+        alertFilter = "ReorderSoon",
+        categoryFilter = Model.CategoryFilter,
+        locationFilter = Model.LocationFilter,
+        sortBy = Model.SortBy,
+        page = 1,
+        pageSize = Model.PageSize
+    });
+
+    var watchUrl = Url.Action("AiInsights", new
+    {
+        q = Model.Query,
+        lookbackDays = Model.LookbackDays,
+        targetCoverageDays = Model.TargetCoverageDays,
+        reorderSoonDays = Model.ReorderSoonDays,
+        alertFilter = "Watch",
+        categoryFilter = Model.CategoryFilter,
+        locationFilter = Model.LocationFilter,
+        sortBy = Model.SortBy,
+        page = 1,
+        pageSize = Model.PageSize
+    });
+
+    var stableUrl = Url.Action("AiInsights", new
+    {
+        q = Model.Query,
+        lookbackDays = Model.LookbackDays,
+        targetCoverageDays = Model.TargetCoverageDays,
+        reorderSoonDays = Model.ReorderSoonDays,
+        alertFilter = "Stable",
+        categoryFilter = Model.CategoryFilter,
+        locationFilter = Model.LocationFilter,
+        sortBy = Model.SortBy,
+        page = 1,
+        pageSize = Model.PageSize
+    });
+}
+
+<style>
+    :root {
+        --ai-bg: #f4f7fb;
+        --ai-surface: #ffffff;
+        --ai-surface-soft: #f8fafc;
+        --ai-text: #0f172a;
+        --ai-text-soft: #64748b;
+        --ai-border: #e2e8f0;
+        --ai-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+        --ai-shadow-sm: 0 6px 18px rgba(15, 23, 42, 0.04);
+        --ai-primary: #2563eb;
+        --ai-primary-soft: rgba(37, 99, 235, 0.08);
+        --ai-critical: #dc2626;
+        --ai-critical-soft: rgba(220, 38, 38, 0.10);
+        --ai-soon: #d97706;
+        --ai-soon-soft: rgba(217, 119, 6, 0.12);
+        --ai-watch: #2563eb;
+        --ai-watch-soft: rgba(37, 99, 235, 0.10);
+        --ai-stable: #059669;
+        --ai-stable-soft: rgba(5, 150, 105, 0.10);
+        --ai-neutral: #64748b;
+        --ai-neutral-soft: rgba(100, 116, 139, 0.10);
+        --ai-radius-xl: 20px;
+        --ai-radius-lg: 16px;
+        --ai-radius-md: 12px;
+        --ai-radius-sm: 10px;
+    }
+
+    .ai-page {
+        display: grid;
+        gap: .9rem;
+        color: var(--ai-text);
+    }
+
+    .ai-hero {
+        background: radial-gradient(circle at top right, rgba(37, 99, 235, 0.10), transparent 30%), linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        border: 1px solid var(--ai-border);
+        border-radius: var(--ai-radius-xl);
+        box-shadow: var(--ai-shadow);
+        padding: 1.1rem 1.15rem;
+    }
+
+    .ai-hero-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: .85rem;
+        flex-wrap: wrap;
+    }
+
+    .ai-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        margin-bottom: .35rem;
+        color: var(--ai-text-soft);
+        font-size: .76rem;
+        font-weight: 800;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+    }
+
+    .ai-eyebrow-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #2563eb, #0ea5e9);
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+
+    .ai-title {
+        margin: 0;
+        font-size: clamp(1.55rem, 2.6vw, 2.15rem);
+        line-height: 1.02;
+        letter-spacing: -0.04em;
+        font-weight: 900;
+    }
+
+    .ai-subtitle {
+        margin: .45rem 0 0;
+        max-width: 760px;
+        color: var(--ai-text-soft);
+        font-size: .9rem;
+        line-height: 1.55;
+    }
+
+    .ai-actions {
+        display: flex;
+        gap: .55rem;
+        flex-wrap: wrap;
+    }
+
+    .ai-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        padding: .58rem .9rem;
+        border-radius: 10px;
+        text-decoration: none;
+        font-size: .86rem;
+        font-weight: 800;
+        transition: .18s ease;
+        border: 1px solid transparent;
+    }
+
+        .ai-btn:hover {
+            transform: translateY(-1px);
+        }
+
+    .ai-btn-primary {
+        background: var(--ai-text);
+        color: #fff;
+    }
+
+        .ai-btn-primary:hover {
+            color: #fff;
+            background: #111827;
+        }
+
+    .ai-btn-secondary {
+        background: #fff;
+        border-color: var(--ai-border);
+        color: var(--ai-text);
+    }
+
+        .ai-btn-secondary:hover {
+            color: var(--ai-text);
+            background: var(--ai-surface-soft);
+        }
+
+    .ai-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .7rem;
+        margin-top: .95rem;
+    }
+
+    .ai-stat {
+        background: rgba(255,255,255,0.92);
+        border: 1px solid var(--ai-border);
+        border-radius: 16px;
+        padding: .85rem .9rem;
+        text-decoration: none;
+        color: inherit;
+        transition: .18s ease;
+        display: block;
+    }
+
+        .ai-stat:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--ai-shadow-sm);
+            color: inherit;
+        }
+
+    .ai-stat-label {
+        color: var(--ai-text-soft);
+        font-size: .73rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        font-weight: 800;
+    }
+
+    .ai-stat-value {
+        margin-top: .3rem;
+        font-size: 1.55rem;
+        line-height: 1;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+    }
+
+    .ai-stat-note {
+        margin-top: .35rem;
+        color: var(--ai-text-soft);
+        font-size: .8rem;
+        line-height: 1.35;
+    }
+
+    .ai-panel {
+        background: var(--ai-surface);
+        border: 1px solid var(--ai-border);
+        border-radius: var(--ai-radius-xl);
+        box-shadow: var(--ai-shadow);
+        overflow: hidden;
+    }
+
+    .ai-panel-head {
+        padding: .9rem 1rem 0;
+    }
+
+    .ai-panel-title {
+        margin: 0;
+        font-size: .96rem;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+    }
+
+    .ai-panel-subtitle {
+        margin: .22rem 0 0;
+        color: var(--ai-text-soft);
+        font-size: .84rem;
+        line-height: 1.45;
+    }
+
+    .ai-panel-body {
+        padding: .95rem 1rem 1rem;
+    }
+
+    .ai-filter-form {
+        display: grid;
+        gap: .8rem;
+    }
+
+    .ai-filter-grid {
+        display: grid;
+        grid-template-columns: 2.1fr 1fr 1fr 1fr 1fr auto;
+        gap: .65rem;
+        align-items: end;
+    }
+
+    .ai-field {
+        display: grid;
+        gap: .35rem;
+    }
+
+    .ai-label {
+        font-size: .74rem;
+        font-weight: 800;
+        color: var(--ai-text-soft);
+    }
+
+    .ai-control,
+    .ai-select {
+        min-height: 40px;
+        border: 1px solid var(--ai-border);
+        border-radius: 10px;
+        background: #fbfdff;
+        padding: 0 .8rem;
+        color: var(--ai-text);
+        font-size: .88rem;
+        box-shadow: none !important;
+    }
+
+        .ai-control:focus,
+        .ai-select:focus {
+            border-color: rgba(37, 99, 235, 0.45);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08) !important;
+            background: #fff;
+        }
+
+    .ai-filter-actions {
+        display: flex;
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+
+    .ai-advanced {
+        border: 1px solid var(--ai-border);
+        border-radius: 12px;
+        background: var(--ai-surface-soft);
+        overflow: hidden;
+    }
+
+        .ai-advanced summary {
+            list-style: none;
+            cursor: pointer;
+            padding: .7rem .85rem;
+            font-size: .84rem;
+            font-weight: 800;
+            color: var(--ai-primary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+            .ai-advanced summary::-webkit-details-marker {
+                display: none;
+            }
+
+            .ai-advanced summary::after {
+                content: "＋";
+                font-size: 1rem;
+                font-weight: 900;
+            }
+
+        .ai-advanced[open] summary::after {
+            content: "−";
+        }
+
+    .ai-advanced-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .65rem;
+        padding: 0 .85rem .85rem;
+    }
+
+    .ai-active {
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+        flex-wrap: wrap;
+    }
+
+    .ai-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .32rem;
+        min-height: 28px;
+        padding: .28rem .62rem;
+        border-radius: 999px;
+        background: var(--ai-surface-soft);
+        border: 1px solid var(--ai-border);
+        color: var(--ai-text-soft);
+        font-size: .77rem;
+        font-weight: 800;
+        text-decoration: none;
+    }
+
+        .ai-chip strong {
+            color: var(--ai-text);
+        }
+
+    .ai-chip-link {
+        text-decoration: none;
+        transition: .18s ease;
+    }
+
+        .ai-chip-link:hover {
+            transform: translateY(-1px);
+        }
+
+        .ai-chip-link.is-active .ai-chip {
+            background: var(--ai-text);
+            color: #fff;
+            border-color: var(--ai-text);
+        }
+
+            .ai-chip-link.is-active .ai-chip strong {
+                color: #fff;
+            }
+
+    .ai-clear {
+        color: var(--ai-primary);
+        text-decoration: none;
+        font-size: .82rem;
+        font-weight: 800;
+        margin-left: .15rem;
+    }
+
+    .ai-main-grid {
+        display: grid;
+        grid-template-columns: 1.3fr .9fr;
+        gap: .9rem;
+    }
+
+    .ai-priority-list {
+        display: grid;
+        gap: .7rem;
+    }
+
+    .ai-priority-card {
+        border: 1px solid var(--ai-border);
+        border-radius: 14px;
+        padding: .9rem;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        transition: .18s ease;
+    }
+
+        .ai-priority-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--ai-shadow-sm);
+        }
+
+    .ai-priority-top {
+        display: flex;
+        justify-content: space-between;
+        gap: .7rem;
+        align-items: flex-start;
+    }
+
+    .ai-priority-name {
+        margin: 0;
+        font-size: .92rem;
+        font-weight: 900;
+    }
+
+    .ai-priority-meta {
+        margin-top: .14rem;
+        color: var(--ai-text-soft);
+        font-size: .79rem;
+        line-height: 1.4;
+    }
+
+    .ai-badges {
+        display: inline-flex;
+        flex-direction: column;
+        gap: .3rem;
+        align-items: flex-end;
+    }
+
+    .ai-badge,
+    .ai-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 24px;
+        padding: .24rem .55rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .ai-status-critical {
+        background: var(--ai-critical-soft);
+        color: var(--ai-critical);
+    }
+
+    .ai-status-soon {
+        background: var(--ai-soon-soft);
+        color: var(--ai-soon);
+    }
+
+    .ai-status-watch {
+        background: var(--ai-watch-soft);
+        color: var(--ai-watch);
+    }
+
+    .ai-status-stable {
+        background: var(--ai-stable-soft);
+        color: var(--ai-stable);
+    }
+
+    .ai-status-neutral {
+        background: var(--ai-neutral-soft);
+        color: var(--ai-neutral);
+    }
+
+    .ai-pill {
+        background: rgba(15, 23, 42, 0.05);
+        color: var(--ai-text-soft);
+    }
+
+    .ai-kv-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .42rem;
+        margin-top: .7rem;
+    }
+
+    .ai-kv {
+        display: inline-flex;
+        align-items: center;
+        gap: .28rem;
+        padding: .38rem .58rem;
+        border-radius: 999px;
+        background: var(--ai-surface-soft);
+        border: 1px solid var(--ai-border);
+        font-size: .75rem;
+        font-weight: 800;
+        color: var(--ai-text);
+    }
+
+        .ai-kv small {
+            color: var(--ai-text-soft);
+            font-size: .69rem;
+            font-weight: 800;
+        }
+
+    .ai-priority-summary {
+        margin: .65rem 0 0;
+        color: var(--ai-text-soft);
+        font-size: .84rem;
+        line-height: 1.48;
+    }
+
+    .ai-priority-action {
+        margin: .4rem 0 0;
+        font-size: .86rem;
+        line-height: 1.45;
+        font-weight: 800;
+        color: var(--ai-text);
+    }
+
+    .ai-link-row {
+        display: flex;
+        gap: .5rem;
+        flex-wrap: wrap;
+        margin-top: .75rem;
+    }
+
+    .ai-link-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: .42rem .72rem;
+        border-radius: 9px;
+        border: 1px solid var(--ai-border);
+        text-decoration: none;
+        font-size: .79rem;
+        font-weight: 800;
+        background: #fff;
+        color: var(--ai-text);
+    }
+
+        .ai-link-btn:hover {
+            color: var(--ai-text);
+            background: var(--ai-surface-soft);
+        }
+
+        .ai-link-btn.is-primary {
+            color: var(--ai-primary);
+            border-color: rgba(37, 99, 235, 0.18);
+            background: rgba(37, 99, 235, 0.06);
+        }
+
+    .ai-mini-grid {
+        display: grid;
+        gap: .65rem;
+    }
+
+    .ai-mini-card {
+        display: grid;
+        grid-template-columns: 36px 1fr;
+        gap: .7rem;
+        align-items: start;
+        border: 1px solid var(--ai-border);
+        border-radius: 14px;
+        padding: .82rem;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    }
+
+    .ai-mini-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .85rem;
+        font-weight: 900;
+        color: var(--ai-primary);
+        background: var(--ai-primary-soft);
+    }
+
+    .ai-mini-label {
+        color: var(--ai-text-soft);
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        font-weight: 800;
+        margin-bottom: .12rem;
+    }
+
+    .ai-mini-title {
+        font-size: .88rem;
+        font-weight: 900;
+        line-height: 1.3;
+        color: var(--ai-text);
+    }
+
+    .ai-mini-meta {
+        margin-top: .14rem;
+        color: var(--ai-text-soft);
+        font-size: .78rem;
+        line-height: 1.35;
+    }
+
+    .ai-mini-value {
+        margin-top: .3rem;
+        color: var(--ai-text);
+        font-size: .82rem;
+        font-weight: 800;
+    }
+
+    .ai-note {
+        display: flex;
+        gap: .5rem;
+        align-items: flex-start;
+        padding: .82rem .9rem;
+        border-radius: 12px;
+        border: 1px solid rgba(37, 99, 235, 0.12);
+        background: #f8fbff;
+        color: var(--ai-text-soft);
+        font-size: .84rem;
+        line-height: 1.5;
+    }
+
+    .ai-note-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        margin-top: .32rem;
+        background: var(--ai-primary);
+        flex: 0 0 auto;
+    }
+
+    .ai-table-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .8rem;
+        flex-wrap: wrap;
+        margin-bottom: .75rem;
+    }
+
+    .ai-table-summary {
+        color: var(--ai-text-soft);
+        font-size: .84rem;
+    }
+
+    .ai-table-wrap {
+        border: 1px solid var(--ai-border);
+        border-radius: 16px;
+        overflow: auto;
+        background: #fff;
+    }
+
+    .ai-table {
+        width: 100%;
+        min-width: 980px;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+        .ai-table th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: rgba(248, 250, 252, 0.96);
+            border-bottom: 1px solid var(--ai-border);
+            text-align: left;
+            padding: .76rem .78rem;
+            font-size: .72rem;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            font-weight: 900;
+            color: var(--ai-text-soft);
+            white-space: nowrap;
+        }
+
+        .ai-table td {
+            padding: .75rem .78rem;
+            border-bottom: 1px solid #edf2f7;
+            vertical-align: middle;
+        }
+
+        .ai-table tbody tr:hover {
+            background: #fbfdff;
+        }
+
+    .ai-item-name {
+        font-size: .88rem;
+        font-weight: 900;
+        color: var(--ai-text);
+        line-height: 1.28;
+    }
+
+    .ai-item-meta {
+        margin-top: .12rem;
+        font-size: .77rem;
+        line-height: 1.35;
+        color: var(--ai-text-soft);
+    }
+
+    .ai-stack {
+        display: grid;
+        gap: .12rem;
+    }
+
+    .ai-value {
+        font-size: .87rem;
+        font-weight: 900;
+        color: var(--ai-text);
+        line-height: 1.2;
+    }
+
+    .ai-sub {
+        font-size: .74rem;
+        color: var(--ai-text-soft);
+        line-height: 1.3;
+    }
+
+    .ai-gap-positive {
+        color: var(--ai-stable);
+    }
+
+    .ai-gap-zero {
+        color: var(--ai-soon);
+    }
+
+    .ai-gap-negative {
+        color: var(--ai-critical);
+    }
+
+    .ai-score {
+        display: grid;
+        gap: .28rem;
+        min-width: 112px;
+    }
+
+    .ai-score-top {
+        display: flex;
+        justify-content: space-between;
+        gap: .45rem;
+        align-items: center;
+    }
+
+    .ai-score-label {
+        font-size: .76rem;
+        font-weight: 900;
+        color: var(--ai-text);
+    }
+
+    .ai-score-value {
+        font-size: .72rem;
+        font-weight: 900;
+        color: var(--ai-text-soft);
+    }
+
+    .ai-score-bar {
+        width: 100%;
+        height: 6px;
+        border-radius: 999px;
+        background: #eaf0f6;
+        overflow: hidden;
+    }
+
+    .ai-score-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #94a3b8, #64748b);
+    }
+
+        .ai-score-fill.high {
+            background: linear-gradient(90deg, #34d399, #059669);
+        }
+
+        .ai-score-fill.medium {
+            background: linear-gradient(90deg, #fbbf24, #d97706);
+        }
+
+        .ai-score-fill.low {
+            background: linear-gradient(90deg, #94a3b8, #64748b);
+        }
+
+    .ai-action-text {
+        font-size: .81rem;
+        line-height: 1.38;
+        color: var(--ai-text);
+        font-weight: 800;
+    }
+
+    .ai-table-actions {
+        display: flex;
+        gap: .45rem;
+        flex-wrap: wrap;
+        margin-top: .38rem;
+    }
+
+    .ai-row-toggle {
+        appearance: none;
+        border: 1px solid var(--ai-border);
+        border-radius: 9px;
+        background: var(--ai-surface-soft);
+        color: var(--ai-text-soft);
+        font-size: .76rem;
+        font-weight: 900;
+        padding: .36rem .62rem;
+        transition: .18s ease;
+    }
+
+        .ai-row-toggle:hover {
+            background: #f1f5f9;
+            color: var(--ai-text);
+        }
+
+    .ai-detail-row {
+        display: none;
+        background: #fcfdff;
+    }
+
+        .ai-detail-row.is-open {
+            display: table-row;
+        }
+
+    .ai-detail-cell {
+        padding: 0 !important;
+        background: #fcfdff;
+    }
+
+    .ai-detail-grid {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr 1fr;
+        gap: .65rem;
+        padding: .85rem;
+    }
+
+    .ai-detail-card {
+        background: #fff;
+        border: 1px solid var(--ai-border);
+        border-radius: 12px;
+        padding: .78rem;
+    }
+
+    .ai-detail-label {
+        font-size: .71rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        font-weight: 900;
+        color: var(--ai-text-soft);
+        margin-bottom: .25rem;
+    }
+
+    .ai-detail-text {
+        color: var(--ai-text);
+        font-size: .83rem;
+        line-height: 1.48;
+    }
+
+    .ai-detail-list {
+        display: grid;
+        gap: .38rem;
+    }
+
+    .ai-detail-kv {
+        display: flex;
+        justify-content: space-between;
+        gap: .65rem;
+        font-size: .79rem;
+        color: var(--ai-text-soft);
+    }
+
+        .ai-detail-kv strong {
+            color: var(--ai-text);
+            font-weight: 900;
+        }
+
+    .ai-pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .8rem;
+        flex-wrap: wrap;
+        margin-top: .85rem;
+    }
+
+    .ai-pagination-text {
+        color: var(--ai-text-soft);
+        font-size: .82rem;
+    }
+
+    .ai-pagination-list {
+        display: flex;
+        gap: .38rem;
+        flex-wrap: wrap;
+    }
+
+    .ai-page-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        height: 36px;
+        padding: 0 .72rem;
+        border-radius: 10px;
+        border: 1px solid var(--ai-border);
+        background: #fff;
+        color: var(--ai-text);
+        font-size: .8rem;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+        .ai-page-link:hover {
+            color: var(--ai-text);
+            background: var(--ai-surface-soft);
+        }
+
+        .ai-page-link.is-active {
+            background: var(--ai-text);
+            color: #fff;
+            border-color: var(--ai-text);
+        }
+
+        .ai-page-link.is-disabled {
+            pointer-events: none;
+            opacity: .45;
+        }
+
+    .ai-empty {
+        padding: 1.8rem .8rem;
+        text-align: center;
+        color: var(--ai-text-soft);
+    }
+
+    .ai-empty-title {
+        color: var(--ai-text);
+        font-size: .94rem;
+        font-weight: 900;
+    }
+
+    .ai-empty-text {
+        margin-top: .28rem;
+        font-size: .84rem;
+        line-height: 1.5;
+    }
+
+    @@media (max-width: 1280px) {
+        .ai-filter-grid
+
+    {
+        grid-template-columns: 1.8fr 1fr 1fr 1fr;
+    }
+
+    .ai-filter-actions {
+        grid-column: span 4;
+    }
+
+    .ai-advanced-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ai-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ai-main-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ai-detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    }
+
+    @@media (max-width: 860px) {
+        .ai-filter-grid, .ai-advanced-grid
+
+    {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .ai-filter-actions {
+        grid-column: span 2;
+    }
+
+    }
+
+    @@media (max-width: 640px) {
+        .ai-hero, .ai-panel-body
+
+    {
+        padding: .9rem;
+    }
+
+    .ai-panel-head {
+        padding: .8rem .9rem 0;
+    }
+
+    .ai-stats,
+    .ai-filter-grid,
+    .ai-advanced-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ai-filter-actions {
+        grid-column: auto;
+    }
+
+    .ai-table-wrap,
+    .ai-panel,
+    .ai-hero {
+        border-radius: 16px;
+    }
+
+    }
+</style>
+
+<div class="ai-page">
+
+    <section class="ai-hero">
+        <div class="ai-hero-top">
+            <div>
+                <div class="ai-eyebrow">
+                    <span class="ai-eyebrow-dot"></span>
+                    <span>Reports / Inventory Intelligence</span>
+                </div>
+
+                <h1 class="ai-title">AI Insights</h1>
+
+                <p class="ai-subtitle">
+                    A compact view of inventory risk, reorder timing, and the next action that matters most.
+                </p>
+            </div>
+
+            <div class="ai-actions">
+                <a href="@exportUrl" class="ai-btn ai-btn-primary">Export CSV</a>
+                <a href="@backUrl" class="ai-btn ai-btn-secondary">Back</a>
+            </div>
+        </div>
+
+        <div class="ai-stats">
+            <div class="ai-stat">
+                <div class="ai-stat-label">Analyzed</div>
+                <div class="ai-stat-value">@Model.TotalItemsAnalyzed</div>
+                <div class="ai-stat-note">Items in current AI scope.</div>
+            </div>
+
+            <a href="@reorderNowUrl" class="ai-stat">
+                <div class="ai-stat-label">Now</div>
+                <div class="ai-stat-value">@Model.ReorderNowCount</div>
+                <div class="ai-stat-note">Need immediate replenishment.</div>
+            </a>
+
+            <a href="@reorderSoonUrl" class="ai-stat">
+                <div class="ai-stat-label">Soon</div>
+                <div class="ai-stat-value">@Model.ReorderSoonCount</div>
+                <div class="ai-stat-note">Approaching reorder threshold.</div>
+            </a>
+
+            <a href="@watchUrl" class="ai-stat">
+                <div class="ai-stat-label">Watch</div>
+                <div class="ai-stat-value">@Model.WatchCount</div>
+                <div class="ai-stat-note">Trending toward risk.</div>
+            </a>
+        </div>
+    </section>
+
+    <section class="ai-panel">
+        <div class="ai-panel-head">
+            <h2 class="ai-panel-title">Filters</h2>
+            <p class="ai-panel-subtitle">
+                Cleaner controls with a smaller footprint.
+            </p>
+        </div>
+
+        <div class="ai-panel-body">
+            <form method="get" class="ai-filter-form">
+                <div class="ai-filter-grid">
+                    <div class="ai-field">
+                        <label class="ai-label">Search</label>
+                        <input type="text"
+                               name="q"
+                               value="@Model.Query"
+                               class="form-control ai-control"
+                               placeholder="Search item, SKU, category..." />
+                    </div>
+
+                    <div class="ai-field">
+                        <label class="ai-label">Status</label>
+                        <select name="alertFilter" class="form-select ai-select">
+                            <option value="all" selected="@(string.Equals(Model.AlertFilter, "all", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">All</option>
+                            <option value="ReorderNow" selected="@(string.Equals(Model.AlertFilter, "ReorderNow", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Reorder Now</option>
+                            <option value="ReorderSoon" selected="@(string.Equals(Model.AlertFilter, "ReorderSoon", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Reorder Soon</option>
+                            <option value="Watch" selected="@(string.Equals(Model.AlertFilter, "Watch", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Watch</option>
+                            <option value="Stable" selected="@(string.Equals(Model.AlertFilter, "Stable", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Stable</option>
+                            <option value="InsufficientData" selected="@(string.Equals(Model.AlertFilter, "InsufficientData", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Insufficient Data</option>
+                        </select>
+                    </div>
+
+                    <div class="ai-field">
+                        <label class="ai-label">Category</label>
+                        <select name="categoryFilter" class="form-select ai-select">
+                            <option value="all" selected="@(string.Equals(Model.CategoryFilter, "all", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">All</option>
+                            @foreach (var category in categories)
+                            {
+                                <option value="@category" selected="@(string.Equals(Model.CategoryFilter, category, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                                    @category
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="ai-field">
+                        <label class="ai-label">Location</label>
+                        <select name="locationFilter" class="form-select ai-select">
+                            <option value="all" selected="@(string.Equals(Model.LocationFilter, "all", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">All</option>
+                            @foreach (var location in locations)
+                            {
+                                <option value="@location" selected="@(string.Equals(Model.LocationFilter, location, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                                    @location
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="ai-field">
+                        <label class="ai-label">Sort</label>
+                        <select name="sortBy" class="form-select ai-select">
+                            <option value="urgency" selected="@(string.Equals(Model.SortBy, "urgency", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Urgency</option>
+                            <option value="soonest" selected="@(string.Equals(Model.SortBy, "soonest", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Soonest Reorder</option>
+                            <option value="usage_desc" selected="@(string.Equals(Model.SortBy, "usage_desc", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Highest Usage</option>
+                            <option value="reorder_qty_desc" selected="@(string.Equals(Model.SortBy, "reorder_qty_desc", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Largest Reorder</option>
+                            <option value="stock_asc" selected="@(string.Equals(Model.SortBy, "stock_asc", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Lowest Stock</option>
+                            <option value="item_asc" selected="@(string.Equals(Model.SortBy, "item_asc", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Item A-Z</option>
+                            <option value="category_asc" selected="@(string.Equals(Model.SortBy, "category_asc", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">Category A-Z</option>
+                        </select>
+                    </div>
+
+                    <div class="ai-filter-actions">
+                        <button type="submit" class="ai-btn ai-btn-primary">Apply</button>
+                        <a href="@resetUrl" class="ai-btn ai-btn-secondary">Reset</a>
+                    </div>
+                </div>
+
+                <details class="ai-advanced">
+                    <summary>Advanced settings</summary>
+                    <div class="ai-advanced-grid">
+                        <div class="ai-field">
+                            <label class="ai-label">Lookback Days</label>
+                            <input type="number"
+                                   name="lookbackDays"
+                                   value="@Model.LookbackDays"
+                                   min="14"
+                                   max="180"
+                                   class="form-control ai-control" />
+                        </div>
+
+                        <div class="ai-field">
+                            <label class="ai-label">Target Coverage</label>
+                            <input type="number"
+                                   name="targetCoverageDays"
+                                   value="@Model.TargetCoverageDays"
+                                   min="7"
+                                   max="60"
+                                   class="form-control ai-control" />
+                        </div>
+
+                        <div class="ai-field">
+                            <label class="ai-label">Reorder Soon Window</label>
+                            <input type="number"
+                                   name="reorderSoonDays"
+                                   value="@Model.ReorderSoonDays"
+                                   min="3"
+                                   max="45"
+                                   class="form-control ai-control" />
+                        </div>
+
+                        <div class="ai-field">
+                            <label class="ai-label">Page Size</label>
+                            <select name="pageSize" class="form-select ai-select">
+                                <option value="10" selected="@(Model.PageSize == 10 ? "selected" : null)">10</option>
+                                <option value="25" selected="@(Model.PageSize == 25 ? "selected" : null)">25</option>
+                                <option value="50" selected="@(Model.PageSize == 50 ? "selected" : null)">50</option>
+                                <option value="100" selected="@(Model.PageSize == 100 ? "selected" : null)">100</option>
+                            </select>
+                        </div>
+                    </div>
+                </details>
+
+                <input type="hidden" name="page" value="1" />
+
+                <div class="ai-active">
+                    <a href="@allUrl" class="ai-chip-link @(string.Equals(Model.AlertFilter, "all", StringComparison.OrdinalIgnoreCase) ? "is-active" : "")">
+                        <span class="ai-chip"><strong>All</strong> @Model.TotalFilteredItems</span>
+                    </a>
+
+                    <a href="@reorderNowUrl" class="ai-chip-link @(string.Equals(Model.AlertFilter, "ReorderNow", StringComparison.OrdinalIgnoreCase) ? "is-active" : "")">
+                        <span class="ai-chip"><strong>Now</strong> @Model.ReorderNowCount</span>
+                    </a>
+
+                    <a href="@reorderSoonUrl" class="ai-chip-link @(string.Equals(Model.AlertFilter, "ReorderSoon", StringComparison.OrdinalIgnoreCase) ? "is-active" : "")">
+                        <span class="ai-chip"><strong>Soon</strong> @Model.ReorderSoonCount</span>
+                    </a>
+
+                    <a href="@watchUrl" class="ai-chip-link @(string.Equals(Model.AlertFilter, "Watch", StringComparison.OrdinalIgnoreCase) ? "is-active" : "")">
+                        <span class="ai-chip"><strong>Watch</strong> @Model.WatchCount</span>
+                    </a>
+
+                    <a href="@stableUrl" class="ai-chip-link @(string.Equals(Model.AlertFilter, "Stable", StringComparison.OrdinalIgnoreCase) ? "is-active" : "")">
+                        <span class="ai-chip"><strong>Stable</strong> @Model.StableCount</span>
+                    </a>
+
+                    @if (hasAnyFilters)
+                    {
+                        if (hasSearch)
+                        {
+                            <span class="ai-chip">Search: <strong>@Model.Query</strong></span>
+                        }
+
+                        if (hasCategoryFilter)
+                        {
+                            <span class="ai-chip">Category: <strong>@Model.CategoryFilter</strong></span>
+                        }
+
+                        if (hasLocationFilter)
+                        {
+                            <span class="ai-chip">Location: <strong>@Model.LocationFilter</strong></span>
+                        }
+
+                        if (hasNonDefaultSort)
+                        {
+                            <span class="ai-chip">Sort: <strong>@Model.SortLabel</strong></span>
+                        }
+
+                        <a href="@resetUrl" class="ai-clear">Clear all</a>
+                    }
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ai-main-grid">
+        <div class="ai-panel">
+            <div class="ai-panel-head">
+                <h2 class="ai-panel-title">Priority Actions</h2>
+                <p class="ai-panel-subtitle">
+                    Smaller cards, quicker decisions.
+                </p>
+            </div>
+
+            <div class="ai-panel-body">
+                @if (!priorityItems.Any())
+                {
+                    <div class="ai-empty">
+                        <div class="ai-empty-title">No priority items found</div>
+                        <div class="ai-empty-text">Try broadening your filters.</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="ai-priority-list">
+                        @foreach (var item in priorityItems)
+                        {
+                            var statusClass = GetStatusClass(item.AlertLevel);
+
+                            <article class="ai-priority-card">
+                                <div class="ai-priority-top">
+                                    <div>
+                                        <h3 class="ai-priority-name">@item.ItemName</h3>
+                                        <div class="ai-priority-meta">@item.SKU • @item.CategoryName • @item.PrimaryLocationName</div>
+                                    </div>
+
+                                    <div class="ai-badges">
+                                        <span class="ai-badge @statusClass">@item.AlertLabel</span>
+                                        <span class="ai-pill">@item.ConfidenceLabel</span>
+                                    </div>
+                                </div>
+
+                                <div class="ai-kv-row">
+                                    <span class="ai-kv"><small>On Hand</small> @item.CurrentQuantityOnHand</span>
+                                    <span class="ai-kv"><small>Gap</small> @item.UnitsAboveReorderDisplay</span>
+                                    <span class="ai-kv"><small>Usage</small> @item.AverageDailyUsageDisplay</span>
+                                    <span class="ai-kv"><small>Reorder</small> @item.SuggestedReorderQuantity</span>
+                                </div>
+
+                                <p class="ai-priority-summary">@item.InsightSummary</p>
+                                <p class="ai-priority-action">@item.RecommendedAction</p>
+
+                                <div class="ai-link-row">
+                                    <a asp-controller="InventoryItems"
+                                       asp-action="Details"
+                                       asp-route-id="@item.ItemId"
+                                       class="ai-link-btn is-primary">
+                                        Open Item
+                                    </a>
+
+                                    <span class="ai-chip">Confidence <strong>@item.ConfidenceScore / 100</strong></span>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="ai-panel">
+            <div class="ai-panel-head">
+                <h2 class="ai-panel-title">Quick Snapshot</h2>
+                <p class="ai-panel-subtitle">
+                    High-signal highlights only.
+                </p>
+            </div>
+
+            <div class="ai-panel-body">
+                <div class="ai-mini-grid">
+                    <div class="ai-mini-card">
+                        <div class="ai-mini-icon">U</div>
+                        <div>
+                            <div class="ai-mini-label">Highest Usage</div>
+                            @if (Model.HighestUsageItem != null)
+                            {
+                                <div class="ai-mini-title">@Model.HighestUsageItem.ItemName</div>
+                                <div class="ai-mini-meta">@Model.HighestUsageItem.SKU • @Model.HighestUsageItem.PrimaryLocationName</div>
+                                <div class="ai-mini-value">Avg daily usage: @Model.HighestUsageItem.AverageDailyUsageDisplay</div>
+                            }
+                            else
+                            {
+                                <div class="ai-mini-title">No item available</div>
+                                <div class="ai-mini-meta">No high-usage item is available for the current filters.</div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="ai-mini-card">
+                        <div class="ai-mini-icon">T</div>
+                        <div>
+                            <div class="ai-mini-label">Closest to Reorder</div>
+                            @if (Model.ClosestToReorderItem != null)
+                            {
+                                <div class="ai-mini-title">@Model.ClosestToReorderItem.ItemName</div>
+                                <div class="ai-mini-meta">@Model.ClosestToReorderItem.SKU • @Model.ClosestToReorderItem.PrimaryLocationName</div>
+                                <div class="ai-mini-value">Days until reorder: @Model.ClosestToReorderItem.DaysUntilReorderDisplay</div>
+                            }
+                            else
+                            {
+                                <div class="ai-mini-title">No countdown available</div>
+                                <div class="ai-mini-meta">No current filtered item has a countdown-based signal.</div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="ai-mini-card">
+                        <div class="ai-mini-icon">R</div>
+                        <div>
+                            <div class="ai-mini-label">Largest Reorder</div>
+                            @if (Model.LargestSuggestedReorderItem != null)
+                            {
+                                <div class="ai-mini-title">@Model.LargestSuggestedReorderItem.ItemName</div>
+                                <div class="ai-mini-meta">@Model.LargestSuggestedReorderItem.SKU • @Model.LargestSuggestedReorderItem.PrimaryLocationName</div>
+                                <div class="ai-mini-value">Suggested reorder: @Model.LargestSuggestedReorderItem.SuggestedReorderQuantity</div>
+                            }
+                            else
+                            {
+                                <div class="ai-mini-title">No recommendation available</div>
+                                <div class="ai-mini-meta">No reorder suggestion is available in the current result set.</div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="ai-note">
+                        <span class="ai-note-dot"></span>
+                        <span>
+                            <strong>@riskCount</strong> items are at risk, while
+                            <strong>@stableLearningCount</strong> are stable or still learning.
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="ai-panel">
+        <div class="ai-panel-head">
+            <h2 class="ai-panel-title">Forecasted Inventory</h2>
+            <p class="ai-panel-subtitle">
+                Compact rows first, expandable detail only when needed.
+            </p>
+        </div>
+
+        <div class="ai-panel-body">
+            <div class="ai-table-top">
+                <div class="ai-table-summary">
+                    Showing <strong>@Model.StartItemNumber-@Model.EndItemNumber</strong> of <strong>@Model.TotalFilteredItems</strong> results
+                </div>
+
+                <div class="ai-active">
+                    <span class="ai-chip">Sorted <strong>@Model.SortLabel</strong></span>
+                    <span class="ai-chip">Risk <strong>@riskCount</strong></span>
+                    <span class="ai-chip">Stable/Learning <strong>@stableLearningCount</strong></span>
+                </div>
+            </div>
+
+            @if (!items.Any())
+            {
+                <div class="ai-empty">
+                    <div class="ai-empty-title">No items matched your current filters</div>
+                    <div class="ai-empty-text">Try clearing one or more filters.</div>
+                </div>
+            }
+            else
+            {
+                <div class="ai-table-wrap">
+                    <table class="ai-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Status</th>
+                                <th>Confidence</th>
+                                <th>Stock</th>
+                                <th>Forecast</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < items.Count; i++)
+                            {
+                                var item = items[i];
+                                var statusClass = GetStatusClass(item.AlertLevel);
+                                var gapClass = GetGapClass(item.UnitsAboveReorder);
+                                var scoreClass = GetScoreClass(item.ConfidenceLabel);
+                                var detailId = "aiDetailRow" + i;
+                                var toggleId = "aiDetailToggle" + i;
+
+                                <tr>
+                                    <td>
+                                        <div class="ai-item-name">@item.ItemName</div>
+                                        <div class="ai-item-meta">@item.SKU • @item.CategoryName • @item.PrimaryLocationName</div>
+                                    </td>
+
+                                    <td>
+                                        <div class="ai-stack">
+                                            <span class="ai-badge @statusClass">@item.AlertLabel</span>
+                                            <span class="ai-sub">@item.ShortActionLabel</span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="ai-score">
+                                            <div class="ai-score-top">
+                                                <span class="ai-score-label">@item.ConfidenceLabel</span>
+                                                <span class="ai-score-value">@item.ConfidenceScore / 100</span>
+                                            </div>
+                                            <div class="ai-score-bar">
+                                                <div class="ai-score-fill @scoreClass" style="width:@(item.ConfidenceScore)%"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="ai-stack">
+                                            <span class="ai-value">@item.CurrentQuantityOnHand</span>
+                                            <span class="ai-sub">Current</span>
+                                        </div>
+
+                                        <div class="ai-stack" style="margin-top:.42rem;">
+                                            <span class="ai-value @gapClass">@item.UnitsAboveReorderDisplay</span>
+                                            <span class="ai-sub">Gap to reorder</span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="ai-stack">
+                                            <span class="ai-value">@item.DaysUntilReorderDisplay</span>
+                                            <span class="ai-sub">Days until reorder</span>
+                                        </div>
+
+                                        <div class="ai-stack" style="margin-top:.42rem;">
+                                            <span class="ai-value">@item.SuggestedReorderQuantity</span>
+                                            <span class="ai-sub">Suggested qty</span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="ai-action-text">@item.RecommendedAction</div>
+
+                                        <div class="ai-table-actions">
+                                            <a asp-controller="InventoryItems"
+                                               asp-action="Details"
+                                               asp-route-id="@item.ItemId"
+                                               class="ai-link-btn is-primary">
+                                                Open
+                                            </a>
+
+                                            <button type="button"
+                                                    id="@toggleId"
+                                                    class="ai-row-toggle"
+                                                    data-target="#@detailId"
+                                                    aria-expanded="false"
+                                                    aria-controls="@detailId">
+                                                Details
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <tr id="@detailId" class="ai-detail-row">
+                                    <td colspan="6" class="ai-detail-cell">
+                                        <div class="ai-detail-grid">
+                                            <div class="ai-detail-card">
+                                                <div class="ai-detail-label">AI Summary</div>
+                                                <div class="ai-detail-text">@item.InsightSummary</div>
+
+                                                <div class="ai-detail-label" style="margin-top:.85rem;">Recommended Action</div>
+                                                <div class="ai-detail-text">@item.RecommendedAction</div>
+                                            </div>
+
+                                            <div class="ai-detail-card">
+                                                <div class="ai-detail-label">Demand Signals</div>
+                                                <div class="ai-detail-list">
+                                                    <div class="ai-detail-kv"><span>Demand signals</span><strong>@item.DemandSignalCount</strong></div>
+                                                    <div class="ai-detail-kv"><span>Usage days</span><strong>@item.DaysWithUsage</strong></div>
+                                                    <div class="ai-detail-kv"><span>Units consumed</span><strong>@item.TotalUnitsConsumed</strong></div>
+                                                    <div class="ai-detail-kv"><span>Average daily usage</span><strong>@item.AverageDailyUsageDisplay</strong></div>
+                                                </div>
+                                            </div>
+
+                                            <div class="ai-detail-card">
+                                                <div class="ai-detail-label">Prediction Detail</div>
+                                                <div class="ai-detail-list">
+                                                    <div class="ai-detail-kv"><span>Predicted reorder date</span><strong>@item.PredictedReorderDateDisplay</strong></div>
+                                                    <div class="ai-detail-kv"><span>Days until reorder</span><strong>@item.DaysUntilReorderDisplay</strong></div>
+                                                    <div class="ai-detail-kv"><span>Reorder level</span><strong>@item.ReorderLevel</strong></div>
+                                                    <div class="ai-detail-kv"><span>Suggested reorder</span><strong>@item.SuggestedReorderQuantity</strong></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="ai-pagination">
+                    <div class="ai-pagination-text">
+                        Showing @Model.StartItemNumber-@Model.EndItemNumber of @Model.TotalFilteredItems results
+                    </div>
+
+                    <div class="ai-pagination-list">
+                        <a class="ai-page-link @(Model.HasPreviousPage ? "" : "is-disabled")"
+                           asp-action="AiInsights"
+                           asp-route-q="@Model.Query"
+                           asp-route-lookbackDays="@Model.LookbackDays"
+                           asp-route-targetCoverageDays="@Model.TargetCoverageDays"
+                           asp-route-reorderSoonDays="@Model.ReorderSoonDays"
+                           asp-route-alertFilter="@Model.AlertFilter"
+                           asp-route-categoryFilter="@Model.CategoryFilter"
+                           asp-route-locationFilter="@Model.LocationFilter"
+                           asp-route-sortBy="@Model.SortBy"
+                           asp-route-page="@(Model.Page - 1)"
+                           asp-route-pageSize="@Model.PageSize">
+                            Prev
+                        </a>
+
+                        @for (int p = pagerStart; p <= pagerEnd; p++)
+                        {
+                            <a class="ai-page-link @(p == Model.Page ? "is-active" : "")"
+                               asp-action="AiInsights"
+                               asp-route-q="@Model.Query"
+                               asp-route-lookbackDays="@Model.LookbackDays"
+                               asp-route-targetCoverageDays="@Model.TargetCoverageDays"
+                               asp-route-reorderSoonDays="@Model.ReorderSoonDays"
+                               asp-route-alertFilter="@Model.AlertFilter"
+                               asp-route-categoryFilter="@Model.CategoryFilter"
+                               asp-route-locationFilter="@Model.LocationFilter"
+                               asp-route-sortBy="@Model.SortBy"
+                               asp-route-page="@p"
+                               asp-route-pageSize="@Model.PageSize">
+                                @p
+                            </a>
+                        }
+
+                        <a class="ai-page-link @(Model.HasNextPage ? "" : "is-disabled")"
+                           asp-action="AiInsights"
+                           asp-route-q="@Model.Query"
+                           asp-route-lookbackDays="@Model.LookbackDays"
+                           asp-route-targetCoverageDays="@Model.TargetCoverageDays"
+                           asp-route-reorderSoonDays="@Model.ReorderSoonDays"
+                           asp-route-alertFilter="@Model.AlertFilter"
+                           asp-route-categoryFilter="@Model.CategoryFilter"
+                           asp-route-locationFilter="@Model.LocationFilter"
+                           asp-route-sortBy="@Model.SortBy"
+                           asp-route-page="@(Model.Page + 1)"
+                           asp-route-pageSize="@Model.PageSize">
+                            Next
+                        </a>
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+</div>
+
+@functions {
+    public string GetStatusClass(string alertLevel)
+    {
+        if (string.Equals(alertLevel, "ReorderNow", StringComparison.OrdinalIgnoreCase))
+            return "ai-status-critical";
+
+        if (string.Equals(alertLevel, "ReorderSoon", StringComparison.OrdinalIgnoreCase))
+            return "ai-status-soon";
+
+        if (string.Equals(alertLevel, "Watch", StringComparison.OrdinalIgnoreCase))
+            return "ai-status-watch";
+
+        if (string.Equals(alertLevel, "Stable", StringComparison.OrdinalIgnoreCase))
+            return "ai-status-stable";
+
+        return "ai-status-neutral";
+    }
+
+    public string GetGapClass(int unitsAboveReorder)
+    {
+        if (unitsAboveReorder < 0)
+            return "ai-gap-negative";
+
+        if (unitsAboveReorder == 0)
+            return "ai-gap-zero";
+
+        return "ai-gap-positive";
+    }
+
+    public string GetScoreClass(string confidenceLabel)
+    {
+        if (string.Equals(confidenceLabel, "High", StringComparison.OrdinalIgnoreCase))
+            return "high";
+
+        if (string.Equals(confidenceLabel, "Medium", StringComparison.OrdinalIgnoreCase))
+            return "medium";
+
+        return "low";
+    }
+}
+
+<script>
+    (function () {
+        document.querySelectorAll('.ai-row-toggle').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var selector = button.getAttribute('data-target');
+                var row = selector ? document.querySelector(selector) : null;
+
+                if (!row) return;
+
+                var isOpen = row.classList.toggle('is-open');
+                button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                button.textContent = isOpen ? 'Hide' : 'Details';
+            });
+        });
+    })();
+</script>

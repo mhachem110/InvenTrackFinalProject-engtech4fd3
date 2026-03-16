@@ -2,6 +2,7 @@
 @using System
 @using System.Linq
 @using InvenTrack.Models
+@using InvenTrack.ViewModels.AI
 
 @{
     ViewData["Title"] = "Item Details";
@@ -11,6 +12,8 @@
     var history = (Model.StockTransactions ?? new List<InvenTrack.Models.StockTransaction>())
         .OrderByDescending(t => t.DateCreated)
         .ToList();
+
+    var aiPrediction = ViewData["AiPrediction"] as InventoryAiPredictionVM;
 
     bool isAdmin = User.IsInRole(AppRoles.Admin);
     bool isRegionalManager = User.IsInRole(AppRoles.RegionalManager);
@@ -172,6 +175,86 @@
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+
+<div class="it-panel mb-3">
+    <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
+        <div>
+            <div class="fw-bold">AI Stock Insight</div>
+            <div class="text-muted small">This forecast uses recent check-outs and negative adjustments to estimate reorder timing.</div>
+        </div>
+
+        @if (aiPrediction != null)
+        {
+            <span class="badge @aiPrediction.BadgeClass it-badge">@aiPrediction.AlertLabel</span>
+        }
+    </div>
+
+    <div class="it-panel-body">
+        @if (aiPrediction == null)
+        {
+            <div class="text-muted">AI insight is not available for this item right now.</div>
+        }
+        else
+        {
+            <div class="row g-3">
+                <div class="col-12 col-md-3">
+                    <div class="it-mini h-100">
+                        <div class="it-mini-title">Average Daily Usage</div>
+                        <div class="fw-bold fs-4">@aiPrediction.AverageDailyUsageDisplay</div>
+                        <div class="text-muted small">Units per day across the last @aiPrediction.LookbackDays days</div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <div class="it-mini h-100">
+                        <div class="it-mini-title">Days Until Reorder</div>
+                        <div class="fw-bold fs-4">@aiPrediction.DaysUntilReorderDisplay</div>
+                        <div class="text-muted small">Estimated time before reaching the reorder level</div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <div class="it-mini h-100">
+                        <div class="it-mini-title">Predicted Reorder Date</div>
+                        <div class="fw-bold fs-4">@aiPrediction.PredictedReorderDateDisplay</div>
+                        <div class="text-muted small">Based on the current usage trend</div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <div class="it-mini h-100">
+                        <div class="it-mini-title">Suggested Reorder Qty</div>
+                        <div class="fw-bold fs-4">@aiPrediction.SuggestedReorderQuantity</div>
+                        <div class="text-muted small">Suggested amount to restore safer coverage</div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-8">
+                    <div class="it-field h-100">
+                        <div class="label">AI Summary</div>
+                        <div class="value">@aiPrediction.InsightSummary</div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-4">
+                    <div class="it-field h-100">
+                        <div class="label">Recommended Action</div>
+                        <div class="value">@aiPrediction.RecommendedAction</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-3 text-muted small">
+                Demand signals used: <span class="fw-semibold">@aiPrediction.DemandSignalCount</span>
+                <span class="mx-2">•</span>
+                Days with usage: <span class="fw-semibold">@aiPrediction.DaysWithUsage</span>
+                <span class="mx-2">•</span>
+                Total units consumed in lookback window: <span class="fw-semibold">@aiPrediction.TotalUnitsConsumed</span>
+            </div>
+        }
     </div>
 </div>
 

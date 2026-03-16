@@ -19,11 +19,16 @@ namespace InvenTrack.Controllers
     {
         private readonly InvenTrackContext _context;
         private readonly AppAccessService _accessService;
+        private readonly InventoryAiService _inventoryAiService;
 
-        public InventoryItemsController(InvenTrackContext context, AppAccessService accessService)
+        public InventoryItemsController(
+            InvenTrackContext context,
+            AppAccessService accessService,
+            InventoryAiService inventoryAiService)
         {
             _context = context;
             _accessService = accessService;
+            _inventoryAiService = inventoryAiService;
         }
 
         private static string NormalizeSku(string? sku)
@@ -358,6 +363,7 @@ namespace InvenTrack.Controllers
 
             ViewData["LocationStocks"] = stocks;
             ViewData["LocationCount"] = stocks.Count(s => s.QuantityOnHand > 0);
+            ViewData["AiPrediction"] = await _inventoryAiService.GetPredictionAsync(item.ID, scope);
 
             return View(item);
         }

@@ -2,6 +2,8 @@
 
 @{
     ViewData["Title"] = "Reports";
+    var aiPredictedIssuesCount = (ViewData["AiPredictedIssuesCount"] as int?) ?? 0;
+    var aiUrgentIssuesCount = (ViewData["AiUrgentIssuesCount"] as int?) ?? 0;
 }
 
 <div class="it-pagehead mb-3">
@@ -10,7 +12,7 @@
             <div class="it-page-dot"></div>
             <h1 class="h3 mb-0 fw-bold">Reports</h1>
         </div>
-        <div class="text-muted small">Low stock, location summary, recent transactions, and export-ready CSV reports.</div>
+        <div class="text-muted small">Low stock, location summary, recent transactions, AI insights, and export-ready CSV reports.</div>
     </div>
 </div>
 
@@ -63,6 +65,78 @@
     </div>
 </div>
 
+<div class="row g-3 g-lg-4 mb-3">
+    <div class="col-12 col-xl-8">
+        <div class="it-panel h-100">
+            <div class="it-panel-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
+                <div>
+                    <div class="fw-bold">AI replenishment insights</div>
+                    <div class="text-muted small">Forecast near-term stock risk using recent check-outs and adjustments.</div>
+                </div>
+                <span class="badge bg-dark-subtle text-dark border">This Sprint</span>
+            </div>
+            <div class="it-panel-body">
+                <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                        <div class="it-mini h-100">
+                            <div class="it-mini-title">Predicted Issues</div>
+                            <div class="fw-bold fs-4">@aiPredictedIssuesCount</div>
+                            <div class="text-muted small">Items already low or expected to reach reorder soon.</div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <div class="it-mini h-100">
+                            <div class="it-mini-title">Urgent AI Alerts</div>
+                            <div class="fw-bold fs-4">@aiUrgentIssuesCount</div>
+                            <div class="text-muted small">Items needing immediate replenishment attention.</div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <div class="it-mini h-100">
+                            <div class="it-mini-title">What it uses</div>
+                            <div class="fw-bold fs-6 mt-1">Recent usage history</div>
+                            <div class="text-muted small">Check-outs and negative adjustments across the selected visibility scope.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="it-hint mt-3">
+                    This AI view is a lightweight forecasting layer built on your existing transaction history, so it works without adding a new database table or ML package.
+                </div>
+
+                <div class="mt-3 d-grid gap-2 d-md-flex">
+                    <a asp-action="AiInsights" class="btn btn-dark">Open AI Insights</a>
+                    <a asp-action="ExportAiInsightsCsv" class="btn btn-outline-dark">Export AI Insights CSV</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-4">
+        <div class="it-panel h-100">
+            <div class="it-panel-header">
+                <div class="fw-bold">Export for demo</div>
+                <div class="text-muted small">CSV files open cleanly in Excel, Sheets, and demo environments.</div>
+            </div>
+            <div class="it-panel-body">
+                <div class="it-hint">
+                    CSV is still the safest export format here because it needs no extra package, no schema change, and is easy to open during instructor demos.
+                </div>
+
+                <div class="mt-3 d-grid gap-2">
+                    <a asp-action="ExportInventoryCsv" class="btn btn-outline-secondary">Download Inventory CSV</a>
+                    <a asp-action="ExportLowStockCsv" class="btn btn-outline-secondary">Download Low Stock CSV</a>
+                    <a asp-action="ExportLocationSummaryCsv" class="btn btn-outline-secondary">Download Location Summary CSV</a>
+                    <a asp-action="ExportRecentTransactionsCsv" class="btn btn-outline-secondary">Download Recent Transactions CSV</a>
+                    <a asp-action="ExportAiInsightsCsv" class="btn btn-outline-secondary">Download AI Insights CSV</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-3 g-lg-4">
     <div class="col-12 col-xl-6">
         <div class="it-panel h-100">
@@ -95,6 +169,14 @@
                             <div class="text-muted small">Shows movement history with filters for action type and search.</div>
                         </div>
                     </div>
+
+                    <div class="it-list-item">
+                        <div class="it-list-dot">4</div>
+                        <div>
+                            <div class="fw-semibold">AI Insights</div>
+                            <div class="text-muted small">Shows forecasted stock risk, suggested reorder quantity, and urgency status.</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -103,19 +185,34 @@
     <div class="col-12 col-xl-6">
         <div class="it-panel h-100">
             <div class="it-panel-header">
-                <div class="fw-bold">Export for demo</div>
-                <div class="text-muted small">CSV files open cleanly in Excel, Sheets, and demo environments.</div>
+                <div class="fw-bold">How the AI report helps</div>
+                <div class="text-muted small">Good talking points for your sprint demo.</div>
             </div>
             <div class="it-panel-body">
-                <div class="it-hint">
-                    CSV is the safest first export format here because it needs no extra package, no migration, and is easy to open during instructor demos.
-                </div>
+                <div class="it-list">
+                    <div class="it-list-item">
+                        <div class="it-list-dot">A</div>
+                        <div>
+                            <div class="fw-semibold">Predictive stock planning</div>
+                            <div class="text-muted small">Moves beyond static reorder levels by estimating how fast stock is being consumed.</div>
+                        </div>
+                    </div>
 
-                <div class="mt-3 d-grid gap-2">
-                    <a asp-action="ExportInventoryCsv" class="btn btn-outline-secondary">Download Inventory CSV</a>
-                    <a asp-action="ExportLowStockCsv" class="btn btn-outline-secondary">Download Low Stock CSV</a>
-                    <a asp-action="ExportLocationSummaryCsv" class="btn btn-outline-secondary">Download Location Summary CSV</a>
-                    <a asp-action="ExportRecentTransactionsCsv" class="btn btn-outline-secondary">Download Recent Transactions CSV</a>
+                    <div class="it-list-item">
+                        <div class="it-list-dot">B</div>
+                        <div>
+                            <div class="fw-semibold">Actionable alerts</div>
+                            <div class="text-muted small">Highlights which items are urgent now versus which ones simply need monitoring.</div>
+                        </div>
+                    </div>
+
+                    <div class="it-list-item">
+                        <div class="it-list-dot">C</div>
+                        <div>
+                            <div class="fw-semibold">Manager-friendly suggestions</div>
+                            <div class="text-muted small">Provides a suggested reorder quantity and a plain-language next action.</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
