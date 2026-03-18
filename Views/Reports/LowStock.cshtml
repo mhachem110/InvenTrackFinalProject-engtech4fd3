@@ -1,223 +1,243 @@
-﻿@model InvenTrack.Utilities.PaginatedList<InvenTrack.ViewModels.Reports.LowStockReportRowVM>
-@using System
+﻿@model InvenTrack.ViewModels.Reports.ReportIndexVM
 
 @{
-    ViewData["Title"] = "Low Stock Report";
-
-    var currentFilter = ViewData["CurrentFilter"] as string ?? string.Empty;
-    var currentPageSize = ViewData["CurrentPageSize"] is int ps ? ps : 10;
-
-    var startItem = Model.TotalCount == 0 ? 0 : ((Model.PageIndex - 1) * Model.PageSize) + 1;
-    var endItem = Model.TotalCount == 0 ? 0 : Math.Min(Model.PageIndex * Model.PageSize, Model.TotalCount);
-
-    var firstPage = Math.Max(1, Model.PageIndex - 2);
-    var lastPage = Math.Min(Model.TotalPages, Model.PageIndex + 2);
+    ViewData["Title"] = "Reports";
+    var aiPredictedIssuesCount = (ViewData["AiPredictedIssuesCount"] as int?) ?? 0;
+    var aiUrgentIssuesCount = (ViewData["AiUrgentIssuesCount"] as int?) ?? 0;
 }
 
-<div class="it-pagehead mb-3">
-    <div>
-        <div class="d-flex align-items-center gap-2">
-            <div class="it-page-dot"></div>
-            <h1 class="h3 mb-0 fw-bold">Low Stock Report</h1>
+<div class="it-report-shell">
+
+    <div class="it-report-hero mb-4">
+        <div class="it-report-hero__left">
+            <div class="it-report-kicker">Reporting Workspace</div>
+            <h1 class="it-report-title">Reports</h1>
+            <p class="it-report-subtitle">
+                Review stock health, location coverage, movement history, and AI-based replenishment insights.
+            </p>
         </div>
-        <div class="text-muted small">Items currently at or below their reorder level.</div>
+
+        <div class="it-report-hero__right">
+            <div class="it-report-hero-stat">
+                <span class="label">Available modules</span>
+                <span class="value">4</span>
+            </div>
+            <div class="it-report-hero-stat">
+                <span class="label">AI alerts</span>
+                <span class="value">@aiUrgentIssuesCount</span>
+            </div>
+        </div>
     </div>
 
-    <div class="d-flex gap-2 flex-wrap">
-        <a asp-action="ExportLowStockCsv" asp-route-q="@currentFilter" class="btn btn-primary">Export CSV</a>
-        <a asp-action="Index" class="btn btn-outline-secondary">Back to Reports</a>
-    </div>
-</div>
-
-<form asp-action="LowStock" method="get" class="it-panel mb-3">
-    <div class="it-panel-body">
-        <input type="hidden" id="pageNumber" name="page" value="1" />
-
-        <div class="row g-2 align-items-center">
-            <div class="col-lg-6">
-                <div class="it-input">
-                    <span class="it-input-ico">🔎</span>
-                    <input name="q"
-                           value="@currentFilter"
-                           type="search"
-                           class="form-control it-input-field"
-                           placeholder="Search by item, SKU, category, or location..." />
+    <div class="row g-3 g-xl-4 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-report-card">
+                <div class="it-report-card__icon">📦</div>
+                <div class="it-report-card__label">Inventory Export</div>
+                <div class="it-report-card__value">@Model.InventoryItemCount</div>
+                <div class="it-report-card__text">Complete inventory list prepared for export and review.</div>
+                <div class="it-report-card__actions">
+                    <a asp-action="ExportInventoryCsv" class="btn btn-primary btn-sm">Export CSV</a>
                 </div>
             </div>
+        </div>
 
-            <div class="col-lg-3">
-                <select id="pageSize" name="pageSize" class="form-select">
-                    <option value="10" selected="@(currentPageSize == 10 ? "selected" : null)">10 per page</option>
-                    <option value="25" selected="@(currentPageSize == 25 ? "selected" : null)">25 per page</option>
-                    <option value="50" selected="@(currentPageSize == 50 ? "selected" : null)">50 per page</option>
-                </select>
-            </div>
-
-            <div class="col-lg-3 d-flex justify-content-lg-end gap-2">
-                <button type="submit" class="btn btn-primary">Apply</button>
-                <a asp-action="LowStock" class="btn btn-outline-secondary">Clear</a>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-report-card">
+                <div class="it-report-card__icon">⚠️</div>
+                <div class="it-report-card__label">Low Stock</div>
+                <div class="it-report-card__value">@Model.LowStockItemCount</div>
+                <div class="it-report-card__text">Items currently at or below their reorder threshold.</div>
+                <div class="it-report-card__actions">
+                    <a asp-action="LowStock" class="btn btn-primary btn-sm">Open Report</a>
+                    <a asp-action="ExportLowStockCsv" class="btn btn-outline-secondary btn-sm">Export</a>
+                </div>
             </div>
         </div>
 
-        <div class="mt-2 text-muted small">
-            Showing @startItem - @endItem of @Model.TotalCount low-stock items
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-report-card">
+                <div class="it-report-card__icon">📍</div>
+                <div class="it-report-card__label">Location Summary</div>
+                <div class="it-report-card__value">@Model.StorageLocationCount</div>
+                <div class="it-report-card__text">Active item counts and stock totals by storage location.</div>
+                <div class="it-report-card__actions">
+                    <a asp-action="LocationSummary" class="btn btn-primary btn-sm">Open Report</a>
+                    <a asp-action="ExportLocationSummaryCsv" class="btn btn-outline-secondary btn-sm">Export</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-report-card">
+                <div class="it-report-card__icon">🧾</div>
+                <div class="it-report-card__label">Transactions</div>
+                <div class="it-report-card__value">@Model.RecentTransactionCount</div>
+                <div class="it-report-card__text">Audit-friendly movement history with search and filtering.</div>
+                <div class="it-report-card__actions">
+                    <a asp-action="RecentTransactions" class="btn btn-primary btn-sm">Open Report</a>
+                    <a asp-action="ExportRecentTransactionsCsv" class="btn btn-outline-secondary btn-sm">Export</a>
+                </div>
+            </div>
         </div>
     </div>
-</form>
 
-<div class="it-panel">
-    <div class="it-panel-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 it-table">
-                <thead>
-                    <tr>
-                        <th>Item</th>
-                        <th style="width:140px;">SKU</th>
-                        <th style="width:180px;">Category</th>
-                        <th style="width:180px;">Primary Location</th>
-                        <th style="width:120px;">On Hand</th>
-                        <th style="width:120px;">Reorder</th>
-                        <th style="width:120px;">Locations</th>
-                        <th style="width:120px;">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (Model == null || !Model.Any())
-                    {
-                        <tr>
-                            <td colspan="8" class="text-center text-muted py-5">
-                                <div class="fw-semibold mb-1">No low-stock items found</div>
-                                <div class="small">Everything is currently above reorder level for the selected filter.</div>
-                            </td>
-                        </tr>
-                    }
-                    else
-                    {
-                        foreach (var item in Model)
-                        {
-                            <tr>
-                                <td class="fw-semibold">@item.ItemName</td>
-                                <td class="text-muted">@item.SKU</td>
-                                <td class="text-muted">@item.CategoryName</td>
-                                <td class="text-muted">@item.PrimaryLocationName</td>
-                                <td>
-                                    <span class="it-qty">@item.TotalQuantityOnHand</span>
-                                </td>
-                                <td class="text-muted">@item.ReorderLevel</td>
-                                <td class="text-muted">@item.LocationCount</td>
-                                <td>
-                                    @if (item.IsActive)
-                                    {
-                                        <span class="badge bg-success-subtle text-success border it-badge">Active</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary-subtle text-secondary border it-badge">Inactive</span>
-                                    }
-                                </td>
-                            </tr>
-                        }
-                    }
-                </tbody>
-            </table>
-        </div>
-
-        @if (Model.TotalPages > 1)
-        {
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 p-3 border-top">
-                <div class="text-muted small">
-                    Page @Model.PageIndex of @Model.TotalPages
+    <div class="row g-3 g-xl-4 mb-4">
+        <div class="col-12 col-xl-8">
+            <div class="it-panel h-100">
+                <div class="it-panel-header d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                    <div>
+                        <div class="fw-bold">AI Replenishment Intelligence</div>
+                        <div class="text-muted small">Forecast near-term stock risk using transaction history and reorder logic.</div>
+                    </div>
+                    <span class="badge bg-primary-subtle text-primary border it-badge">Live Analysis</span>
                 </div>
 
-                <nav aria-label="Low stock pagination">
-                    <ul class="pagination pagination-sm mb-0">
-                        <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
-                            <a class="page-link"
-                               asp-action="LowStock"
-                               asp-route-page="@(Model.PageIndex - 1)"
-                               asp-route-q="@currentFilter"
-                               asp-route-pageSize="@currentPageSize">
-                                Previous
-                            </a>
-                        </li>
+                <div class="it-panel-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-4">
+                            <div class="it-report-mini">
+                                <div class="it-report-mini__label">Predicted Issues</div>
+                                <div class="it-report-mini__value">@aiPredictedIssuesCount</div>
+                                <div class="it-report-mini__text">Items already low or expected to drop soon.</div>
+                            </div>
+                        </div>
 
-                        @if (firstPage > 1)
-                        {
-                            <li class="page-item">
-                                <a class="page-link"
-                                   asp-action="LowStock"
-                                   asp-route-page="1"
-                                   asp-route-q="@currentFilter"
-                                   asp-route-pageSize="@currentPageSize">
-                                    1
-                                </a>
-                            </li>
+                        <div class="col-12 col-md-4">
+                            <div class="it-report-mini">
+                                <div class="it-report-mini__label">Urgent Alerts</div>
+                                <div class="it-report-mini__value">@aiUrgentIssuesCount</div>
+                                <div class="it-report-mini__text">Items needing immediate replenishment attention.</div>
+                            </div>
+                        </div>
 
-                            @if (firstPage > 2)
-                            {
-                                <li class="page-item disabled"><span class="page-link">...</span></li>
-                            }
-                        }
+                        <div class="col-12 col-md-4">
+                            <div class="it-report-mini">
+                                <div class="it-report-mini__label">Signal Source</div>
+                                <div class="it-report-mini__value fs-6 mt-1">Usage History</div>
+                                <div class="it-report-mini__text">Based on check-outs and negative adjustments.</div>
+                            </div>
+                        </div>
+                    </div>
 
-                        @for (var p = firstPage; p <= lastPage; p++)
-                        {
-                            <li class="page-item @(p == Model.PageIndex ? "active" : "")">
-                                <a class="page-link"
-                                   asp-action="LowStock"
-                                   asp-route-page="@p"
-                                   asp-route-q="@currentFilter"
-                                   asp-route-pageSize="@currentPageSize">
-                                    @p
-                                </a>
-                            </li>
-                        }
+                    <div class="it-hint mb-3">
+                        This AI view is designed for demo use and manager review. It builds on your current transaction data without needing a separate machine learning service.
+                    </div>
 
-                        @if (lastPage < Model.TotalPages)
-                        {
-                            @if (lastPage < Model.TotalPages - 1)
-                            {
-                                <li class="page-item disabled"><span class="page-link">...</span></li>
-                            }
-
-                            <li class="page-item">
-                                <a class="page-link"
-                                   asp-action="LowStock"
-                                   asp-route-page="@Model.TotalPages"
-                                   asp-route-q="@currentFilter"
-                                   asp-route-pageSize="@currentPageSize">
-                                    @Model.TotalPages
-                                </a>
-                            </li>
-                        }
-
-                        <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
-                            <a class="page-link"
-                               asp-action="LowStock"
-                               asp-route-page="@(Model.PageIndex + 1)"
-                               asp-route-q="@currentFilter"
-                               asp-route-pageSize="@currentPageSize">
-                                Next
-                            </a>
-                        </li>
-                    </ul>
-                </nav>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a asp-action="AiInsights" class="btn btn-dark">Open AI Insights</a>
+                        <a asp-action="ExportAiInsightsCsv" class="btn btn-outline-dark">Export AI CSV</a>
+                    </div>
+                </div>
             </div>
-        }
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <div class="it-panel h-100">
+                <div class="it-panel-header">
+                    <div class="fw-bold">Export Center</div>
+                    <div class="text-muted small">Download clean CSV files for demos, Excel, and instructor review.</div>
+                </div>
+
+                <div class="it-panel-body">
+                    <div class="it-report-export-list">
+                        <a asp-action="ExportInventoryCsv" class="it-report-export-link">Inventory CSV</a>
+                        <a asp-action="ExportLowStockCsv" class="it-report-export-link">Low Stock CSV</a>
+                        <a asp-action="ExportLocationSummaryCsv" class="it-report-export-link">Location Summary CSV</a>
+                        <a asp-action="ExportRecentTransactionsCsv" class="it-report-export-link">Recent Transactions CSV</a>
+                        <a asp-action="ExportAiInsightsCsv" class="it-report-export-link">AI Insights CSV</a>
+                    </div>
+
+                    <div class="it-hint mt-3">
+                        CSV remains the best demo-friendly export format because it opens easily in Excel and requires no extra setup.
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <div class="row g-3 g-xl-4">
+        <div class="col-12 col-xl-6">
+            <div class="it-panel h-100">
+                <div class="it-panel-header">
+                    <div class="fw-bold">Available Report Views</div>
+                    <div class="text-muted small">Core reporting screens in the current system.</div>
+                </div>
+
+                <div class="it-panel-body">
+                    <div class="it-report-list">
+                        <div class="it-report-list__item">
+                            <div class="it-report-list__num">1</div>
+                            <div>
+                                <div class="fw-semibold">Low Stock</div>
+                                <div class="text-muted small">Shows items currently at or below reorder level.</div>
+                            </div>
+                        </div>
+
+                        <div class="it-report-list__item">
+                            <div class="it-report-list__num">2</div>
+                            <div>
+                                <div class="fw-semibold">Location Summary</div>
+                                <div class="text-muted small">Shows active item count and total units per location.</div>
+                            </div>
+                        </div>
+
+                        <div class="it-report-list__item">
+                            <div class="it-report-list__num">3</div>
+                            <div>
+                                <div class="fw-semibold">Recent Transactions</div>
+                                <div class="text-muted small">Shows filtered movement history for audit and review.</div>
+                            </div>
+                        </div>
+
+                        <div class="it-report-list__item">
+                            <div class="it-report-list__num">4</div>
+                            <div>
+                                <div class="fw-semibold">AI Insights</div>
+                                <div class="text-muted small">Shows forecasted inventory risk and suggested actions.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="it-panel h-100">
+                <div class="it-panel-header">
+                    <div class="fw-bold">Why This Report Area Matters</div>
+                    <div class="text-muted small">Good talking points for presentation and demo.</div>
+                </div>
+
+                <div class="it-panel-body">
+                    <div class="it-report-list">
+                        <div class="it-report-list__item">
+                            <div class="it-report-list__num">A</div>
+                            <div>
+                                <div class="fw-semibold">Operational visibility</div>
+                                <div class="text-muted small">Managers can quickly review stock health and movement trends.</div>
+                            </div>
+                        </div>
+
+                        <div class="it-report-list__item">
+                            <div class="it-report-list__num">B</div>
+                            <div>
+                                <div class="fw-semibold">Audit support</div>
+                                <div class="text-muted small">Transactions and summaries are exportable for review and proof.</div>
+                            </div>
+                        </div>
+
+                        <div class="it-report-list__item">
+                            <div class="it-report-list__num">C</div>
+                            <div>
+                                <div class="fw-semibold">Decision support</div>
+                                <div class="text-muted small">AI insights help move from static reporting to smarter replenishment planning.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
-
-@section Scripts {
-    <script>
-        (function () {
-            const pageSize = document.getElementById('pageSize');
-            const pageNumber = document.getElementById('pageNumber');
-
-            if (pageSize) {
-                pageSize.addEventListener('change', function () {
-                    if (pageNumber) pageNumber.value = 1;
-                    this.form.submit();
-                });
-            }
-        })();
-    </script>
-}

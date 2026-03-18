@@ -14,178 +14,176 @@
     var lastPage = Math.Min(Model.TotalPages, Model.PageIndex + 2);
 }
 
-<div class="it-pagehead mb-3">
-    <div>
-        <div class="d-flex align-items-center gap-2">
-            <div class="it-page-dot"></div>
-            <h1 class="h3 mb-0 fw-bold">Location Summary</h1>
+<div class="it-report-page">
+    <div class="it-report-head mb-3">
+        <div>
+            <div class="it-report-kicker">Report</div>
+            <h1 class="it-report-page-title">Location Summary</h1>
+            <div class="text-muted small">Stock totals and active item counts by location.</div>
         </div>
-        <div class="text-muted small">Stock totals and active item counts by location.</div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-action="ExportLocationSummaryCsv" asp-route-q="@currentFilter" class="btn btn-primary">Export CSV</a>
+            <a asp-action="Index" class="btn btn-outline-secondary">Back to Reports</a>
+        </div>
     </div>
 
-    <div class="d-flex gap-2 flex-wrap">
-        <a asp-action="ExportLocationSummaryCsv" asp-route-q="@currentFilter" class="btn btn-primary">Export CSV</a>
-        <a asp-action="Index" class="btn btn-outline-secondary">Back to Reports</a>
-    </div>
-</div>
+    <form asp-action="LocationSummary" method="get" class="it-panel mb-3">
+        <div class="it-panel-body">
+            <input type="hidden" id="pageNumber" name="page" value="1" />
 
-<form asp-action="LocationSummary" method="get" class="it-panel mb-3">
-    <div class="it-panel-body">
-        <input type="hidden" id="pageNumber" name="page" value="1" />
+            <div class="row g-2 align-items-center">
+                <div class="col-lg-7">
+                    <div class="it-input">
+                        <span class="it-input-ico">🔎</span>
+                        <input name="q"
+                               value="@currentFilter"
+                               type="search"
+                               class="form-control it-input-field"
+                               placeholder="Search by location name, building, or room..." />
+                    </div>
+                </div>
 
-        <div class="row g-2 align-items-center">
-            <div class="col-lg-6">
-                <div class="it-input">
-                    <span class="it-input-ico">🔎</span>
-                    <input name="q"
-                           value="@currentFilter"
-                           type="search"
-                           class="form-control it-input-field"
-                           placeholder="Search by location name, building, or room..." />
+                <div class="col-lg-2">
+                    <select id="pageSize" name="pageSize" class="form-select">
+                        <option value="10" selected="@(currentPageSize == 10 ? "selected" : null)">10 per page</option>
+                        <option value="25" selected="@(currentPageSize == 25 ? "selected" : null)">25 per page</option>
+                        <option value="50" selected="@(currentPageSize == 50 ? "selected" : null)">50 per page</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-3 d-flex justify-content-lg-end gap-2">
+                    <button type="submit" class="btn btn-primary">Apply</button>
+                    <a asp-action="LocationSummary" class="btn btn-outline-secondary">Clear</a>
                 </div>
             </div>
 
-            <div class="col-lg-3">
-                <select id="pageSize" name="pageSize" class="form-select">
-                    <option value="10" selected="@(currentPageSize == 10 ? "selected" : null)">10 per page</option>
-                    <option value="25" selected="@(currentPageSize == 25 ? "selected" : null)">25 per page</option>
-                    <option value="50" selected="@(currentPageSize == 50 ? "selected" : null)">50 per page</option>
-                </select>
-            </div>
-
-            <div class="col-lg-3 d-flex justify-content-lg-end gap-2">
-                <button type="submit" class="btn btn-primary">Apply</button>
-                <a asp-action="LocationSummary" class="btn btn-outline-secondary">Clear</a>
+            <div class="mt-2 text-muted small">
+                Showing @startItem - @endItem of @Model.TotalCount locations
             </div>
         </div>
+    </form>
 
-        <div class="mt-2 text-muted small">
-            Showing @startItem - @endItem of @Model.TotalCount locations
+    <div class="it-panel">
+        <div class="it-panel-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
+            <div>
+                <div class="fw-bold">Location Totals</div>
+                <div class="text-muted small">Operational stock summary by storage location.</div>
+            </div>
+            <span class="badge bg-primary-subtle text-primary border it-badge">@Model.TotalCount locations</span>
         </div>
-    </div>
-</form>
 
-<div class="it-panel">
-    <div class="it-panel-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 it-table">
-                <thead>
-                    <tr>
-                        <th>Location</th>
-                        <th style="width:180px;">Building</th>
-                        <th style="width:120px;">Room</th>
-                        <th style="width:160px;">Active Items</th>
-                        <th style="width:140px;">Total Units</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (Model == null || !Model.Any())
-                    {
+        <div class="it-panel-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 it-table">
+                    <thead>
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-5">
-                                <div class="fw-semibold mb-1">No locations found</div>
-                                <div class="small">Try a different search.</div>
-                            </td>
+                            <th>Location</th>
+                            <th style="width:160px;">Building</th>
+                            <th style="width:110px;">Room</th>
+                            <th style="width:140px;">Active Items</th>
+                            <th style="width:130px;">Total Units</th>
                         </tr>
-                    }
-                    else
-                    {
-                        foreach (var row in Model)
+                    </thead>
+                    <tbody>
+                        @if (Model == null || !Model.Any())
                         {
                             <tr>
-                                <td class="fw-semibold">@row.Name</td>
-                                <td class="text-muted">@(!string.IsNullOrWhiteSpace(row.Building) ? row.Building : "-")</td>
-                                <td class="text-muted">@(!string.IsNullOrWhiteSpace(row.Room) ? row.Room : "-")</td>
-                                <td class="text-muted">@row.ActiveItemCount</td>
-                                <td><span class="it-qty">@row.TotalUnits</span></td>
+                                <td colspan="5" class="text-center text-muted py-5">
+                                    <div class="fw-semibold mb-1">No locations found</div>
+                                    <div class="small">Try a different search.</div>
+                                </td>
                             </tr>
                         }
-                    }
-                </tbody>
-            </table>
-        </div>
-
-        @if (Model.TotalPages > 1)
-        {
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 p-3 border-top">
-                <div class="text-muted small">
-                    Page @Model.PageIndex of @Model.TotalPages
-                </div>
-
-                <nav aria-label="Location summary pagination">
-                    <ul class="pagination pagination-sm mb-0">
-                        <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
-                            <a class="page-link"
-                               asp-action="LocationSummary"
-                               asp-route-page="@(Model.PageIndex - 1)"
-                               asp-route-q="@currentFilter"
-                               asp-route-pageSize="@currentPageSize">
-                                Previous
-                            </a>
-                        </li>
-
-                        @if (firstPage > 1)
+                        else
                         {
-                            <li class="page-item">
-                                <a class="page-link"
-                                   asp-action="LocationSummary"
-                                   asp-route-page="1"
-                                   asp-route-q="@currentFilter"
-                                   asp-route-pageSize="@currentPageSize">
-                                    1
-                                </a>
-                            </li>
-
-                            @if (firstPage > 2)
+                            foreach (var row in Model)
                             {
-                                <li class="page-item disabled"><span class="page-link">...</span></li>
+                                <tr>
+                                    <td class="fw-semibold">@row.Name</td>
+                                    <td class="text-muted">@(!string.IsNullOrWhiteSpace(row.Building) ? row.Building : "-")</td>
+                                    <td class="text-muted">@(!string.IsNullOrWhiteSpace(row.Room) ? row.Room : "-")</td>
+                                    <td class="text-muted">@row.ActiveItemCount</td>
+                                    <td><span class="it-qty">@row.TotalUnits</span></td>
+                                </tr>
                             }
                         }
-
-                        @for (var p = firstPage; p <= lastPage; p++)
-                        {
-                            <li class="page-item @(p == Model.PageIndex ? "active" : "")">
-                                <a class="page-link"
-                                   asp-action="LocationSummary"
-                                   asp-route-page="@p"
-                                   asp-route-q="@currentFilter"
-                                   asp-route-pageSize="@currentPageSize">
-                                    @p
-                                </a>
-                            </li>
-                        }
-
-                        @if (lastPage < Model.TotalPages)
-                        {
-                            @if (lastPage < Model.TotalPages - 1)
-                            {
-                                <li class="page-item disabled"><span class="page-link">...</span></li>
-                            }
-
-                            <li class="page-item">
-                                <a class="page-link"
-                                   asp-action="LocationSummary"
-                                   asp-route-page="@Model.TotalPages"
-                                   asp-route-q="@currentFilter"
-                                   asp-route-pageSize="@currentPageSize">
-                                    @Model.TotalPages
-                                </a>
-                            </li>
-                        }
-
-                        <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
-                            <a class="page-link"
-                               asp-action="LocationSummary"
-                               asp-route-page="@(Model.PageIndex + 1)"
-                               asp-route-q="@currentFilter"
-                               asp-route-pageSize="@currentPageSize">
-                                Next
-                            </a>
-                        </li>
-                    </ul>
-                </nav>
+                    </tbody>
+                </table>
             </div>
-        }
+
+            @if (Model.TotalPages > 1)
+            {
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 p-3 border-top">
+                    <div class="text-muted small">
+                        Page @Model.PageIndex of @Model.TotalPages
+                    </div>
+
+                    <nav aria-label="Location summary pagination">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
+                                <a class="page-link"
+                                   asp-action="LocationSummary"
+                                   asp-route-page="@(Model.PageIndex - 1)"
+                                   asp-route-q="@currentFilter"
+                                   asp-route-pageSize="@currentPageSize">Previous</a>
+                            </li>
+
+                            @if (firstPage > 1)
+                            {
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       asp-action="LocationSummary"
+                                       asp-route-page="1"
+                                       asp-route-q="@currentFilter"
+                                       asp-route-pageSize="@currentPageSize">1</a>
+                                </li>
+
+                                @if (firstPage > 2)
+                                {
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                }
+                            }
+
+                            @for (var p = firstPage; p <= lastPage; p++)
+                            {
+                                <li class="page-item @(p == Model.PageIndex ? "active" : "")">
+                                    <a class="page-link"
+                                       asp-action="LocationSummary"
+                                       asp-route-page="@p"
+                                       asp-route-q="@currentFilter"
+                                       asp-route-pageSize="@currentPageSize">@p</a>
+                                </li>
+                            }
+
+                            @if (lastPage < Model.TotalPages)
+                            {
+                                @if (lastPage < Model.TotalPages - 1)
+                                {
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                }
+
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       asp-action="LocationSummary"
+                                       asp-route-page="@Model.TotalPages"
+                                       asp-route-q="@currentFilter"
+                                       asp-route-pageSize="@currentPageSize">@Model.TotalPages</a>
+                                </li>
+                            }
+
+                            <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
+                                <a class="page-link"
+                                   asp-action="LocationSummary"
+                                   asp-route-page="@(Model.PageIndex + 1)"
+                                   asp-route-q="@currentFilter"
+                                   asp-route-pageSize="@currentPageSize">Next</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            }
+        </div>
     </div>
 </div>
 

@@ -14,10 +14,21 @@
     bool isEmployee = User.IsInRole(AppRoles.Employee);
 
     bool canApproveOrReject = isAdmin || isRegionalManager || isManager;
+    bool canCreateRequest = isAdmin || isRegionalManager || isManager || isSupervisor || isEmployee;
+
+    var assignedLocationName = User.FindFirst("AssignedLocationName")?.Value ?? "";
+    var isScopedUser = isManager || isSupervisor || isEmployee;
+    var scopeLabel = isScopedUser
+        ? (string.IsNullOrWhiteSpace(assignedLocationName) ? "Assigned location" : assignedLocationName)
+        : "All locations";
 
     var pendingCount = requests.Count(r => r.Status == TransferRequestStatus.Pending);
     var rejectedCount = requests.Count(r => r.Status == TransferRequestStatus.Rejected);
     var approvedCount = requests.Count(r => r.Status == TransferRequestStatus.Approved);
+    var totalCount = requests.Count;
+
+    // UI-only filter (client-side)
+    var defaultFilter = "all"; // can change to "pending" if you prefer
 }
 
 <div class="it-pagehead mb-3">
@@ -27,9 +38,27 @@
             <h1 class="h3 mb-0 fw-bold">Transfer Requests</h1>
         </div>
         <div class="text-muted small">Review transfer requests between storage locations.</div>
+        <div class="text-muted small mt-1">
+            <span class="badge bg-light text-dark border it-badge">Scope: @scopeLabel</span>
+            @if (canApproveOrReject)
+            {
+                <span class="badge bg-primary-subtle text-primary border it-badge ms-1">Approver</span>
+            }
+            else
+            {
+                <span class="badge bg-secondary-subtle text-secondary border it-badge ms-1">Requester</span>
+            }
+        </div>
     </div>
 
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+        @* Optional: If your controller supports Create without inventoryItemId, show a button.
+           If it REQUIRES inventoryItemId, remove this button. *@
+        @if (canCreateRequest)
+        {
+            <a asp-action="Create" class="btn btn-primary">+ Request Transfer</a>
+        }
+
         <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-secondary">Back to Inventory</a>
     </div>
 </div>
@@ -68,14 +97,23 @@
 <div class="it-panel mb-3">
     <div class="it-panel-header d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2">
         <div>
-            <div class="fw-bold">Status Guide</div>
-            <div class="text-muted small">Requests are shown newest first, with pending requests on top.</div>
+            <div class="fw-bold">Status</div>
+            <div class="text-muted small">Use tabs to filter locally. Pending requests appear highlighted.</div>
         </div>
 
         <div class="d-flex flex-wrap gap-2">
-            <span class="badge bg-warning-subtle text-warning border it-badge">Pending</span>
-            <span class="badge bg-success-subtle text-success border it-badge">Approved</span>
-            <span class="badge bg-danger-subtle text-danger border it-badge">Rejected</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary it-filter-btn" data-filter="all">
+                All <span class="badge bg-light text-dark border ms-1">@totalCount</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-warning it-filter-btn" data-filter="pending">
+                Pending <span class="badge bg-warning-subtle text-warning border ms-1">@pendingCount</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-success it-filter-btn" data-filter="approved">
+                Approved <span class="badge bg-success-subtle text-success border ms-1">@approvedCount</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger it-filter-btn" data-filter="rejected">
+                Rejected <span class="badge bg-danger-subtle text-danger border ms-1">@rejectedCount</span>
+            </button>
         </div>
     </div>
 </div>
@@ -83,16 +121,16 @@
 <div class="it-panel">
     <div class="it-panel-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 it-table">
+            <table class="table table-hover align-middle mb-0 it-table" id="trTable">
                 <thead>
                     <tr>
                         <th style="width:160px;">Requested</th>
                         <th>Item</th>
                         <th style="width:110px;">Qty</th>
-                        <th style="width:180px;">From</th>
-                        <th style="width:180px;">To</th>
+                        <th class="d-none d-lg-table-cell" style="width:180px;">From</th>
+                        <th class="d-none d-lg-table-cell" style="width:180px;">To</th>
                         <th style="width:130px;">Status</th>
-                        <th style="width:170px;">Requested By</th>
+                        <th class="d-none d-md-table-cell" style="width:170px;">Requested By</th>
                         <th>Notes</th>
                         <th class="text-end" style="width:240px;">Actions</th>
                     </tr>
@@ -110,13 +148,15 @@
                     }
                     else
                     {
-                        foreach (var r in requests)
+                        foreach (var r in requests.OrderByDescending(x => x.DateRequested))
                         {
-                            var rowClass = r.Status == TransferRequestStatus.Pending
-                            ? "table-warning-subtle"
-                            : "";
+                            var statusKey = r.Status == TransferRequestStatus.Pending ? "pending"
+                            : r.Status == TransferRequestStatus.Approved ? "approved"
+                            : "rejected";
 
-                            <tr class="@rowClass">
+                            var rowClass = r.Status == TransferRequestStatus.Pending ? "table-warning-subtle" : "";
+
+                            <tr class="@rowClass" data-status="@statusKey">
                                 <td class="text-muted">
                                     <div>@r.DateRequested.ToLocalTime().ToString("yyyy-MM-dd")</div>
                                     <div class="small">@r.DateRequested.ToLocalTime().ToString("HH:mm")</div>
@@ -127,17 +167,23 @@
                                     <div class="text-muted small">
                                         SKU: <span class="fw-semibold">@(r.InventoryItem?.SKU ?? "-")</span>
                                     </div>
+
+                                    <div class="text-muted small d-lg-none mt-1">
+                                        <span class="fw-semibold">From:</span> @(r.FromStorageLocation?.Name ?? "-")
+                                        <span class="mx-1">•</span>
+                                        <span class="fw-semibold">To:</span> @(r.ToStorageLocation?.Name ?? "-")
+                                    </div>
                                 </td>
 
                                 <td>
                                     <span class="it-qty">@r.Quantity</span>
                                 </td>
 
-                                <td class="text-muted">
+                                <td class="text-muted d-none d-lg-table-cell">
                                     @(r.FromStorageLocation?.Name ?? "-")
                                 </td>
 
-                                <td class="text-muted">
+                                <td class="text-muted d-none d-lg-table-cell">
                                     @(r.ToStorageLocation?.Name ?? "-")
                                 </td>
 
@@ -156,7 +202,7 @@
                                     }
                                 </td>
 
-                                <td class="text-muted">
+                                <td class="text-muted d-none d-md-table-cell">
                                     @(string.IsNullOrWhiteSpace(r.RequestedByName) ? "-" : r.RequestedByName)
                                 </td>
 
@@ -190,18 +236,32 @@
                                     @if (r.Status == TransferRequestStatus.Pending && canApproveOrReject)
                                     {
                                         <div class="d-flex flex-column flex-md-row justify-content-end gap-2">
-                                            <form asp-action="Approve" asp-route-id="@r.ID" method="post" class="d-inline">
-                                                @Html.AntiForgeryToken()
-                                                <button type="submit" class="btn btn-sm btn-outline-success">
-                                                    Approve
-                                                </button>
-                                            </form>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-success tr-approve-btn"
+                                                    data-id="@r.ID"
+                                                    data-item="@(r.InventoryItem?.ItemName ?? "-")"
+                                                    data-qty="@r.Quantity"
+                                                    data-from="@(r.FromStorageLocation?.Name ?? "-")"
+                                                    data-to="@(r.ToStorageLocation?.Name ?? "-")">
+                                                Approve
+                                            </button>
 
-                                            <form asp-action="Reject" asp-route-id="@r.ID" method="post" class="d-inline">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger tr-reject-btn"
+                                                    data-id="@r.ID"
+                                                    data-item="@(r.InventoryItem?.ItemName ?? "-")"
+                                                    data-qty="@r.Quantity"
+                                                    data-from="@(r.FromStorageLocation?.Name ?? "-")"
+                                                    data-to="@(r.ToStorageLocation?.Name ?? "-")">
+                                                Reject
+                                            </button>
+
+                                            <!-- Hidden forms (submitted by JS after confirm) -->
+                                            <form id="approveForm-@r.ID" asp-action="Approve" asp-route-id="@r.ID" method="post" class="d-none">
                                                 @Html.AntiForgeryToken()
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                    Reject
-                                                </button>
+                                            </form>
+                                            <form id="rejectForm-@r.ID" asp-action="Reject" asp-route-id="@r.ID" method="post" class="d-none">
+                                                @Html.AntiForgeryToken()
                                             </form>
                                         </div>
                                     }
@@ -218,3 +278,133 @@
         </div>
     </div>
 </div>
+
+<!-- Confirm Modal -->
+<div class="modal fade" id="trConfirmModal" tabindex="-1" aria-labelledby="trConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="trConfirmModalLabel">Confirm action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-muted small mb-2" id="trConfirmActionLabel"></div>
+                <div class="fw-semibold" id="trConfirmItem"></div>
+                <div class="text-muted small" id="trConfirmMeta"></div>
+                <div class="text-muted small mt-2" id="trConfirmRoute"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="trConfirmDoBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            // client-side filter tabs
+            const defaultFilter = "@defaultFilter";
+            const table = document.getElementById("trTable");
+            const filterButtons = document.querySelectorAll(".it-filter-btn");
+
+            function setActive(btn) {
+                filterButtons.forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+            }
+
+            function applyFilter(filter) {
+                if (!table) return;
+                const rows = table.querySelectorAll("tbody tr[data-status]");
+                rows.forEach(r => {
+                    if (filter === "all") {
+                        r.style.display = "";
+                    } else {
+                        r.style.display = (r.getAttribute("data-status") === filter) ? "" : "none";
+                    }
+                });
+            }
+
+            filterButtons.forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const f = btn.getAttribute("data-filter") || "all";
+                    setActive(btn);
+                    applyFilter(f);
+                });
+            });
+
+            // set default
+            const startBtn = Array.from(filterButtons).find(b => (b.getAttribute("data-filter") || "all") === defaultFilter) || filterButtons[0];
+            if (startBtn) {
+                setActive(startBtn);
+                applyFilter(defaultFilter);
+            }
+
+            // Approve/Reject confirmation modal
+            const modalEl = document.getElementById("trConfirmModal");
+            const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
+
+            const actionLabel = document.getElementById("trConfirmActionLabel");
+            const itemEl = document.getElementById("trConfirmItem");
+            const metaEl = document.getElementById("trConfirmMeta");
+            const routeEl = document.getElementById("trConfirmRoute");
+            const doBtn = document.getElementById("trConfirmDoBtn");
+
+            let pendingSubmitFormId = null;
+
+            function openConfirm(action, data) {
+                if (!modal) return;
+
+                pendingSubmitFormId = data.formId;
+
+                actionLabel.textContent = action === "approve"
+                    ? "You are about to APPROVE this request."
+                    : "You are about to REJECT this request.";
+
+                itemEl.textContent = data.item || "-";
+                metaEl.textContent = `Qty: ${data.qty || "-"} • Requested by: ${data.requestedBy || "—"}`;
+                routeEl.textContent = `Route: ${data.from || "-"} → ${data.to || "-"}`;
+
+                doBtn.className = action === "approve" ? "btn btn-success" : "btn btn-danger";
+                doBtn.textContent = action === "approve" ? "Approve" : "Reject";
+
+                modal.show();
+            }
+
+            document.querySelectorAll(".tr-approve-btn").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const id = btn.getAttribute("data-id");
+                    openConfirm("approve", {
+                        formId: `approveForm-${id}`,
+                        item: btn.getAttribute("data-item"),
+                        qty: btn.getAttribute("data-qty"),
+                        from: btn.getAttribute("data-from"),
+                        to: btn.getAttribute("data-to")
+                    });
+                });
+            });
+
+            document.querySelectorAll(".tr-reject-btn").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const id = btn.getAttribute("data-id");
+                    openConfirm("reject", {
+                        formId: `rejectForm-${id}`,
+                        item: btn.getAttribute("data-item"),
+                        qty: btn.getAttribute("data-qty"),
+                        from: btn.getAttribute("data-from"),
+                        to: btn.getAttribute("data-to")
+                    });
+                });
+            });
+
+            if (doBtn) {
+                doBtn.addEventListener("click", () => {
+                    if (!pendingSubmitFormId) return;
+                    const form = document.getElementById(pendingSubmitFormId);
+                    if (form) form.submit();
+                });
+            }
+        })();
+    </script>
+}

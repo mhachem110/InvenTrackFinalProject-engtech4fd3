@@ -6,6 +6,9 @@
     ViewData["Title"] = "New Transaction";
     var fromList = Model.Locations.Where(x => x.QuantityOnHand > 0).OrderBy(x => x.LocationName).ToList();
     var allList = Model.Locations.OrderBy(x => x.LocationName).ToList();
+
+    var assignedLocationName = User.FindFirst("AssignedLocationName")?.Value ?? "";
+    bool isScopedUser = User.IsInRole(AppRoles.Manager) || User.IsInRole(AppRoles.Supervisor) || User.IsInRole(AppRoles.Employee);
 }
 
 <div class="it-pagehead mb-3">
@@ -47,6 +50,13 @@
             </div>
 
             <div class="it-panel-body">
+                @if (isScopedUser && !string.IsNullOrWhiteSpace(assignedLocationName))
+                {
+                    <div class="it-hint mb-3">
+                        You are scoped to <strong>@assignedLocationName</strong>. Available locations/actions are limited by your role.
+                    </div>
+                }
+
                 <form asp-action="Create" method="post">
                     <div asp-validation-summary="All" class="text-danger mb-3"></div>
 
@@ -234,7 +244,7 @@
             function refresh() {
                 const v = action.value;
 
-                if (v === "1") {
+                if (v === "1") { // CheckIn
                     fromBlock.style.display = "none";
                     toBlock.style.display = "";
                     qty.readOnly = false;
@@ -242,7 +252,7 @@
                     fromHelp.innerText = "";
                     qty.removeAttribute("max");
                 }
-                else if (v === "2") {
+                else if (v === "2") { // CheckOut
                     fromBlock.style.display = "";
                     toBlock.style.display = "none";
                     fromLabel.innerText = "Location";
@@ -253,7 +263,7 @@
                     fromHelp.innerText = av > 0 ? `Available in selected location: ${av}` : "";
                     qtyHelp.innerText = "Enter a positive quantity to remove.";
                 }
-                else if (v === "3") {
+                else if (v === "3") { // Adjustment
                     fromBlock.style.display = "";
                     toBlock.style.display = "none";
                     fromLabel.innerText = "Location";
@@ -262,7 +272,7 @@
                     fromHelp.innerText = "";
                     qtyHelp.innerText = "Can be positive or negative (notes required).";
                 }
-                else if (v === "4" && allowTransfer) {
+                else if (v === "4" && allowTransfer) { // Transfer
                     fromBlock.style.display = "";
                     toBlock.style.display = "";
                     fromLabel.innerText = "From Location";

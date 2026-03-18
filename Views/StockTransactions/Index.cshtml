@@ -20,8 +20,15 @@
     bool isRegionalManager = User.IsInRole(AppRoles.RegionalManager);
     bool isManager = User.IsInRole(AppRoles.Manager);
     bool isSupervisor = User.IsInRole(AppRoles.Supervisor);
+    bool isEmployee = User.IsInRole(AppRoles.Employee);
 
-    bool canUseTransferRequests = isAdmin || isRegionalManager || isManager || isSupervisor;
+    bool canUseTransferRequests = isAdmin || isRegionalManager || isManager || isSupervisor || isEmployee;
+
+    var assignedLocationName = User.FindFirst("AssignedLocationName")?.Value ?? "";
+    var isScopedUser = isManager || isSupervisor || isEmployee;
+    var scopeLabel = isScopedUser
+        ? (string.IsNullOrWhiteSpace(assignedLocationName) ? "Assigned location" : assignedLocationName)
+        : "All locations";
 }
 
 <div class="it-pagehead mb-3">
@@ -31,12 +38,17 @@
             <h1 class="h3 mb-0 fw-bold">Stock Transactions</h1>
         </div>
         <div class="text-muted small">Recent inventory changes and transfers for your visible scope.</div>
+        <div class="text-muted small mt-1">
+            <span class="badge bg-light text-dark border it-badge">Scope: @scopeLabel</span>
+        </div>
     </div>
 
     <div class="d-flex gap-2 flex-wrap">
         @if (canUseTransferRequests)
         {
-            <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-outline-dark">Transfer Requests</a>
+            <a asp-controller="StockTransferRequests" asp-action="Index" class="btn btn-outline-dark">
+                @(isEmployee ? "Request Transfer" : "Transfer Requests")
+            </a>
         }
         <a asp-controller="InventoryItems" asp-action="Index" class="btn btn-outline-secondary">Back to Inventory</a>
     </div>

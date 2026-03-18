@@ -4,7 +4,6 @@
 
 @{
     var controller = (ViewContext.RouteData.Values["controller"]?.ToString() ?? "").ToLowerInvariant();
-
     bool IsActive(string c) => controller == (c ?? "").ToLowerInvariant();
 
     bool signedIn = SignInManager.IsSignedIn(User);
@@ -19,6 +18,19 @@
     bool canUseTransferRequests = isAdmin || isRegionalManager || isManager || isSupervisor || isEmployee;
     bool canSeeUserAdmin = isAdmin;
     bool canSeeReports = signedIn;
+
+    string roleLabel =
+        isAdmin ? "Admin" :
+        isRegionalManager ? "Regional Manager" :
+        isManager ? "Manager" :
+        isSupervisor ? "Supervisor" :
+        isEmployee ? "Employee" : "User";
+
+    var assignedLocationName = User.FindFirst("AssignedLocationName")?.Value ?? "";
+    var isScopedUser = isManager || isSupervisor || isEmployee;
+    var scopeLabel = isScopedUser
+        ? (string.IsNullOrWhiteSpace(assignedLocationName) ? "Assigned location" : assignedLocationName)
+        : "All locations";
 }
 
 <!DOCTYPE html>
@@ -113,6 +125,10 @@
                             <div>
                                 <div class="fw-bold text-dark">InvenTrack</div>
                                 <div class="text-muted small">Inventory dashboard</div>
+                                <div class="text-muted small mt-1">
+                                    <span class="badge bg-light text-dark border it-badge">@roleLabel</span>
+                                    <span class="badge bg-primary-subtle text-primary border it-badge ms-1">@scopeLabel</span>
+                                </div>
                             </div>
                         </a>
 
@@ -195,6 +211,10 @@
                             </div>
 
                             <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                                <span class="badge bg-light text-dark border it-badge">
+                                    @roleLabel • @scopeLabel
+                                </span>
+
                                 @if (canUseTransferRequests)
                                 {
                                     <a id="topTransferButtonDesktop"
@@ -246,6 +266,10 @@
                     <div>
                         <div class="fw-bold" id="sidebarOffcanvasLabel">InvenTrack</div>
                         <div class="text-muted small">Inventory dashboard</div>
+                        <div class="text-muted small mt-1">
+                            <span class="badge bg-light text-dark border it-badge">@roleLabel</span>
+                            <span class="badge bg-primary-subtle text-primary border it-badge ms-1">@scopeLabel</span>
+                        </div>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
@@ -443,3 +467,5 @@
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
+
+

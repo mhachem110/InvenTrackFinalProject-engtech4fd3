@@ -15,234 +15,223 @@
     var lastPage = Math.Min(Model.TotalPages, Model.PageIndex + 2);
 }
 
-<div class="it-pagehead mb-3">
-    <div>
-        <div class="d-flex align-items-center gap-2">
-            <div class="it-page-dot"></div>
-            <h1 class="h3 mb-0 fw-bold">Recent Transactions Report</h1>
+<div class="it-report-page">
+    <div class="it-report-head mb-3">
+        <div>
+            <div class="it-report-kicker">Report</div>
+            <h1 class="it-report-page-title">Recent Transactions</h1>
+            <div class="text-muted small">Audit-friendly stock movement history with filters and export.</div>
         </div>
-        <div class="text-muted small">Audit-friendly stock movement history with filters and export.</div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-action="ExportRecentTransactionsCsv"
+               asp-route-q="@currentFilter"
+               asp-route-actionFilter="@currentAction"
+               class="btn btn-primary">Export CSV</a>
+            <a asp-action="Index" class="btn btn-outline-secondary">Back to Reports</a>
+        </div>
     </div>
 
-    <div class="d-flex gap-2 flex-wrap">
-        <a asp-action="ExportRecentTransactionsCsv"
-           asp-route-q="@currentFilter"
-           asp-route-actionFilter="@currentAction"
-           class="btn btn-primary">
-            Export CSV
-        </a>
-        <a asp-action="Index" class="btn btn-outline-secondary">Back to Reports</a>
-    </div>
-</div>
+    <form asp-action="RecentTransactions" method="get" class="it-panel mb-3">
+        <div class="it-panel-body">
+            <input type="hidden" id="pageNumber" name="page" value="1" />
 
-<form asp-action="RecentTransactions" method="get" class="it-panel mb-3">
-    <div class="it-panel-body">
-        <input type="hidden" id="pageNumber" name="page" value="1" />
+            <div class="row g-2 align-items-center">
+                <div class="col-lg-5">
+                    <div class="it-input">
+                        <span class="it-input-ico">🔎</span>
+                        <input name="q"
+                               value="@currentFilter"
+                               type="search"
+                               class="form-control it-input-field"
+                               placeholder="Search item, user, note, or location..." />
+                    </div>
+                </div>
 
-        <div class="row g-2 align-items-center">
-            <div class="col-lg-5">
-                <div class="it-input">
-                    <span class="it-input-ico">🔎</span>
-                    <input name="q"
-                           value="@currentFilter"
-                           type="search"
-                           class="form-control it-input-field"
-                           placeholder="Search item, action, notes, user, location..." />
+                <div class="col-lg-2">
+                    <select name="actionFilter" class="form-select">
+                        <option value="all" selected="@(currentAction == "all" ? "selected" : null)">All actions</option>
+                        <option value="checkin" selected="@(currentAction == "checkin" ? "selected" : null)">Check In</option>
+                        <option value="checkout" selected="@(currentAction == "checkout" ? "selected" : null)">Check Out</option>
+                        <option value="adjustment" selected="@(currentAction == "adjustment" ? "selected" : null)">Adjustment</option>
+                        <option value="transfer" selected="@(currentAction == "transfer" ? "selected" : null)">Transfer</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-2">
+                    <select id="pageSize" name="pageSize" class="form-select">
+                        <option value="10" selected="@(currentPageSize == 10 ? "selected" : null)">10 per page</option>
+                        <option value="25" selected="@(currentPageSize == 25 ? "selected" : null)">25 per page</option>
+                        <option value="50" selected="@(currentPageSize == 50 ? "selected" : null)">50 per page</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-3 d-flex justify-content-lg-end gap-2">
+                    <button type="submit" class="btn btn-primary">Apply</button>
+                    <a asp-action="RecentTransactions" class="btn btn-outline-secondary">Clear</a>
                 </div>
             </div>
 
-            <div class="col-lg-2">
-                <select name="actionFilter" class="form-select">
-                    <option value="all" selected="@(currentAction == "all" ? "selected" : null)">All actions</option>
-                    <option value="checkin" selected="@(currentAction == "checkin" ? "selected" : null)">Check In</option>
-                    <option value="checkout" selected="@(currentAction == "checkout" ? "selected" : null)">Check Out</option>
-                    <option value="adjustment" selected="@(currentAction == "adjustment" ? "selected" : null)">Adjustment</option>
-                    <option value="transfer" selected="@(currentAction == "transfer" ? "selected" : null)">Transfer</option>
-                </select>
-            </div>
-
-            <div class="col-lg-2">
-                <select id="pageSize" name="pageSize" class="form-select">
-                    <option value="10" selected="@(currentPageSize == 10 ? "selected" : null)">10 per page</option>
-                    <option value="25" selected="@(currentPageSize == 25 ? "selected" : null)">25 per page</option>
-                    <option value="50" selected="@(currentPageSize == 50 ? "selected" : null)">50 per page</option>
-                </select>
-            </div>
-
-            <div class="col-lg-3 d-flex justify-content-lg-end gap-2">
-                <button type="submit" class="btn btn-primary">Apply</button>
-                <a asp-action="RecentTransactions" class="btn btn-outline-secondary">Clear</a>
+            <div class="mt-2 text-muted small">
+                Showing @startItem - @endItem of @Model.TotalCount transactions
             </div>
         </div>
+    </form>
 
-        <div class="mt-2 text-muted small">
-            Showing @startItem - @endItem of @Model.TotalCount transactions
+    <div class="it-panel">
+        <div class="it-panel-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
+            <div>
+                <div class="fw-bold">Transaction Log</div>
+                <div class="text-muted small">Filtered operational movement history.</div>
+            </div>
+            <span class="badge bg-primary-subtle text-primary border it-badge">@Model.TotalCount rows</span>
         </div>
-    </div>
-</form>
 
-<div class="it-panel">
-    <div class="it-panel-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 it-table">
-                <thead>
-                    <tr>
-                        <th style="width:170px;">Date</th>
-                        <th>Item</th>
-                        <th style="width:140px;">Action</th>
-                        <th style="width:90px;">Qty</th>
-                        <th style="width:190px;">From</th>
-                        <th style="width:190px;">To</th>
-                        <th style="width:150px;">By</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (Model == null || !Model.Any())
-                    {
+        <div class="it-panel-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 it-table">
+                    <thead>
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-5">
-                                <div class="fw-semibold mb-1">No transactions found</div>
-                                <div class="small">Try a different filter.</div>
-                            </td>
+                            <th style="width:170px;">Date</th>
+                            <th>Item</th>
+                            <th style="width:130px;">Action</th>
+                            <th style="width:90px;">Qty</th>
+                            <th style="width:170px;">From</th>
+                            <th style="width:170px;">To</th>
+                            <th style="width:140px;">By</th>
+                            <th>Notes</th>
                         </tr>
-                    }
-                    else
-                    {
-                        foreach (var t in Model)
+                    </thead>
+                    <tbody>
+                        @if (Model == null || !Model.Any())
                         {
                             <tr>
-                                <td class="text-muted">
-                                    @t.DateCreated.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                <td colspan="8" class="text-center text-muted py-5">
+                                    <div class="fw-semibold mb-1">No transactions found</div>
+                                    <div class="small">Try a different filter.</div>
                                 </td>
-
-                                <td>
-                                    <div class="fw-semibold">@t.ItemName</div>
-                                    <div class="text-muted small">
-                                        SKU: <span class="fw-semibold">@t.SKU</span>
-                                    </div>
-                                </td>
-
-                                <td>
-                                    @if (t.ActionType == "CheckIn")
-                                    {
-                                        <span class="badge bg-success-subtle text-success border it-badge">Check In</span>
-                                    }
-                                    else if (t.ActionType == "CheckOut")
-                                    {
-                                        <span class="badge bg-danger-subtle text-danger border it-badge">Check Out</span>
-                                    }
-                                    else if (t.ActionType == "Transfer")
-                                    {
-                                        <span class="badge bg-primary-subtle text-primary border it-badge">Transfer</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary-subtle text-secondary border it-badge">Adjustment</span>
-                                    }
-                                </td>
-
-                                <td>
-                                    <span class="it-qty">@t.QuantityChange</span>
-                                </td>
-
-                                <td class="text-muted">@t.FromLocationName</td>
-                                <td class="text-muted">@t.ToLocationName</td>
-                                <td class="text-muted">@t.PerformedBy</td>
-                                <td class="text-muted">@t.Notes</td>
                             </tr>
                         }
-                    }
-                </tbody>
-            </table>
-        </div>
-
-        @if (Model.TotalPages > 1)
-        {
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 p-3 border-top">
-                <div class="text-muted small">
-                    Page @Model.PageIndex of @Model.TotalPages
-                </div>
-
-                <nav aria-label="Recent transaction pagination">
-                    <ul class="pagination pagination-sm mb-0">
-                        <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
-                            <a class="page-link"
-                               asp-action="RecentTransactions"
-                               asp-route-page="@(Model.PageIndex - 1)"
-                               asp-route-q="@currentFilter"
-                               asp-route-actionFilter="@currentAction"
-                               asp-route-pageSize="@currentPageSize">
-                                Previous
-                            </a>
-                        </li>
-
-                        @if (firstPage > 1)
+                        else
                         {
-                            <li class="page-item">
-                                <a class="page-link"
-                                   asp-action="RecentTransactions"
-                                   asp-route-page="1"
-                                   asp-route-q="@currentFilter"
-                                   asp-route-actionFilter="@currentAction"
-                                   asp-route-pageSize="@currentPageSize">
-                                    1
-                                </a>
-                            </li>
-
-                            @if (firstPage > 2)
+                            foreach (var t in Model)
                             {
-                                <li class="page-item disabled"><span class="page-link">...</span></li>
+                                <tr>
+                                    <td class="text-muted">@t.DateCreated.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+
+                                    <td>
+                                        <div class="fw-semibold">@t.ItemName</div>
+                                        <div class="text-muted small">SKU: <span class="fw-semibold">@t.SKU</span></div>
+                                    </td>
+
+                                    <td>
+                                        @if (t.ActionType == "CheckIn")
+                                        {
+                                            <span class="badge bg-success-subtle text-success border it-badge">Check In</span>
+                                        }
+                                        else if (t.ActionType == "CheckOut")
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger border it-badge">Check Out</span>
+                                        }
+                                        else if (t.ActionType == "Transfer")
+                                        {
+                                            <span class="badge bg-primary-subtle text-primary border it-badge">Transfer</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary border it-badge">Adjustment</span>
+                                        }
+                                    </td>
+
+                                    <td><span class="it-qty">@t.QuantityChange</span></td>
+                                    <td class="text-muted">@t.FromLocationName</td>
+                                    <td class="text-muted">@t.ToLocationName</td>
+                                    <td class="text-muted">@t.PerformedBy</td>
+                                    <td class="text-muted">@t.Notes</td>
+                                </tr>
                             }
                         }
-
-                        @for (var p = firstPage; p <= lastPage; p++)
-                        {
-                            <li class="page-item @(p == Model.PageIndex ? "active" : "")">
-                                <a class="page-link"
-                                   asp-action="RecentTransactions"
-                                   asp-route-page="@p"
-                                   asp-route-q="@currentFilter"
-                                   asp-route-actionFilter="@currentAction"
-                                   asp-route-pageSize="@currentPageSize">
-                                    @p
-                                </a>
-                            </li>
-                        }
-
-                        @if (lastPage < Model.TotalPages)
-                        {
-                            @if (lastPage < Model.TotalPages - 1)
-                            {
-                                <li class="page-item disabled"><span class="page-link">...</span></li>
-                            }
-
-                            <li class="page-item">
-                                <a class="page-link"
-                                   asp-action="RecentTransactions"
-                                   asp-route-page="@Model.TotalPages"
-                                   asp-route-q="@currentFilter"
-                                   asp-route-actionFilter="@currentAction"
-                                   asp-route-pageSize="@currentPageSize">
-                                    @Model.TotalPages
-                                </a>
-                            </li>
-                        }
-
-                        <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
-                            <a class="page-link"
-                               asp-action="RecentTransactions"
-                               asp-route-page="@(Model.PageIndex + 1)"
-                               asp-route-q="@currentFilter"
-                               asp-route-actionFilter="@currentAction"
-                               asp-route-pageSize="@currentPageSize">
-                                Next
-                            </a>
-                        </li>
-                    </ul>
-                </nav>
+                    </tbody>
+                </table>
             </div>
-        }
+
+            @if (Model.TotalPages > 1)
+            {
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 p-3 border-top">
+                    <div class="text-muted small">
+                        Page @Model.PageIndex of @Model.TotalPages
+                    </div>
+
+                    <nav aria-label="Recent transaction pagination">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
+                                <a class="page-link"
+                                   asp-action="RecentTransactions"
+                                   asp-route-page="@(Model.PageIndex - 1)"
+                                   asp-route-q="@currentFilter"
+                                   asp-route-actionFilter="@currentAction"
+                                   asp-route-pageSize="@currentPageSize">Previous</a>
+                            </li>
+
+                            @if (firstPage > 1)
+                            {
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       asp-action="RecentTransactions"
+                                       asp-route-page="1"
+                                       asp-route-q="@currentFilter"
+                                       asp-route-actionFilter="@currentAction"
+                                       asp-route-pageSize="@currentPageSize">1</a>
+                                </li>
+
+                                @if (firstPage > 2)
+                                {
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                }
+                            }
+
+                            @for (var p = firstPage; p <= lastPage; p++)
+                            {
+                                <li class="page-item @(p == Model.PageIndex ? "active" : "")">
+                                    <a class="page-link"
+                                       asp-action="RecentTransactions"
+                                       asp-route-page="@p"
+                                       asp-route-q="@currentFilter"
+                                       asp-route-actionFilter="@currentAction"
+                                       asp-route-pageSize="@currentPageSize">@p</a>
+                                </li>
+                            }
+
+                            @if (lastPage < Model.TotalPages)
+                            {
+                                @if (lastPage < Model.TotalPages - 1)
+                                {
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                }
+
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       asp-action="RecentTransactions"
+                                       asp-route-page="@Model.TotalPages"
+                                       asp-route-q="@currentFilter"
+                                       asp-route-actionFilter="@currentAction"
+                                       asp-route-pageSize="@currentPageSize">@Model.TotalPages</a>
+                                </li>
+                            }
+
+                            <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
+                                <a class="page-link"
+                                   asp-action="RecentTransactions"
+                                   asp-route-page="@(Model.PageIndex + 1)"
+                                   asp-route-q="@currentFilter"
+                                   asp-route-actionFilter="@currentAction"
+                                   asp-route-pageSize="@currentPageSize">Next</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            }
+        </div>
     </div>
 </div>
 
