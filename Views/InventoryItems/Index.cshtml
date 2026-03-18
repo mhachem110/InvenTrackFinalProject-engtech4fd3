@@ -1,11 +1,17 @@
 @model InvenTrack.Utilities.PaginatedList<InvenTrack.Models.InventoryItem>
 @using System
 @using System.Linq
+@using InvenTrack.ViewModels
 
 @{
     ViewData["Title"] = "Inventory";
 
     var locationCounts = ViewData["LocationCounts"] as Dictionary<int, int> ?? new Dictionary<int, int>();
+    var visibleQuantities = ViewData["VisibleQuantities"] as Dictionary<int, int> ?? new Dictionary<int, int>();
+    var locationQuantities = ViewData["LocationQuantities"] as Dictionary<int, List<LocationStockVM>> ?? new Dictionary<int, List<LocationStockVM>>();
+    var hasGlobalLocationAccess = ViewData["HasGlobalLocationAccess"] as bool? ?? false;
+    var assignedLocationName = ViewData["AssignedLocationName"] as string ?? "-";
+
     var currentFilter = ViewData["CurrentFilter"] as string ?? string.Empty;
     var currentStatus = ViewData["CurrentStatus"] as string ?? "all";
     var currentPageSize = ViewData["CurrentPageSize"] is int ps ? ps : 10;
@@ -23,7 +29,16 @@
             <div class="it-page-dot"></div>
             <h1 class="h3 mb-0 fw-bold">Inventory</h1>
         </div>
-        <div class="text-muted small">Browse and manage items, quantities, and locations.</div>
+        <div class="text-muted small">
+            @if (hasGlobalLocationAccess)
+            {
+                <span>Browse and manage items, quantities, and locations across all locations.</span>
+            }
+            else
+            {
+                <span>Browse and manage items for your assigned location: <span class="fw-semibold">@assignedLocationName</span>.</span>
+            }
+        </div>
     </div>
 
     @if (User.CanManage())
@@ -87,9 +102,9 @@
                         <th style="width:92px;">Photo</th>
                         <th>Item</th>
                         <th style="width:150px;">SKU</th>
-                        <th style="width:140px;">On Hand</th>
+                        <th style="width:160px;">On Hand</th>
                         <th style="width:180px;">Category</th>
-                        <th style="width:210px;">Locations</th>
+                        <th style="width:280px;">@(hasGlobalLocationAccess ? "Location Quantities" : "Your Location Quantity")</th>
                         <th style="width:120px;">Status</th>
                         <th class="text-end" style="width:220px;">@(User.CanManage() ? "Actions" : "View")</th>
                     </tr>
@@ -116,6 +131,10 @@
                         {
                             var status = item.IsActive ? "active" : "inactive";
                             var locCount = locationCounts.TryGetValue(item.ID, out var c) ? c : 0;
+                            var visibleQty = visibleQuantities.TryGetValue(item.ID, out var q) ? q : 0;
+                            var itemLocations = locationQuantities.TryGetValue(item.ID, out var locs)
+                            ? locs
+                            : new List<LocationStockVM>();
 
                             <tr data-status="@status">
                                 <td>
@@ -141,32 +160,55 @@
                                 <td class="text-muted">@item.SKU</td>
 
                                 <td>
-                                    <span class="it-qty">@item.QuantityOnHand</span>
-                                    @if (item.QuantityOnHand <= item.ReorderLevel)
+                                    <span class="it-qty">@visibleQty</span>
+
+                                    @if (visibleQty <= item.ReorderLevel)
                                     {
                                         <span class="badge text-bg-warning ms-2">Low</span>
                                     }
+
+                                    <div class="text-muted small mt-1">
+                                        @if (hasGlobalLocationAccess)
+                                        {
+                                            <span>Total visible across @locCount @(locCount == 1 ? "location" : "locations")</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Visible only for @assignedLocationName</span>
+                                        }
+                                    </div>
                                 </td>
 
                                 <td class="text-muted">@(item.Category?.Name ?? "-")</td>
 
                                 <td class="text-muted">
-                                    @{
-                                        var primary = item.StorageLocation?.Name ?? "-";
-                                        if (locCount > 1)
+                                    @if (hasGlobalLocationAccess)
+                                    {
+                                        if (itemLocations.Any())
                                         {
-                                            <span>@primary</span>
-                                            <span class="badge bg-primary-subtle text-primary border it-badge ms-2"
-                                                  data-bs-toggle="tooltip"
-                                                  data-bs-placement="top"
-                                                  title="This item currently has stock in @locCount locations.">
-                                                +@(locCount - 1) more
-                                            </span>
+                                            <div class="d-flex flex-column gap-1">
+                                                @foreach (var loc in itemLocations.OrderByDescending(x => x.QuantityOnHand).ThenBy(x => x.LocationName))
+                                                {
+                                                    <div class="small d-flex justify-content-between gap-2">
+                                                        <span class="fw-semibold text-truncate">@loc.LocationName</span>
+                                                        <span class="it-qty">@loc.QuantityOnHand</span>
+                                                    </div>
+                                                }
+                                            </div>
                                         }
                                         else
                                         {
-                                            <span>@primary</span>
+                                            <span>-</span>
                                         }
+                                    }
+                                    else
+                                    {
+                                        var scopedLoc = itemLocations.FirstOrDefault();
+
+                                        <div class="small d-flex justify-content-between gap-2">
+                                            <span class="fw-semibold text-truncate">@(scopedLoc?.LocationName ?? assignedLocationName)</span>
+                                            <span class="it-qty">@(scopedLoc?.QuantityOnHand ?? 0)</span>
+                                        </div>
                                     }
                                 </td>
 
@@ -295,11 +337,6 @@
 @section Scripts {
     <script>
         (function () {
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            tooltipTriggerList.forEach(function (el) {
-                new bootstrap.Tooltip(el);
-            });
-
             const pageSize = document.getElementById('pageSize');
             const pageNumber = document.getElementById('pageNumber');
 

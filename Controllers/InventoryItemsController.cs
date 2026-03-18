@@ -2,6 +2,7 @@ using InvenTrack.Data;
 using InvenTrack.Models;
 using InvenTrack.Services;
 using InvenTrack.Utilities;
+using InvenTrack.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -72,8 +73,7 @@ namespace InvenTrack.Controllers
                 categoryID);
 
             IQueryable<StorageLocation> locationsQuery = _context.StorageLocations
-                .AsNoTracking()
-                .OrderBy(l => l.Name);
+                .AsNoTracking();
 
             if (scope.IsScopedUser)
             {
@@ -82,7 +82,7 @@ namespace InvenTrack.Controllers
             }
 
             ViewData["StorageLocationID"] = new SelectList(
-                await locationsQuery.ToListAsync(),
+                await locationsQuery.OrderBy(l => l.Name).ToListAsync(),
                 "ID",
                 "Name",
                 locationID);
@@ -214,12 +214,16 @@ namespace InvenTrack.Controllers
             }
 
             var itemIds = pagedItems.Select(i => i.ID).ToList();
-            var dict = new Dictionary<int, int>();
+
+            var locationCounts = new Dictionary<int, int>();
+            var visibleQuantities = new Dictionary<int, int>();
+            var locationQuantities = new Dictionary<int, List<LocationStockVM>>();
 
             if (itemIds.Count > 0)
             {
-                var stockQuery = _context.InventoryItemStocks
+                IQueryable<InventoryItemStock> stockQuery = _context.InventoryItemStocks
                     .AsNoTracking()
+                    .Include(s => s.StorageLocation)
                     .Where(s => itemIds.Contains(s.InventoryItemID));
 
                 if (scope.IsScopedUser)
@@ -228,45 +232,86 @@ namespace InvenTrack.Controllers
                     stockQuery = stockQuery.Where(s => s.StorageLocationID == locationId);
                 }
 
-                var counts = await stockQuery
-                    .GroupBy(s => s.InventoryItemID)
-                    .Select(g => new
-                    {
-                        InventoryItemID = g.Key,
-                        LocationCount = g.Count(x => x.QuantityOnHand > 0)
-                    })
+                var stockRows = await stockQuery
+                    .OrderBy(s => s.StorageLocation!.Name)
                     .ToListAsync();
 
-                dict = counts.ToDictionary(x => x.InventoryItemID, x => x.LocationCount);
+                locationQuantities = stockRows
+                    .GroupBy(s => s.InventoryItemID)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g
+                            .OrderByDescending(x => x.QuantityOnHand)
+                            .ThenBy(x => x.StorageLocation!.Name)
+                            .Select(x => new LocationStockVM
+                            {
+                                LocationID = x.StorageLocationID,
+                                LocationName = x.StorageLocation?.Name ?? "-",
+                                QuantityOnHand = x.QuantityOnHand
+                            })
+                            .ToList());
+
+                foreach (var kv in locationQuantities)
+                {
+                    locationCounts[kv.Key] = kv.Value.Count(x => x.QuantityOnHand > 0);
+                    visibleQuantities[kv.Key] = kv.Value.Sum(x => x.QuantityOnHand);
+                }
             }
 
             foreach (var item in pagedItems)
             {
-                if (!dict.ContainsKey(item.ID))
+                if (!locationQuantities.ContainsKey(item.ID))
                 {
                     if (scope.HasGlobalLocationAccess)
                     {
-                        dict[item.ID] = item.QuantityOnHand > 0 ? 1 : 0;
+                        locationQuantities[item.ID] = new List<LocationStockVM>
+                        {
+                            new LocationStockVM
+                            {
+                                LocationID = item.StorageLocationID,
+                                LocationName = item.StorageLocation?.Name ?? "-",
+                                QuantityOnHand = item.QuantityOnHand
+                            }
+                        };
+
+                        visibleQuantities[item.ID] = item.QuantityOnHand;
+                        locationCounts[item.ID] = item.QuantityOnHand > 0 ? 1 : 0;
                     }
                     else
                     {
-                        dict[item.ID] = item.StorageLocationID == scope.AssignedLocationId && item.QuantityOnHand > 0 ? 1 : 0;
+                        var isPrimaryAssignedLocation = item.StorageLocationID == scope.AssignedLocationId;
+
+                        locationQuantities[item.ID] = new List<LocationStockVM>
+                        {
+                            new LocationStockVM
+                            {
+                                LocationID = scope.AssignedLocationId ?? item.StorageLocationID,
+                                LocationName = scope.AssignedLocationName ?? "-",
+                                QuantityOnHand = isPrimaryAssignedLocation ? item.QuantityOnHand : 0
+                            }
+                        };
+
+                        visibleQuantities[item.ID] = isPrimaryAssignedLocation ? item.QuantityOnHand : 0;
+                        locationCounts[item.ID] = visibleQuantities[item.ID] > 0 ? 1 : 0;
                     }
                 }
 
                 if (scope.IsScopedUser &&
-                    item.StorageLocationID != scope.AssignedLocationId &&
                     !string.IsNullOrWhiteSpace(scope.AssignedLocationName))
                 {
                     item.StorageLocation = new StorageLocation
                     {
-                        ID = scope.AssignedLocationId!.Value,
+                        ID = scope.AssignedLocationId ?? item.StorageLocationID,
                         Name = scope.AssignedLocationName
                     };
                 }
             }
 
-            ViewData["LocationCounts"] = dict;
+            ViewData["LocationCounts"] = locationCounts;
+            ViewData["VisibleQuantities"] = visibleQuantities;
+            ViewData["LocationQuantities"] = locationQuantities;
+            ViewData["HasGlobalLocationAccess"] = scope.HasGlobalLocationAccess;
+            ViewData["AssignedLocationName"] = scope.AssignedLocationName ?? "-";
             ViewData["CurrentFilter"] = searchString ?? string.Empty;
             ViewData["CurrentStatus"] = statusFilter;
             ViewData["CurrentPageSize"] = pageSize;
