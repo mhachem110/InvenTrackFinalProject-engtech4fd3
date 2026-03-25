@@ -1,4 +1,4 @@
-﻿namespace InvenTrack.ViewModels.Reports
+namespace InvenTrack.ViewModels.Reports
 {
     public class ReportIndexVM
     {
@@ -6,5 +6,7 @@
         public int LowStockItemCount { get; set; }
         public int StorageLocationCount { get; set; }
         public int RecentTransactionCount { get; set; }
+        public int CategoryCount { get; set; }
+        public int MovementSummaryCount { get; set; }
     }
 }

@@ -61,7 +61,7 @@ namespace InvenTrack.Controllers
 
             var query = _context.StockTransferRequests
                 .AsNoTracking()
-                .Where(r => r.Status != TransferRequestStatus.Approved);
+                .Where(r => r.Status == TransferRequestStatus.Pending);
 
             query = _accessService.ApplyTransferRequestScope(query, scope);
 

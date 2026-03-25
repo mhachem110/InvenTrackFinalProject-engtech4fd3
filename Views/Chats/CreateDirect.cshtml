@@ -1,0 +1,23 @@
+@model InvenTrack.ViewModels.Chat.CreateDirectChatVM
+@{
+    ViewData["Title"] = "New Direct Chat";
+}
+<div class="card shadow-sm mx-auto" style="max-width:700px;">
+    <div class="card-header fw-bold">Create Direct Chat</div>
+    <div class="card-body">
+        <form method="post">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label">Choose user</label>
+                <select asp-for="SelectedUserId" class="form-select" asp-items="@(new SelectList(Model.Users, "UserId", "DisplayName"))">
+                    <option value="">Select a user</option>
+                </select>
+                <span asp-validation-for="SelectedUserId" class="text-danger"></span>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Create Chat</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
+            </div>
+        </form>
+    </div>
+</div>

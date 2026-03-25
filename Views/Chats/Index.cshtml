@@ -1,0 +1,174 @@
+@model InvenTrack.ViewModels.Chat.ChatConversationPageVM
+@{
+    ViewData["Title"] = "Chat";
+}
+<div class="row g-3">
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-bold">Conversations</span>
+                <div class="d-flex gap-2">
+                    <a asp-action="CreateDirect" class="btn btn-sm btn-outline-primary">Direct</a>
+                    <a asp-action="CreateGroup" class="btn btn-sm btn-primary">Group</a>
+                </div>
+            </div>
+            <div class="list-group list-group-flush" style="max-height:70vh;overflow:auto;">
+                @foreach (var c in Model.SidebarConversations)
+                {
+                    var isActive = c.ConversationId == Model.ConversationId;
+                    <a asp-action="Index" asp-route-id="@c.ConversationId" class="list-group-item list-group-item-action @(isActive ? "active" : "")">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div class="min-w-0 flex-grow-1">
+                                <div class="fw-semibold text-truncate d-flex align-items-center gap-2">
+                                    <span>@c.Name</span>
+                                    @if (c.UnreadCount > 0)
+                                    {
+                                        <span class="badge rounded-pill @(isActive ? "bg-light text-dark" : "bg-primary")">@c.UnreadCount</span>
+                                    }
+                                </div>
+                                <div class="small @(isActive ? "text-white-50" : "text-muted") text-truncate">@c.LastMessagePreview</div>
+                            </div>
+                            <small class="@(isActive ? "text-white-50" : "text-muted")">@((c.LastMessageAt?.ToLocalTime().ToString("MM-dd HH:mm")) ?? "")</small>
+                        </div>
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <div>
+                    <div class="fw-bold">@Model.ConversationName</div>
+                    <div class="small text-muted">@Model.CurrentUserMemberCount member(s)</div>
+                </div>
+                @if (Model.CurrentUserCanManageMembers)
+                {
+                    <a asp-action="ManageMembers" asp-route-id="@Model.ConversationId" class="btn btn-sm btn-outline-secondary">Manage Members</a>
+                }
+            </div>
+
+            <div id="chatMessages" class="card-body" style="height:55vh;overflow:auto;">
+                @foreach (var m in Model.Messages)
+                {
+                    var align = m.IsMine ? "justify-content-end" : "justify-content-start";
+                    var bubble = m.IsMine ? "bg-primary text-white" : (m.IsSystemMessage ? "bg-light border" : "bg-body-tertiary");
+                    <div class="d-flex @align mb-3">
+                        <div class="rounded-4 px-3 py-2 @bubble" style="max-width:80%;">
+                            <div class="small fw-semibold mb-1">@m.SenderDisplayName</div>
+                            <div style="white-space:pre-wrap;">@m.Body</div>
+                            <div class="small mt-1 @(m.IsMine ? "text-white-50" : "text-muted")">@m.DateSentDisplay</div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="card-footer">
+                <div id="chatAlert" class="alert alert-info py-2 px-3 d-none mb-3"></div>
+                <form asp-action="SendMessage" method="post" class="d-flex gap-2">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="conversationId" value="@Model.ConversationId" />
+                    <textarea name="body" class="form-control" rows="2" placeholder="Type your message..." required></textarea>
+                    <button type="submit" class="btn btn-primary">Send</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-3">
+            <div class="card-header fw-bold">Members</div>
+            <div class="card-body d-flex flex-wrap gap-2">
+                @foreach (var member in Model.Members)
+                {
+                    <span class="badge bg-light text-dark border">@member.DisplayName @(member.IsAdmin ? "• Admin" : "")</span>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(() => {
+    const messages = document.getElementById('chatMessages');
+    const alertBox = document.getElementById('chatAlert');
+
+    function escapeHtml(text) {
+        return (text || '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function scrollToBottom() {
+        if (messages) messages.scrollTop = messages.scrollHeight;
+    }
+
+    function appendMessage(payload) {
+        if (!messages || !payload) return;
+
+        const wrap = document.createElement('div');
+        wrap.className = `d-flex ${payload.isMine ? 'justify-content-end' : 'justify-content-start'} mb-3`;
+
+        const bubbleClass = payload.isMine
+            ? 'bg-primary text-white'
+            : (payload.isSystemMessage ? 'bg-light border' : 'bg-body-tertiary');
+
+        const timeClass = payload.isMine ? 'text-white-50' : 'text-muted';
+
+        wrap.innerHTML = `
+            <div class="rounded-4 px-3 py-2 ${bubbleClass}" style="max-width:80%;">
+                <div class="small fw-semibold mb-1">${escapeHtml(payload.senderDisplayName)}</div>
+                <div style="white-space:pre-wrap;">${escapeHtml(payload.body)}</div>
+                <div class="small mt-1 ${timeClass}">${escapeHtml(payload.dateSent)}</div>
+            </div>`;
+
+        messages.appendChild(wrap);
+        scrollToBottom();
+    }
+
+    function showAlert(message) {
+        if (!alertBox) return;
+        alertBox.textContent = message;
+        alertBox.classList.remove('d-none');
+        setTimeout(() => alertBox.classList.add('d-none'), 3500);
+    }
+
+    scrollToBottom();
+
+    if (window.invenTrackChat && typeof window.invenTrackChat.registerActiveConversation === 'function') {
+        window.invenTrackChat.registerActiveConversation(@Model.ConversationId);
+    }
+
+    document.addEventListener('inventrack:chat-message', async (event) => {
+        const payload = event.detail;
+        if (!payload || Number(payload.conversationId) !== @Model.ConversationId) return;
+
+        appendMessage({
+            senderDisplayName: payload.senderDisplayName,
+            body: payload.body,
+            dateSent: payload.dateSent,
+            isMine: payload.senderUserId === '@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value',
+            isSystemMessage: payload.isSystemMessage
+        });
+
+        try {
+            await fetch(`/Chats/MarkRead?conversationId=@Model.ConversationId`, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+        } catch {
+        }
+    });
+
+    document.addEventListener('inventrack:chat-members-changed', (event) => {
+        const payload = event.detail;
+        if (!payload || Number(payload.conversationId) !== @Model.ConversationId) return;
+        showAlert('Conversation members were updated. Refreshing chat...');
+        setTimeout(() => window.location.reload(), 800);
+    });
+})();
+</script>
+}

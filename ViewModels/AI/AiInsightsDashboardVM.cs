@@ -81,9 +81,12 @@ namespace InvenTrack.ViewModels.AI
 
         public bool IsLowStockNow { get; set; }
         public bool IsPredictionAvailable { get; set; }
+        public bool IsAggregatePrediction { get; set; }
         public string AlertLevel { get; set; } = "InsufficientData";
         public string InsightSummary { get; set; } = "Not enough usage history yet.";
         public string RecommendedAction { get; set; } = "Capture more stock activity before relying on the AI suggestion.";
+
+        public List<LocationAiPredictionVM> LocationPredictions { get; set; } = new();
 
         public string AlertLabel => AlertLevel switch
         {
@@ -163,5 +166,58 @@ namespace InvenTrack.ViewModels.AI
             "Stable" => "No Action",
             _ => "Need More Data"
         };
+
+        public LocationAiPredictionVM? HighestRiskLocation =>
+            LocationPredictions
+                .OrderBy(x => x.AlertPriority)
+                .ThenBy(x => x.DaysUntilReorder ?? double.MaxValue)
+                .FirstOrDefault();
+    }
+
+    public class LocationAiPredictionVM
+    {
+        public int StorageLocationId { get; set; }
+        public string LocationName { get; set; } = "-";
+        public int CurrentQuantityOnHand { get; set; }
+        public int ReorderLevel { get; set; }
+        public int DemandSignalCount { get; set; }
+        public int DaysWithUsage { get; set; }
+        public int TotalUnitsConsumed { get; set; }
+        public double AverageDailyUsage { get; set; }
+        public double? DaysUntilReorder { get; set; }
+        public DateTime? PredictedReorderDateUtc { get; set; }
+        public int SuggestedReorderQuantity { get; set; }
+        public bool IsPredictionAvailable { get; set; }
+        public bool IsLowStockNow { get; set; }
+        public string AlertLevel { get; set; } = "InsufficientData";
+        public string InsightSummary { get; set; } = string.Empty;
+
+        public int AlertPriority => AlertLevel switch
+        {
+            "ReorderNow" => 0,
+            "ReorderSoon" => 1,
+            "Watch" => 2,
+            "InsufficientData" => 3,
+            _ => 4
+        };
+
+        public string AlertLabel => AlertLevel switch
+        {
+            "ReorderNow" => "Reorder Now",
+            "ReorderSoon" => "Reorder Soon",
+            "Watch" => "Watch",
+            "Stable" => "Stable",
+            _ => "Insufficient Data"
+        };
+
+        public string DaysUntilReorderDisplay => DaysUntilReorder.HasValue
+            ? Math.Max(0, Math.Ceiling(DaysUntilReorder.Value)).ToString("0")
+            : "—";
+
+        public string PredictedReorderDateDisplay => PredictedReorderDateUtc.HasValue
+            ? PredictedReorderDateUtc.Value.ToLocalTime().ToString("yyyy-MM-dd")
+            : "—";
+
+        public string AverageDailyUsageDisplay => AverageDailyUsage.ToString("0.##");
     }
 }

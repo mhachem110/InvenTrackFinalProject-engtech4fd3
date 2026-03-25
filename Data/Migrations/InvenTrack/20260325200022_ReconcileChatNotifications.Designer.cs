@@ -4,6 +4,7 @@ using InvenTrack.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace InvenTrackFinalProject.Data.Migrations.InvenTrack
 {
     [DbContext(typeof(InvenTrackContext))]
-    partial class InvenTrackContextModelSnapshot : ModelSnapshot
+    [Migration("20260325200022_ReconcileChatNotifications")]
+    partial class ReconcileChatNotifications
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

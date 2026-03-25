@@ -1,0 +1,47 @@
+@using InvenTrack.ViewModels.Chat
+@{
+    ViewData["Title"] = "Chat";
+    var sidebar = ViewBag.Sidebar as List<ChatConversationListItemVM> ?? new();
+}
+<div class="row g-3">
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-bold">Conversations</span>
+                <div class="d-flex gap-2">
+                    <a asp-action="CreateDirect" class="btn btn-sm btn-outline-primary">Direct</a>
+                    <a asp-action="CreateGroup" class="btn btn-sm btn-primary">Group</a>
+                </div>
+            </div>
+            <div class="list-group list-group-flush">
+                @if (!sidebar.Any())
+                {
+                    <div class="list-group-item text-muted">No conversations yet.</div>
+                }
+                else
+                {
+                    foreach (var c in sidebar)
+                    {
+                        <a asp-action="Index" asp-route-id="@c.ConversationId" class="list-group-item list-group-item-action">
+                            <div class="fw-semibold">@c.Name</div>
+                            <div class="small text-muted">@c.LastMessagePreview</div>
+                        </a>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm h-100">
+            <div class="card-body d-flex flex-column justify-content-center align-items-center text-center py-5">
+                <div class="display-5 mb-3">💬</div>
+                <h3 class="h5">Start a conversation</h3>
+                <p class="text-muted mb-4">Create a direct or group chat for staff collaboration, approvals, and quick coordination.</p>
+                <div class="d-flex gap-2">
+                    <a asp-action="CreateDirect" class="btn btn-outline-primary">New direct chat</a>
+                    <a asp-action="CreateGroup" class="btn btn-primary">New group chat</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -459,6 +459,40 @@
                                 <span class="mx-2">•</span>
                                 Units consumed: <span class="fw-semibold">@aiPrediction.TotalUnitsConsumed</span>
                             </div>
+
+                            @if (aiPrediction.LocationPredictions != null && aiPrediction.LocationPredictions.Any())
+                            {
+                                <div class="mt-4">
+                                    <div class="fw-semibold mb-2">Per-Location Forecast</div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm align-middle">
+                                            <thead>
+                                                <tr>
+                                                    <th>Location</th>
+                                                    <th class="text-end">Stock</th>
+                                                    <th class="text-end">Avg Usage</th>
+                                                    <th class="text-end">Days Until Reorder</th>
+                                                    <th class="text-end">Suggested Qty</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var lp in aiPrediction.LocationPredictions)
+                                                {
+                                                    <tr>
+                                                        <td>@lp.LocationName</td>
+                                                        <td class="text-end">@lp.CurrentQuantityOnHand</td>
+                                                        <td class="text-end">@lp.AverageDailyUsageDisplay</td>
+                                                        <td class="text-end">@lp.DaysUntilReorderDisplay</td>
+                                                        <td class="text-end">@lp.SuggestedReorderQuantity</td>
+                                                        <td><span class="badge bg-light text-dark border">@lp.AlertLabel</span></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            }
                         }
                     </div>
                 </div>

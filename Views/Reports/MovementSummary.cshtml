@@ -1,0 +1,64 @@
+@model InvenTrack.Utilities.PaginatedList<InvenTrack.ViewModels.Reports.InventoryMovementSummaryRowVM>
+@{
+    ViewData["Title"] = "Movement Summary";
+    var q = ViewData["CurrentFilter"]?.ToString() ?? "";
+    var pageSize = (ViewData["CurrentPageSize"] as int?) ?? 10;
+    var days = (ViewData["CurrentDays"] as int?) ?? 30;
+}
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <div class="fw-bold">Movement Summary</div>
+            <div class="small text-muted">Recent item movement totals for the last @days day(s).</div>
+        </div>
+        <a asp-action="ExportMovementSummaryCsv" asp-route-q="@q" asp-route-days="@days" class="btn btn-sm btn-outline-secondary">Export CSV</a>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-md-6">
+                <input type="text" name="q" value="@q" class="form-control" placeholder="Search item, SKU, category..." />
+            </div>
+            <div class="col-md-2">
+                <input type="number" name="days" value="@days" min="7" max="180" class="form-control" />
+            </div>
+            <div class="col-md-2">
+                <select name="pageSize" class="form-select">
+                    <option value="10" selected="@(pageSize == 10)">10</option>
+                    <option value="25" selected="@(pageSize == 25)">25</option>
+                    <option value="50" selected="@(pageSize == 50)">50</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100">Apply</button>
+            </div>
+        </form>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Item</th><th>SKU</th><th>Category</th>
+                        <th class="text-end">In</th><th class="text-end">Out</th><th class="text-end">Adj Net</th>
+                        <th class="text-end">Transfer Out</th><th class="text-end">Transfer In</th><th class="text-end">Activity</th><th>Last Activity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model)
+                {
+                    <tr>
+                        <td><a asp-controller="InventoryItems" asp-action="Details" asp-route-id="@row.ItemId">@row.ItemName</a></td>
+                        <td>@row.SKU</td>
+                        <td>@row.CategoryName</td>
+                        <td class="text-end">@row.CheckInUnits</td>
+                        <td class="text-end">@row.CheckOutUnits</td>
+                        <td class="text-end">@row.AdjustmentNetUnits</td>
+                        <td class="text-end">@row.TransferOutUnits</td>
+                        <td class="text-end">@row.TransferInUnits</td>
+                        <td class="text-end">@row.TotalActivityCount</td>
+                        <td>@row.LastActivityDateDisplay</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

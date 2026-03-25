@@ -386,7 +386,7 @@
                                 <div class="ai-priority-top">
                                     <div>
                                         <h3 class="ai-priority-name">@item.ItemName</h3>
-                                        <div class="ai-priority-meta">@item.SKU • @item.CategoryName • @item.PrimaryLocationName</div>
+                                        <div class="ai-priority-meta">@item.SKU • @item.CategoryName • @item.PrimaryLocationName@if(item.HighestRiskLocation != null){<text> • Risk: @item.HighestRiskLocation.LocationName</text>}</div>
                                     </div>
 
                                     <div class="ai-badges">
@@ -543,7 +543,7 @@
                                 <div class="ai-result-top">
                                     <div>
                                         <div class="ai-result-name">@item.ItemName</div>
-                                        <div class="ai-result-meta">@item.SKU • @item.CategoryName • @item.PrimaryLocationName</div>
+                                        <div class="ai-result-meta">@item.SKU • @item.CategoryName • @item.PrimaryLocationName@if(item.HighestRiskLocation != null){<text> • Risk: @item.HighestRiskLocation.LocationName</text>}</div>
                                     </div>
 
                                     <div class="d-flex flex-column gap-2 align-items-start align-items-sm-end">
@@ -634,6 +634,38 @@
                                             <div class="ai-detail-kv"><span>Suggested reorder</span><strong>@item.SuggestedReorderQuantity</strong></div>
                                         </div>
                                     </div>
+
+                                    @if (item.LocationPredictions.Any())
+                                    {
+                                        <div class="ai-detail-card">
+                                            <div class="ai-detail-label">Per-Location Breakdown</div>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm align-middle mb-0">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Location</th>
+                                                            <th class="text-end">Stock</th>
+                                                            <th class="text-end">Usage</th>
+                                                            <th class="text-end">Days</th>
+                                                            <th>Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var lp in item.LocationPredictions)
+                                                        {
+                                                            <tr>
+                                                                <td>@lp.LocationName</td>
+                                                                <td class="text-end">@lp.CurrentQuantityOnHand</td>
+                                                                <td class="text-end">@lp.AverageDailyUsageDisplay</td>
+                                                                <td class="text-end">@lp.DaysUntilReorderDisplay</td>
+                                                                <td>@lp.AlertLabel</td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    }
                                 </div>
                             </div>
                         </article>

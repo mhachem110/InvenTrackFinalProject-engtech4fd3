@@ -18,6 +18,7 @@
     bool canUseTransferRequests = isAdmin || isRegionalManager || isManager || isSupervisor || isEmployee;
     bool canSeeUserAdmin = isAdmin;
     bool canSeeReports = signedIn;
+    bool canUseChat = signedIn;
 
     string roleLabel =
         isAdmin ? "Admin" :
@@ -96,24 +97,38 @@
                         <span class="fw-semibold text-dark">InvenTrack</span>
                     </a>
 
-                    @if (canUseTransferRequests)
-                    {
-                        <a id="topTransferButtonMobile"
-                           class="btn btn-outline-secondary it-icon-btn position-relative"
-                           asp-controller="StockTransferRequests"
-                           asp-action="Index"
-                           title="Transfer request notifications">
-                            🔔
-                            <span id="transferRequestsBadgeTopMobile"
-                                  class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
-                                0
-                            </span>
-                        </a>
-                    }
-                    else
-                    {
-                        <div style="width:40px;"></div>
-                    }
+                    <div class="d-flex align-items-center gap-2">
+                        @if (canUseChat)
+                        {
+                            <a id="topChatButtonMobile"
+                               class="btn btn-outline-secondary it-icon-btn position-relative"
+                               asp-controller="Chats"
+                               asp-action="Index"
+                               title="Chat notifications">
+                                💬
+                                <span id="chatBadgeTopMobile"
+                                      class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
+                            </a>
+                        }
+                        @if (canUseTransferRequests)
+                        {
+                            <a id="topTransferButtonMobile"
+                               class="btn btn-outline-secondary it-icon-btn position-relative"
+                               asp-controller="StockTransferRequests"
+                               asp-action="Index"
+                               title="Transfer request notifications">
+                                🔔
+                                <span id="transferRequestsBadgeTopMobile"
+                                      class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
+                                    0
+                                </span>
+                            </a>
+                        }
+                        @if (!canUseChat && !canUseTransferRequests)
+                        {
+                            <div style="width:40px;"></div>
+                        }
+                    </div>
                 </div>
             </header>
 
@@ -167,6 +182,16 @@
                                 </a>
                             }
 
+                            @if (canUseChat)
+                            {
+                                <a class="it-nav-link @(IsActive("Chats") ? "active" : "") d-flex justify-content-between align-items-center" asp-controller="Chats" asp-action="Index">
+                                    <span class="d-inline-flex align-items-center gap-2">
+                                        <span class="it-nav-ico">💬</span> Chat
+                                    </span>
+                                    <span id="chatBadgeDesktop" class="badge bg-primary-subtle text-primary border it-badge d-none">0</span>
+                                </a>
+                            }
+
                             <a class="it-nav-link @(IsActive("Categories") ? "active" : "")" asp-controller="Categories" asp-action="Index">
                                 <span class="it-nav-ico">🗂️</span> Categories
                             </a>
@@ -214,6 +239,20 @@
                                 <span class="badge bg-light text-dark border it-badge">
                                     @roleLabel • @scopeLabel
                                 </span>
+
+                                @if (canUseChat)
+                                {
+                                    <a id="topChatButtonDesktop"
+                                       class="btn btn-sm btn-outline-secondary position-relative"
+                                       asp-controller="Chats"
+                                       asp-action="Index"
+                                       title="Chat notifications">
+                                        <span class="me-1">💬</span>
+                                        <span class="d-none d-md-inline">Chat</span>
+                                        <span id="chatBadgeTopDesktop"
+                                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary d-none">0</span>
+                                    </a>
+                                }
 
                                 @if (canUseTransferRequests)
                                 {
@@ -311,6 +350,16 @@
                         </a>
                     }
 
+                    @if (canUseChat)
+                    {
+                        <a class="it-nav-link @(IsActive("Chats") ? "active" : "") d-flex justify-content-between align-items-center" asp-controller="Chats" asp-action="Index">
+                            <span class="d-inline-flex align-items-center gap-2">
+                                <span class="it-nav-ico">💬</span> Chat
+                            </span>
+                            <span id="chatBadgeMobile" class="badge bg-primary-subtle text-primary border it-badge d-none">0</span>
+                        </a>
+                    }
+
                     <a class="it-nav-link @(IsActive("Categories") ? "active" : "")" asp-controller="Categories" asp-action="Index">
                         <span class="it-nav-ico">🗂️</span> Categories
                     </a>
@@ -341,7 +390,7 @@
         </div>
 
         <div class="position-fixed top-0 end-0 p-3" style="z-index: 1085;">
-            <div id="transferToastContainer" class="d-flex flex-column gap-2"></div>
+            <div id="appToastContainer" class="d-flex flex-column gap-2"></div>
         </div>
     }
 
@@ -350,15 +399,22 @@
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
 
-    @if (signedIn && canUseTransferRequests)
+    @if (signedIn)
     {
         <script>
             (function () {
-                const badgeIds = [
+                const transferBadgeIds = [
                     'transferRequestsBadgeDesktop',
                     'transferRequestsBadgeMobile',
                     'transferRequestsBadgeTopDesktop',
                     'transferRequestsBadgeTopMobile'
+                ];
+
+                const chatBadgeIds = [
+                    'chatBadgeDesktop',
+                    'chatBadgeMobile',
+                    'chatBadgeTopDesktop',
+                    'chatBadgeTopMobile'
                 ];
 
                 function escapeHtml(text) {
@@ -370,13 +426,13 @@
                         .replaceAll("'", '&#039;');
                 }
 
-                function setBadgeCount(count) {
-                    badgeIds.forEach(id => {
+                function setBadgeCount(ids, count) {
+                    ids.forEach(id => {
                         const el = document.getElementById(id);
                         if (!el) return;
 
                         if (count > 0) {
-                            el.textContent = count;
+                            el.textContent = count > 99 ? '99+' : count;
                             el.classList.remove('d-none');
                         } else {
                             el.textContent = '0';
@@ -385,23 +441,8 @@
                     });
                 }
 
-                async function refreshTransferBadge() {
-                    try {
-                        const response = await fetch('/StockTransferRequests/BadgeCount', {
-                            method: 'GET',
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                        });
-
-                        if (!response.ok) return;
-
-                        const data = await response.json();
-                        setBadgeCount(data.count || 0);
-                    } catch {
-                    }
-                }
-
-                function showTransferToast(message) {
-                    const container = document.getElementById('transferToastContainer');
+                function showToast(title, message) {
+                    const container = document.getElementById('appToastContainer');
                     if (!container || !message) return;
 
                     const wrapper = document.createElement('div');
@@ -412,54 +453,216 @@
 
                     wrapper.innerHTML = `
                         <div class="toast-header">
-                            <strong class="me-auto">Transfer Requests</strong>
+                            <strong class="me-auto">${escapeHtml(title)}</strong>
                             <small>just now</small>
                             <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
                         </div>
-                        <div class="toast-body">
-                            ${escapeHtml(message)}
-                        </div>
-                    `;
+                        <div class="toast-body">${escapeHtml(message)}</div>`;
 
                     container.appendChild(wrapper);
 
                     const toast = new bootstrap.Toast(wrapper, { delay: 5000 });
                     toast.show();
-
-                    wrapper.addEventListener('hidden.bs.toast', function () {
-                        wrapper.remove();
-                    });
+                    wrapper.addEventListener('hidden.bs.toast', function () { wrapper.remove(); });
                 }
 
-                async function startTransferNotifications() {
-                    await refreshTransferBadge();
-
-                    if (typeof signalR === 'undefined') return;
-
-                    const connection = new signalR.HubConnectionBuilder()
-                        .withUrl('/hubs/transfer-requests')
-                        .withAutomaticReconnect()
-                        .build();
-
-                    connection.on('TransferRequestsChanged', function (payload) {
-                        refreshTransferBadge();
-
-                        if (payload && payload.message) {
-                            showTransferToast(payload.message);
-                        }
-                    });
-
-                    connection.onreconnected(function () {
-                        refreshTransferBadge();
-                    });
-
+                function playNotificationBeep() {
                     try {
-                        await connection.start();
+                        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                        if (!AudioCtx) return;
+                        const ctx = new AudioCtx();
+                        const oscillator = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        oscillator.connect(gain);
+                        gain.connect(ctx.destination);
+                        oscillator.type = 'sine';
+                        oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+                        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.01);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.30);
+                        oscillator.start(ctx.currentTime);
+                        oscillator.stop(ctx.currentTime + 0.30);
                     } catch {
                     }
                 }
 
-                startTransferNotifications();
+                function showBrowserNotification(title, body, url) {
+                    try {
+                        if (!('Notification' in window)) return;
+                        if (Notification.permission === 'default') {
+                            Notification.requestPermission();
+                            return;
+                        }
+                        if (Notification.permission !== 'granted') return;
+
+                        const notification = new Notification(title, { body });
+                        if (url) {
+                            notification.onclick = function () {
+                                window.location.href = url;
+                                window.focus();
+                            };
+                        }
+                    } catch {
+                    }
+                }
+
+                async function refreshTransferBadge() {
+                    if (!@canUseTransferRequests.ToString().ToLowerInvariant()) return;
+                    try {
+                        const response = await fetch('/StockTransferRequests/BadgeCount', {
+                            method: 'GET',
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+
+                        if (!response.ok) return;
+
+                        const data = await response.json();
+                        setBadgeCount(transferBadgeIds, data.count || 0);
+                    } catch {
+                    }
+                }
+
+                async function refreshChatBadge() {
+                    if (!@canUseChat.ToString().ToLowerInvariant()) return;
+                    try {
+                        const response = await fetch('/Chats/NotificationSummary', {
+                            method: 'GET',
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+                        if (!response.ok) return;
+                        const data = await response.json();
+                        setBadgeCount(chatBadgeIds, data.unreadMessageCount || 0);
+                    } catch {
+                    }
+                }
+
+                async function markActiveConversationRead() {
+                    const activeConversationId = window.invenTrackChat?.activeConversationId;
+                    if (!activeConversationId) return;
+
+                    try {
+                        await fetch(`/Chats/MarkRead?conversationId=${activeConversationId}`, {
+                            method: 'POST',
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+                    } catch {
+                    }
+                }
+
+                window.invenTrackChat = window.invenTrackChat || {
+                    activeConversationId: null,
+                    connection: null,
+                    registerActiveConversation: async function (conversationId) {
+                        this.activeConversationId = conversationId;
+                        await markActiveConversationRead();
+                        await refreshChatBadge();
+                        if (this.connection && this.connection.state === 'Connected') {
+                            try {
+                                await this.connection.invoke('JoinConversationGroup', String(conversationId));
+                            } catch {
+                            }
+                        }
+                    }
+                };
+
+                async function startNotifications() {
+                    await refreshTransferBadge();
+                    await refreshChatBadge();
+
+                    if (typeof signalR === 'undefined') return;
+
+                    const chatConnection = new signalR.HubConnectionBuilder()
+                        .withUrl('/hubs/chat')
+                        .withAutomaticReconnect()
+                        .build();
+
+                    window.invenTrackChat.connection = chatConnection;
+
+                    chatConnection.on('ReceiveMessage', async function (payload) {
+                        document.dispatchEvent(new CustomEvent('inventrack:chat-message', { detail: payload }));
+
+                        const activeConversationId = window.invenTrackChat?.activeConversationId;
+                        const isOpenConversation = activeConversationId && Number(activeConversationId) === Number(payload?.conversationId);
+
+                        if (isOpenConversation) {
+                            await markActiveConversationRead();
+                        } else if (payload && !payload.isSystemMessage) {
+                            showToast(payload.senderDisplayName || 'Chat', payload.body || 'New message received.');
+                            playNotificationBeep();
+                            showBrowserNotification(
+                                payload.senderDisplayName || 'New message',
+                                payload.body || 'Open chat to read the message.',
+                                `/Chats?id=${payload.conversationId}`
+                            );
+                        }
+
+                        await refreshChatBadge();
+                    });
+
+                    chatConnection.on('ChatNotification', async function (payload) {
+                        const activeConversationId = window.invenTrackChat?.activeConversationId;
+                        const isOpenConversation = activeConversationId && Number(activeConversationId) === Number(payload?.conversationId);
+                        if (!isOpenConversation) {
+                            showToast(payload.conversationName || 'Chat', payload.preview || 'Chat updated.');
+                            playNotificationBeep();
+                            showBrowserNotification(
+                                payload.conversationName || 'Chat notification',
+                                payload.preview || 'Open chat for details.',
+                                `/Chats?id=${payload.conversationId}`
+                            );
+                        }
+                        await refreshChatBadge();
+                    });
+
+                    chatConnection.on('ConversationMembersChanged', async function (payload) {
+                        document.dispatchEvent(new CustomEvent('inventrack:chat-members-changed', { detail: payload }));
+                        await refreshChatBadge();
+                    });
+
+                    chatConnection.onreconnected(async function () {
+                        await refreshTransferBadge();
+                        await refreshChatBadge();
+                        if (window.invenTrackChat?.activeConversationId) {
+                            try {
+                                await chatConnection.invoke('JoinConversationGroup', String(window.invenTrackChat.activeConversationId));
+                            } catch {
+                            }
+                        }
+                    });
+
+                    try {
+                        await chatConnection.start();
+                        if (window.invenTrackChat?.activeConversationId) {
+                            await chatConnection.invoke('JoinConversationGroup', String(window.invenTrackChat.activeConversationId));
+                        }
+                    } catch {
+                    }
+
+                    if (@canUseTransferRequests.ToString().ToLowerInvariant()) {
+                        const transferConnection = new signalR.HubConnectionBuilder()
+                            .withUrl('/hubs/transfer-requests')
+                            .withAutomaticReconnect()
+                            .build();
+
+                        transferConnection.on('TransferRequestsChanged', function (payload) {
+                            refreshTransferBadge();
+                            if (payload && payload.message) {
+                                showToast('Transfer Requests', payload.message);
+                            }
+                        });
+
+                        transferConnection.onreconnected(function () {
+                            refreshTransferBadge();
+                        });
+
+                        try {
+                            await transferConnection.start();
+                        } catch {
+                        }
+                    }
+                }
+
+                startNotifications();
             })();
         </script>
     }

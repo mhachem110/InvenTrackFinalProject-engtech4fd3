@@ -20,13 +20,39 @@
         <div class="it-report-hero__right">
             <div class="it-report-hero-stat">
                 <span class="label">Available modules</span>
-                <span class="value">4</span>
+                <span class="value">6</span>
             </div>
             <div class="it-report-hero-stat">
                 <span class="label">AI alerts</span>
                 <span class="value">@aiUrgentIssuesCount</span>
             </div>
+        
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-report-card">
+                <div class="it-report-card__icon">🗂️</div>
+                <div class="it-report-card__label">Category Summary</div>
+                <div class="it-report-card__value">@Model.CategoryCount</div>
+                <div class="it-report-card__text">Inventory concentration, low stock counts, and totals by category.</div>
+                <div class="it-report-card__actions">
+                    <a asp-action="CategorySummary" class="btn btn-primary btn-sm">Open Report</a>
+                    <a asp-action="ExportCategorySummaryCsv" class="btn btn-outline-secondary btn-sm">Export</a>
+                </div>
+            </div>
         </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="it-report-card">
+                <div class="it-report-card__icon">📈</div>
+                <div class="it-report-card__label">Movement Summary</div>
+                <div class="it-report-card__value">@Model.MovementSummaryCount</div>
+                <div class="it-report-card__text">Shows the busiest inventory items across recent stock activity.</div>
+                <div class="it-report-card__actions">
+                    <a asp-action="MovementSummary" class="btn btn-primary btn-sm">Open Report</a>
+                    <a asp-action="ExportMovementSummaryCsv" class="btn btn-outline-secondary btn-sm">Export</a>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <div class="row g-3 g-xl-4 mb-4">
@@ -145,6 +171,8 @@
                         <a asp-action="ExportLowStockCsv" class="it-report-export-link">Low Stock CSV</a>
                         <a asp-action="ExportLocationSummaryCsv" class="it-report-export-link">Location Summary CSV</a>
                         <a asp-action="ExportRecentTransactionsCsv" class="it-report-export-link">Recent Transactions CSV</a>
+                        <a asp-action="ExportCategorySummaryCsv" class="it-report-export-link">Category Summary CSV</a>
+                        <a asp-action="ExportMovementSummaryCsv" class="it-report-export-link">Movement Summary CSV</a>
                         <a asp-action="ExportAiInsightsCsv" class="it-report-export-link">AI Insights CSV</a>
                     </div>
 
@@ -191,7 +219,7 @@
                         </div>
 
                         <div class="it-report-list__item">
-                            <div class="it-report-list__num">4</div>
+                            <div class="it-report-list__num">6</div>
                             <div>
                                 <div class="fw-semibold">AI Insights</div>
                                 <div class="text-muted small">Shows forecasted inventory risk and suggested actions.</div>

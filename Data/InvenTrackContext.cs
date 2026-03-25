@@ -18,6 +18,9 @@ namespace InvenTrack.Data
         public DbSet<ItemThumbnail> ItemThumbnails { get; set; }
         public DbSet<InventoryItemStock> InventoryItemStocks { get; set; }
         public DbSet<StockTransferRequest> StockTransferRequests { get; set; }
+        public DbSet<ChatConversation> ChatConversations { get; set; }
+        public DbSet<ChatConversationMember> ChatConversationMembers { get; set; }
+        public DbSet<ChatMessage> ChatMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -115,6 +118,35 @@ namespace InvenTrack.Data
             modelBuilder.Entity<StockTransferRequest>()
                 .Property(r => r.ReviewedByUserId)
                 .HasMaxLength(450);
+
+            modelBuilder.Entity<ChatConversation>()
+                .Property(x => x.CreatedByUserId)
+                .HasMaxLength(450);
+
+            modelBuilder.Entity<ChatConversationMember>()
+                .Property(x => x.UserId)
+                .HasMaxLength(450);
+
+            modelBuilder.Entity<ChatConversationMember>()
+                .HasIndex(x => new { x.ChatConversationID, x.UserId })
+                .IsUnique();
+
+            modelBuilder.Entity<ChatConversationMember>()
+                .HasOne(x => x.ChatConversation)
+                .WithMany(x => x.Members)
+                .HasForeignKey(x => x.ChatConversationID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ChatMessage>()
+                .Property(x => x.SenderUserId)
+                .HasMaxLength(450);
+
+            modelBuilder.Entity<ChatMessage>()
+                .HasOne(x => x.ChatConversation)
+                .WithMany(x => x.Messages)
+                .HasForeignKey(x => x.ChatConversationID)
+                .OnDelete(DeleteBehavior.Cascade);
+
 
             base.OnModelCreating(modelBuilder);
         }

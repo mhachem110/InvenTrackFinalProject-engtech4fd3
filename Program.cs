@@ -75,6 +75,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<AppAccessService>();
 builder.Services.AddScoped<InventoryAiService>();
+builder.Services.AddScoped<ChatService>();
 
 builder.Services.AddSignalR();
 builder.Services.AddScoped<TransferRequestNotificationService>();
@@ -117,4 +118,5 @@ InvenTrackInitializer.Seed(app);
 await IdentitySeeder.SeedAsync(app.Services);
 
 app.MapHub<TransferRequestHub>("/hubs/transfer-requests");
+app.MapHub<ChatHub>("/hubs/chat");
 app.Run();
