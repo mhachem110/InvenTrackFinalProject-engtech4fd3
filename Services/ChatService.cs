@@ -147,10 +147,10 @@ namespace InvenTrack.Services
 
             var convo = new ChatConversation
             {
-                Name = otherUser.UserName ?? otherUser.Email ?? "Direct Chat",
+                Name = UserDisplayHelper.GetDisplayName(otherUser),
                 IsGroupChat = false,
                 CreatedByUserId = currentUser.Id,
-                CreatedByName = currentUser.UserName ?? currentUser.Email ?? "Unknown",
+                CreatedByName = UserDisplayHelper.GetDisplayName(currentUser),
                 DateCreated = DateTime.UtcNow,
                 LastMessageAt = DateTime.UtcNow
             };
@@ -163,7 +163,7 @@ namespace InvenTrack.Services
                 {
                     ChatConversationID = convo.ID,
                     UserId = currentUser.Id,
-                    DisplayName = currentUser.UserName ?? currentUser.Email ?? "Unknown",
+                    DisplayName = UserDisplayHelper.GetDisplayName(currentUser),
                     IsAdmin = true,
                     LastReadAt = DateTime.UtcNow
                 },
@@ -201,7 +201,7 @@ namespace InvenTrack.Services
                 Name = groupName.Trim(),
                 IsGroupChat = true,
                 CreatedByUserId = currentUser.Id,
-                CreatedByName = currentUser.UserName ?? currentUser.Email ?? "Unknown",
+                CreatedByName = UserDisplayHelper.GetDisplayName(currentUser),
                 DateCreated = now,
                 LastMessageAt = now
             };
@@ -213,7 +213,7 @@ namespace InvenTrack.Services
             {
                 ChatConversationID = convo.ID,
                 UserId = currentUser.Id,
-                DisplayName = currentUser.UserName ?? currentUser.Email ?? "Unknown",
+                DisplayName = UserDisplayHelper.GetDisplayName(currentUser),
                 IsAdmin = true,
                 LastReadAt = now
             });
@@ -224,7 +224,7 @@ namespace InvenTrack.Services
                 {
                     ChatConversationID = convo.ID,
                     UserId = user.Id,
-                    DisplayName = user.UserName ?? user.Email ?? "Unknown",
+                    DisplayName = UserDisplayHelper.GetDisplayName(user),
                     IsAdmin = false
                 });
             }
@@ -233,7 +233,7 @@ namespace InvenTrack.Services
             {
                 ChatConversationID = convo.ID,
                 SenderUserId = currentUser.Id,
-                SenderDisplayName = currentUser.UserName ?? currentUser.Email ?? "Unknown",
+                SenderDisplayName = UserDisplayHelper.GetDisplayName(currentUser),
                 Body = $"Group chat '{convo.Name}' created.",
                 IsSystemMessage = true,
                 DateSent = now
@@ -257,7 +257,7 @@ namespace InvenTrack.Services
             {
                 ChatConversationID = conversationId,
                 SenderUserId = sender.Id,
-                SenderDisplayName = sender.UserName ?? sender.Email ?? "Unknown",
+                SenderDisplayName = UserDisplayHelper.GetDisplayName(sender),
                 Body = body.Trim(),
                 DateSent = now
             };
@@ -311,7 +311,7 @@ namespace InvenTrack.Services
                 {
                     ChatConversationID = conversationId,
                     UserId = user.Id,
-                    DisplayName = user.UserName ?? user.Email ?? "Unknown",
+                    DisplayName = UserDisplayHelper.GetDisplayName(user),
                     IsAdmin = false
                 });
 
@@ -319,8 +319,8 @@ namespace InvenTrack.Services
                 {
                     ChatConversationID = conversationId,
                     SenderUserId = actingUser.Id,
-                    SenderDisplayName = actingUser.UserName ?? actingUser.Email ?? "Unknown",
-                    Body = $"{user.UserName ?? user.Email ?? "User"} joined the group.",
+                    SenderDisplayName = UserDisplayHelper.GetDisplayName(actingUser),
+                    Body = $"{UserDisplayHelper.GetDisplayName(user)} joined the group.",
                     IsSystemMessage = true,
                     DateSent = now
                 });
@@ -356,7 +356,7 @@ namespace InvenTrack.Services
             {
                 ChatConversationID = conversationId,
                 SenderUserId = actingUser.Id,
-                SenderDisplayName = actingUser.UserName ?? actingUser.Email ?? "Unknown",
+                SenderDisplayName = UserDisplayHelper.GetDisplayName(actingUser),
                 Body = $"{membership.DisplayName} was removed from the group.",
                 IsSystemMessage = true,
                 DateSent = now

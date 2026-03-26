@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @using InvenTrack.Data
 @using InvenTrack.Models
@@ -8,30 +8,21 @@
 
 @{
     bool signedIn = SignInManager.IsSignedIn(User);
-
-    string roleValue =
-        User.IsInRole(AppRoles.Admin) ? AppRoles.Admin :
-        User.IsInRole(AppRoles.RegionalManager) ? AppRoles.RegionalManager :
-        User.IsInRole(AppRoles.Manager) ? AppRoles.Manager :
-        User.IsInRole(AppRoles.Supervisor) ? AppRoles.Supervisor :
-        User.IsInRole(AppRoles.Employee) ? AppRoles.Employee : "";
-
-    string roleLabel = roleValue switch
-    {
-        AppRoles.Admin => "Admin",
-        AppRoles.RegionalManager => "Regional Manager",
-        AppRoles.Manager => "Manager",
-        AppRoles.Supervisor => "Supervisor",
-        AppRoles.Employee => "Employee",
-        _ => ""
-    };
+    string roleLabel =
+        User.IsInRole(AppRoles.Admin) ? "Admin" :
+        User.IsInRole(AppRoles.RegionalManager) ? "Regional Manager" :
+        User.IsInRole(AppRoles.Manager) ? "Manager" :
+        User.IsInRole(AppRoles.Supervisor) ? "Supervisor" :
+        User.IsInRole(AppRoles.Employee) ? "Employee" : "";
 
     string assignedLocation = "-";
+    string fullName = User.FindFirst("DisplayName")?.Value ?? User.Identity?.Name ?? "User";
+    string title = User.FindFirst("JobTitle")?.Value ?? "";
+    string department = User.FindFirst("Department")?.Value ?? "";
 
     if (signedIn)
     {
         var userId = UserManager.GetUserId(User);
-
         if (!string.IsNullOrWhiteSpace(userId))
         {
             var assignedLocationId = await UserManager.Users
@@ -58,19 +49,17 @@
 
 @if (signedIn)
 {
-    <div class="text-muted small mb-2">Signed in</div>
-
-    <div class="small mb-3">
-        <div class="fw-semibold text-break">@User.Identity?.Name</div>
-
+    <div class="rounded-4 border bg-body-tertiary p-3 mb-3">
+        <div class="fw-semibold text-break">@fullName</div>
+        @if (!string.IsNullOrWhiteSpace(title) || !string.IsNullOrWhiteSpace(department))
+        {
+            <div class="text-muted small mt-1">@title@(string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(department) ? "" : " • ")@department</div>
+        }
         @if (!string.IsNullOrWhiteSpace(roleLabel))
         {
             <span class="badge bg-primary-subtle text-primary border it-badge mt-2">@roleLabel</span>
         }
-
-        <div class="text-muted small mt-2">
-            Location: @assignedLocation
-        </div>
+        <div class="text-muted small mt-2">Location: @assignedLocation</div>
     </div>
 
     <a class="it-nav-link" asp-area="Identity" asp-page="/Account/Manage/Index">

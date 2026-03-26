@@ -31,17 +31,17 @@
                     <div asp-validation-summary="All" class="text-danger mb-3"></div>
 
                     <input type="hidden" asp-for="UserId" />
-
-                    <div class="mb-3">
-                        <div class="text-muted small">User</div>
-                        <div class="fw-semibold">@Model.Email</div>
-                        <div class="text-muted small">@Model.UserName</div>
-                    </div>
+                    <input type="hidden" asp-for="Email" />
+                    <input type="hidden" asp-for="UserName" />
+                    <input type="hidden" asp-for="FullName" />
+                    <input type="hidden" asp-for="JobTitle" />
+                    <input type="hidden" asp-for="Department" />
 
                     @if (Model.IsLockedOut)
                     {
                         <div class="alert alert-warning">
-                            Currently locked until: <strong>@(Model.LockoutEnd?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")</strong>
+                            Currently locked until:
+                            <strong>@(Model.LockoutEnd?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")</strong>
                         </div>
                     }
 
@@ -69,13 +69,34 @@
     <div class="col-lg-5">
         <div class="it-panel">
             <div class="it-panel-header">
-                <div class="fw-bold">What lockout does</div>
-                <div class="text-muted small">Prevents login until the lock ends.</div>
+                <div class="fw-bold">User Details</div>
+                <div class="text-muted small">Profile information for the selected account.</div>
             </div>
 
             <div class="it-panel-body">
-                <div class="text-muted small">
-                    Lockout is a safe way to disable access without deleting accounts.
+                <div class="mb-3">
+                    <div class="text-muted small">Email</div>
+                    <div class="fw-semibold">@Model.Email</div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="text-muted small">Username</div>
+                    <div class="fw-semibold">@Model.UserName</div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="text-muted small">Full Name</div>
+                    <div class="fw-semibold">@(!string.IsNullOrWhiteSpace(Model.FullName) ? Model.FullName : "-")</div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="text-muted small">Job Title</div>
+                    <div class="fw-semibold">@(!string.IsNullOrWhiteSpace(Model.JobTitle) ? Model.JobTitle : "-")</div>
+                </div>
+
+                <div class="mb-0">
+                    <div class="text-muted small">Department</div>
+                    <div class="fw-semibold">@(!string.IsNullOrWhiteSpace(Model.Department) ? Model.Department : "-")</div>
                 </div>
             </div>
         </div>

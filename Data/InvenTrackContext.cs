@@ -21,6 +21,7 @@ namespace InvenTrack.Data
         public DbSet<ChatConversation> ChatConversations { get; set; }
         public DbSet<ChatConversationMember> ChatConversationMembers { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<InventoryOrderRequest> InventoryOrderRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -118,6 +119,25 @@ namespace InvenTrack.Data
             modelBuilder.Entity<StockTransferRequest>()
                 .Property(r => r.ReviewedByUserId)
                 .HasMaxLength(450);
+
+
+            modelBuilder.Entity<InventoryOrderRequest>()
+                .HasOne(x => x.InventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.InventoryItemID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<InventoryOrderRequest>()
+                .HasOne(x => x.DestinationStorageLocation)
+                .WithMany()
+                .HasForeignKey(x => x.DestinationStorageLocationID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<InventoryOrderRequest>()
+                .HasOne(x => x.StockTransaction)
+                .WithMany()
+                .HasForeignKey(x => x.StockTransactionID)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<ChatConversation>()
                 .Property(x => x.CreatedByUserId)

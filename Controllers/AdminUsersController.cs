@@ -61,6 +61,9 @@ namespace InvenTrack.Controllers
                 query = query.Where(u =>
                     (u.Email ?? "").Contains(q) ||
                     (u.UserName ?? "").Contains(q) ||
+                    (u.FullName ?? "").Contains(q) ||
+                    (u.JobTitle ?? "").Contains(q) ||
+                    (u.Department ?? "").Contains(q) ||
                     (u.AssignedStorageLocationId.HasValue && matchingLocationIds.Contains(u.AssignedStorageLocationId.Value)));
             }
 
@@ -116,6 +119,9 @@ namespace InvenTrack.Controllers
                     UserId = u.Id,
                     Email = u.Email ?? "-",
                     UserName = u.UserName ?? "-",
+                    FullName = string.IsNullOrWhiteSpace(u.FullName) ? (u.UserName ?? "-") : u.FullName,
+                    JobTitle = string.IsNullOrWhiteSpace(u.JobTitle) ? "-" : u.JobTitle,
+                    Department = string.IsNullOrWhiteSpace(u.Department) ? "-" : u.Department,
                     Role = role,
                     AssignedLocationName = locationName,
                     IsLockedOut = isLockedOut,
@@ -151,6 +157,9 @@ namespace InvenTrack.Controllers
 
             vm.Email = (vm.Email ?? string.Empty).Trim();
             vm.UserName = (vm.UserName ?? string.Empty).Trim();
+            vm.FullName = (vm.FullName ?? string.Empty).Trim();
+            vm.JobTitle = (vm.JobTitle ?? string.Empty).Trim();
+            vm.Department = (vm.Department ?? string.Empty).Trim();
             vm.SelectedRole = NormalizeRole(vm.SelectedRole);
 
             await ValidateRoleAndLocationAsync(vm.SelectedRole, vm.AssignedStorageLocationId);
@@ -182,6 +191,9 @@ namespace InvenTrack.Controllers
                 Email = vm.Email,
                 UserName = vm.UserName,
                 EmailConfirmed = true,
+                FullName = vm.FullName,
+                JobTitle = string.IsNullOrWhiteSpace(vm.JobTitle) ? null : vm.JobTitle,
+                Department = string.IsNullOrWhiteSpace(vm.Department) ? null : vm.Department,
                 AssignedStorageLocationId = vm.AssignedStorageLocationId
             };
 
@@ -237,8 +249,11 @@ namespace InvenTrack.Controllers
 <p>Hello {HtmlEncoder.Default.Encode(user.UserName ?? user.Email ?? "")},</p>
 <p>An administrator created your InvenTrack account.</p>
 <p>
+<strong>Full name:</strong> {HtmlEncoder.Default.Encode(user.FullName ?? "-")}<br />
 <strong>Username:</strong> {HtmlEncoder.Default.Encode(user.UserName ?? "-")}<br />
 <strong>Role:</strong> {HtmlEncoder.Default.Encode(GetRoleDisplayName(vm.SelectedRole))}<br />
+<strong>Title:</strong> {HtmlEncoder.Default.Encode(user.JobTitle ?? "-")}<br />
+<strong>Department:</strong> {HtmlEncoder.Default.Encode(user.Department ?? "-")}<br />
 <strong>Assigned location:</strong> {HtmlEncoder.Default.Encode(locationName)}<br />
 <strong>Temporary password:</strong> {HtmlEncoder.Default.Encode(temporaryPassword)}
 </p>
@@ -343,6 +358,9 @@ namespace InvenTrack.Controllers
                 UserId = user.Id,
                 Email = user.Email ?? "-",
                 UserName = user.UserName ?? "-",
+                FullName = user.FullName ?? string.Empty,
+                JobTitle = user.JobTitle ?? string.Empty,
+                Department = user.Department ?? string.Empty,
                 CurrentRole = current,
                 SelectedRole = current == "None" ? AppRoles.Employee : current,
                 AssignedStorageLocationId = user.AssignedStorageLocationId,
@@ -371,6 +389,9 @@ namespace InvenTrack.Controllers
 
             vm.Email = user.Email ?? "-";
             vm.UserName = user.UserName ?? "-";
+            vm.FullName = string.IsNullOrWhiteSpace(vm.FullName) ? (user.FullName ?? string.Empty) : vm.FullName.Trim();
+            vm.JobTitle = (vm.JobTitle ?? string.Empty).Trim();
+            vm.Department = (vm.Department ?? string.Empty).Trim();
 
             if (user.AssignedStorageLocationId.HasValue)
             {
@@ -399,6 +420,9 @@ namespace InvenTrack.Controllers
                 return View(vm);
             }
 
+            user.FullName = vm.FullName;
+            user.JobTitle = string.IsNullOrWhiteSpace(vm.JobTitle) ? null : vm.JobTitle;
+            user.Department = string.IsNullOrWhiteSpace(vm.Department) ? null : vm.Department;
             user.AssignedStorageLocationId = vm.AssignedStorageLocationId;
 
             var existing = await _userManager.GetRolesAsync(user);
@@ -442,7 +466,10 @@ namespace InvenTrack.Controllers
             {
                 UserId = user.Id,
                 Email = user.Email ?? "-",
-                UserName = user.UserName ?? "-"
+                UserName = user.UserName ?? "-",
+                FullName = user.FullName ?? string.Empty,
+                JobTitle = user.JobTitle ?? string.Empty,
+                Department = user.Department ?? string.Empty
             };
 
             return View(vm);
@@ -460,6 +487,9 @@ namespace InvenTrack.Controllers
 
             vm.Email = user.Email ?? "-";
             vm.UserName = user.UserName ?? "-";
+            vm.FullName = string.IsNullOrWhiteSpace(vm.FullName) ? (user.FullName ?? string.Empty) : vm.FullName.Trim();
+            vm.JobTitle = string.IsNullOrWhiteSpace(vm.JobTitle) ? (user.JobTitle ?? string.Empty) : vm.JobTitle.Trim();
+            vm.Department = string.IsNullOrWhiteSpace(vm.Department) ? (user.Department ?? string.Empty) : vm.Department.Trim();
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var res = await _userManager.ResetPasswordAsync(user, token, vm.NewPassword);
@@ -488,6 +518,9 @@ namespace InvenTrack.Controllers
                 UserId = user.Id,
                 Email = user.Email ?? "-",
                 UserName = user.UserName ?? "-",
+                FullName = user.FullName ?? string.Empty,
+                JobTitle = user.JobTitle ?? string.Empty,
+                Department = user.Department ?? string.Empty,
                 IsLockedOut = isLockedOut,
                 LockoutEnd = user.LockoutEnd,
                 Minutes = 60
@@ -508,6 +541,9 @@ namespace InvenTrack.Controllers
 
             vm.Email = user.Email ?? "-";
             vm.UserName = user.UserName ?? "-";
+            vm.FullName = string.IsNullOrWhiteSpace(vm.FullName) ? (user.FullName ?? string.Empty) : vm.FullName.Trim();
+            vm.JobTitle = string.IsNullOrWhiteSpace(vm.JobTitle) ? (user.JobTitle ?? string.Empty) : vm.JobTitle.Trim();
+            vm.Department = string.IsNullOrWhiteSpace(vm.Department) ? (user.Department ?? string.Empty) : vm.Department.Trim();
 
             if (!ModelState.IsValid)
             {
@@ -528,11 +564,13 @@ namespace InvenTrack.Controllers
 
             if (!res.Succeeded)
             {
-                ModelState.AddModelError(string.Empty, "Unable to set lockout end date.");
+                ModelState.AddModelError(string.Empty, "Unable to lock the user.");
+                vm.IsLockedOut = user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd.Value > DateTimeOffset.UtcNow;
+                vm.LockoutEnd = user.LockoutEnd;
                 return View(vm);
             }
 
-            TempData["RoleMsg"] = $"Locked {user.Email ?? user.UserName} until {until:yyyy-MM-dd HH:mm} UTC.";
+            TempData["RoleMsg"] = $"Locked {user.Email ?? user.UserName} until {until.LocalDateTime:yyyy-MM-dd HH:mm}.";
             return RedirectToAction(nameof(Index));
         }
 

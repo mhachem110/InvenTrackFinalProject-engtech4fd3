@@ -242,7 +242,7 @@ namespace InvenTrack.Controllers
                     {
                         conversationId = vm.ConversationId,
                         conversationName,
-                        senderDisplayName = currentUser.UserName ?? currentUser.Email ?? "Unknown",
+                        senderDisplayName = UserDisplayHelper.GetDisplayName(currentUser),
                         preview = $"You were added to '{conversationName}'.",
                         dateSent = DateTime.UtcNow.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
                         isSystemMessage = true
@@ -275,7 +275,7 @@ namespace InvenTrack.Controllers
                 {
                     conversationId,
                     conversationName,
-                    senderDisplayName = currentUser.UserName ?? currentUser.Email ?? "Unknown",
+                    senderDisplayName = UserDisplayHelper.GetDisplayName(currentUser),
                     preview = $"You were removed from '{conversationName}'.",
                     dateSent = DateTime.UtcNow.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
                     isSystemMessage = true

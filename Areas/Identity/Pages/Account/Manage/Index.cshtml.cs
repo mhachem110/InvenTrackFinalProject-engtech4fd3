@@ -1,15 +1,12 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
 #nullable disable
 
-using System;
 using System.ComponentModel.DataAnnotations;
-using System.Text.Encodings.Web;
-using System.Threading.Tasks;
+using InvenTrack.Data;
 using InvenTrack.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace InvenTrackFinalProject.Areas.Identity.Pages.Account.Manage
 {
@@ -17,45 +14,41 @@ namespace InvenTrackFinalProject.Areas.Identity.Pages.Account.Manage
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly InvenTrackContext _db;
 
         public IndexModel(
             UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager)
+            SignInManager<ApplicationUser> signInManager,
+            InvenTrackContext db)
         {
             _userManager = userManager;
             _signInManager = signInManager;
+            _db = db;
         }
 
-        /// <summary>
-        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         public string Username { get; set; }
+        public string AssignedLocationName { get; set; } = "All Locations";
 
-        /// <summary>
-        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         [TempData]
         public string StatusMessage { get; set; }
 
-        /// <summary>
-        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         [BindProperty]
         public InputModel Input { get; set; }
 
-        /// <summary>
-        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         public class InputModel
         {
-            /// <summary>
-            ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-            ///     directly from your code. This API may change or be removed in future releases.
-            /// </summary>
+            [Display(Name = "Full name")]
+            [Required]
+            [StringLength(120)]
+            public string FullName { get; set; }
+
+            [Display(Name = "Job title")]
+            [StringLength(120)]
+            public string JobTitle { get; set; }
+
+            [StringLength(120)]
+            public string Department { get; set; }
+
             [Phone]
             [Display(Name = "Phone number")]
             public string PhoneNumber { get; set; }
@@ -63,13 +56,22 @@ namespace InvenTrackFinalProject.Areas.Identity.Pages.Account.Manage
 
         private async Task LoadAsync(ApplicationUser user)
         {
-            var userName = await _userManager.GetUserNameAsync(user);
+            Username = await _userManager.GetUserNameAsync(user);
             var phoneNumber = await _userManager.GetPhoneNumberAsync(user);
 
-            Username = userName;
+            AssignedLocationName = user.AssignedStorageLocationId.HasValue
+                ? await _db.StorageLocations
+                    .AsNoTracking()
+                    .Where(x => x.ID == user.AssignedStorageLocationId.Value)
+                    .Select(x => x.Name)
+                    .FirstOrDefaultAsync() ?? "Assigned location"
+                : "All Locations";
 
             Input = new InputModel
             {
+                FullName = user.FullName,
+                JobTitle = user.JobTitle,
+                Department = user.Department,
                 PhoneNumber = phoneNumber
             };
         }
@@ -78,9 +80,7 @@ namespace InvenTrackFinalProject.Areas.Identity.Pages.Account.Manage
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
-            {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
-            }
 
             await LoadAsync(user);
             return Page();
@@ -90,9 +90,7 @@ namespace InvenTrackFinalProject.Areas.Identity.Pages.Account.Manage
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
-            {
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
-            }
 
             if (!ModelState.IsValid)
             {
@@ -109,6 +107,17 @@ namespace InvenTrackFinalProject.Areas.Identity.Pages.Account.Manage
                     StatusMessage = "Unexpected error when trying to set phone number.";
                     return RedirectToPage();
                 }
+            }
+
+            user.FullName = (Input.FullName ?? string.Empty).Trim();
+            user.JobTitle = string.IsNullOrWhiteSpace(Input.JobTitle) ? null : Input.JobTitle.Trim();
+            user.Department = string.IsNullOrWhiteSpace(Input.Department) ? null : Input.Department.Trim();
+
+            var updateResult = await _userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+            {
+                StatusMessage = "Unexpected error when trying to update your profile.";
+                return RedirectToPage();
             }
 
             await _signInManager.RefreshSignInAsync(user);

@@ -15,6 +15,7 @@
         .ToList();
 
     var aiPrediction = ViewData["AiPrediction"] as InventoryAiPredictionVM;
+    var reorderVm = ViewData["ReorderVm"] as InvenTrack.ViewModels.Orders.ReorderRequestCreateVM;
 
     bool isAdmin = User.IsInRole(AppRoles.Admin);
     bool isRegionalManager = User.IsInRole(AppRoles.RegionalManager);
@@ -27,8 +28,9 @@
 
     bool canCreateTransactions = isAdmin || isRegionalManager || isManager || isSupervisor;
     bool canRequestTransfers = isAdmin || isRegionalManager || isManager || isSupervisor || isEmployee;
+    bool canRequestOrders = isAdmin || isRegionalManager || isManager || isSupervisor || isEmployee;
+    bool canApproveOrders = isAdmin || isRegionalManager || isManager;
 
-    // ✅ Only show Request Transfer when user cannot do direct transactions
     bool showRequestTransfer = canRequestTransfers && !canCreateTransactions;
 
     string? imgSrc = null;
@@ -73,17 +75,21 @@
 
         @if (showRequestTransfer)
         {
-            <a asp-controller="StockTransferRequests"
-               asp-action="Create"
-               asp-route-inventoryItemId="@Model.ID"
-               class="btn btn-outline-dark">
-                Request Transfer
-            </a>
+            <a asp-controller="StockTransferRequests" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-outline-dark">Request Transfer</a>
+        }
+        @if (canRequestOrders)
+        {
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#reorderModal">@(canApproveOrders ? "Restock" : "Request Restock")</button>
         }
 
         <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
     </div>
 </div>
+
+@if (TempData["OrderMsg"] != null)
+{
+    <div class="alert alert-info">@TempData["OrderMsg"]</div>
+}
 
 <div class="row g-3 g-lg-4">
     <!-- Left: Photo + basics -->
@@ -627,4 +633,48 @@
 
 })();
 </script>
+}
+
+@if (canRequestOrders && reorderVm != null)
+{
+    <div class="modal fade" id="reorderModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <form asp-controller="OrderRequests" asp-action="Create" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="modal-header border-0 pb-0">
+                        <div>
+                            <h5 class="modal-title mb-1">@reorderVm.RequestModeLabel</h5>
+                            <div class="text-muted small">AI-assisted reorder suggestion for @reorderVm.ItemName.</div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="InventoryItemID" value="@reorderVm.InventoryItemID" />
+                        <input type="hidden" name="CurrentVisibleQuantity" value="@reorderVm.CurrentVisibleQuantity" />
+                        <input type="hidden" name="SuggestedQuantity" value="@reorderVm.SuggestedQuantity" />
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-3"><div class="it-mini h-100"><div class="it-mini-title">Current Qty</div><div class="fw-bold fs-3">@reorderVm.CurrentVisibleQuantity</div></div></div>
+                            <div class="col-md-3"><div class="it-mini h-100"><div class="it-mini-title">Reorder Level</div><div class="fw-bold fs-3">@reorderVm.ReorderLevel</div></div></div>
+                            <div class="col-md-3"><div class="it-mini h-100"><div class="it-mini-title">Suggested Qty</div><div class="fw-bold fs-3">@reorderVm.SuggestedQuantity</div><div class="small text-muted">@reorderVm.SuggestedByLabel</div></div></div>
+                            <div class="col-md-3"><div class="it-mini h-100"><div class="it-mini-title">Confidence</div><div class="fw-bold fs-5">@reorderVm.AiConfidenceLabel</div></div></div>
+                        </div>
+                        <div class="alert alert-primary-subtle border text-primary-emphasis">@reorderVm.AiInsightSummary</div>
+                        <div class="row g-3">
+                            <div class="col-md-6"><label class="form-label">Item</label><input class="form-control" value="@reorderVm.ItemName" readonly /></div>
+                            <div class="col-md-6"><label class="form-label">SKU</label><input class="form-control" value="@reorderVm.SKU" readonly /></div>
+                            <div class="col-md-4"><label class="form-label">Quantity to Order</label><input class="form-control" type="number" name="RequestedQuantity" min="1" value="@reorderVm.SuggestedQuantity" required /></div>
+                            <div class="col-md-8"><label class="form-label">Add stock to location</label><select class="form-select" name="DestinationStorageLocationID" required>@foreach (var l in reorderVm.AvailableLocations){<option value="@l.ID" selected="@(l.ID == reorderVm.DestinationStorageLocationID)">@l.Name (@l.QuantityOnHand on hand)</option>}</select><div class="text-muted small mt-1">@reorderVm.DestinationHint</div></div>
+                            <div class="col-12"><label class="form-label">Locations included in this order</label><select class="form-select" name="RelatedLocationIds" multiple size="5">@foreach (var l in reorderVm.AvailableLocations){<option value="@l.ID" selected="@(reorderVm.RelatedLocationIds.Contains(l.ID))">@l.Name (@l.QuantityOnHand on hand)</option>}</select></div>
+                            <div class="col-12"><label class="form-label">Notes</label><textarea class="form-control" name="Notes" rows="3" placeholder="Supplier, urgency, reason, or purchase details"></textarea></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">@(canApproveOrders ? "Complete Restock" : "Submit Request")</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 }

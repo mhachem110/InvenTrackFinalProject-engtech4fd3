@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model IndexModel
 @{
     ViewData["Title"] = "Profile";
@@ -11,7 +11,7 @@
             <div class="it-page-dot"></div>
             <h1 class="h3 mb-0 fw-bold">Profile</h1>
         </div>
-        <div class="text-muted small">Update your account details.</div>
+        <div class="text-muted small">Keep your visible profile aligned with how you appear across orders, chats, and approvals.</div>
     </div>
 </div>
 
@@ -23,7 +23,7 @@
             <div class="it-panel-header">
                 <div>
                     <div class="fw-bold">Account</div>
-                    <div class="text-muted small">Manage your profile settings.</div>
+                    <div class="text-muted small">Identity settings and navigation.</div>
                 </div>
             </div>
             <div class="it-panel-body p-0">
@@ -33,41 +33,51 @@
     </div>
 
     <div class="col-12 col-lg-8">
-        <div class="it-panel">
+        <div class="it-panel mb-3">
             <div class="it-panel-header">
                 <div>
                     <div class="fw-bold">Profile details</div>
-                    <div class="text-muted small">Username is fixed. Phone number is optional.</div>
+                    <div class="text-muted small">These values show throughout the app.</div>
                 </div>
             </div>
-
             <div class="it-panel-body">
                 <form id="profile-form" method="post">
                     <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
 
                     <div class="row g-3">
-                        <div class="col-12">
+                        <div class="col-md-6">
                             <label asp-for="Username" class="form-label"></label>
                             <input asp-for="Username" class="form-control" disabled />
                         </div>
-
+                        <div class="col-md-6">
+                            <label class="form-label">Assigned location</label>
+                            <input class="form-control" value="@Model.AssignedLocationName" disabled />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Input.FullName" class="form-label"></label>
+                            <input asp-for="Input.FullName" class="form-control" />
+                            <span asp-validation-for="Input.FullName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="Input.JobTitle" class="form-label"></label>
+                            <input asp-for="Input.JobTitle" class="form-control" />
+                            <span asp-validation-for="Input.JobTitle" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="Input.Department" class="form-label"></label>
+                            <input asp-for="Input.Department" class="form-control" />
+                            <span asp-validation-for="Input.Department" class="text-danger small"></span>
+                        </div>
                         <div class="col-12">
                             <label asp-for="Input.PhoneNumber" class="form-label"></label>
                             <input asp-for="Input.PhoneNumber" class="form-control" placeholder="Optional" />
                             <span asp-validation-for="Input.PhoneNumber" class="text-danger small"></span>
                         </div>
-
                         <div class="col-12">
-                            <button id="update-profile-button" type="submit" class="btn btn-primary w-100">
-                                Save changes
-                            </button>
+                            <button id="update-profile-button" type="submit" class="btn btn-primary w-100">Save changes</button>
                         </div>
                     </div>
                 </form>
-
-                <div class="it-hint mt-3">
-                    Tip: Keep your email verified to receive alerts and confirmations.
-                </div>
             </div>
         </div>
     </div>

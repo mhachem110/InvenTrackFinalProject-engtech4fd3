@@ -47,6 +47,8 @@ builder.Services
     .AddDefaultTokenProviders()
     .AddDefaultUI();
 
+builder.Services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, AppUserClaimsPrincipalFactory>();
+
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddRazorPages(options =>
@@ -76,9 +78,11 @@ builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<AppAccessService>();
 builder.Services.AddScoped<InventoryAiService>();
 builder.Services.AddScoped<ChatService>();
+builder.Services.AddScoped<OrderService>();
 
 builder.Services.AddSignalR();
 builder.Services.AddScoped<TransferRequestNotificationService>();
+builder.Services.AddScoped<OrderRequestNotificationService>();
 
 builder.Services.Configure<SendGridSettings>(builder.Configuration.GetSection("SendGrid"));
 builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
@@ -119,4 +123,5 @@ await IdentitySeeder.SeedAsync(app.Services);
 
 app.MapHub<TransferRequestHub>("/hubs/transfer-requests");
 app.MapHub<ChatHub>("/hubs/chat");
+app.MapHub<OrderRequestHub>("/hubs/order-requests");
 app.Run();

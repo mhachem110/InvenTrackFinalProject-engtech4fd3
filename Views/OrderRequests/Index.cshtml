@@ -1,0 +1,88 @@
+@model InvenTrack.ViewModels.Orders.OrderRequestIndexVM
+@using InvenTrack.Models
+@{ ViewData["Title"] = "Restock Orders"; }
+
+<div class="it-pagehead mb-3">
+    <div>
+        <h1 class="h3 mb-0 fw-bold">Restock Orders</h1>
+        <div class="text-muted small">Approval queue and audit log for reorder activity.</div>
+    </div>
+</div>
+
+@if (TempData["OrderMsg"] != null)
+{
+    <div class="alert alert-info">@TempData["OrderMsg"]</div>
+}
+
+<form method="get" class="it-panel mb-3">
+    <div class="it-panel-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5"><label class="form-label">Search</label><input name="search" value="@Model.Search" class="form-control" placeholder="Item, SKU, requester, approver, or location" /></div>
+            <div class="col-md-3"><label class="form-label">Status</label><select name="status" class="form-select"><option value="">All</option><option value="Pending" selected="@(Model.StatusFilter == "Pending")">Pending</option><option value="Completed" selected="@(Model.StatusFilter == "Completed")">Completed</option><option value="Rejected" selected="@(Model.StatusFilter == "Rejected")">Rejected</option></select></div>
+            <div class="col-md-4 d-flex gap-2"><button class="btn btn-primary" type="submit">Filter</button><a asp-action="Index" class="btn btn-outline-secondary">Reset</a><span class="badge bg-warning text-dark align-self-center">Pending: @Model.PendingCount</span></div>
+        </div>
+    </div>
+</form>
+
+<div class="it-panel">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 it-table">
+            <thead>
+                <tr>
+                    <th>Order</th>
+                    <th>Destination</th>
+                    <th>Requester</th>
+                    <th>Review</th>
+                    <th>Dates</th>
+                    <th>Notes</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Rows.Any())
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4">No restock orders found.</td></tr>
+                }
+                else
+                {
+                    foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">#@row.ID · @row.ItemName</div>
+                                <div class="text-muted small">@row.SKU</div>
+                                <div class="small mt-1">Current <strong>@row.CurrentVisibleQuantity</strong> · Suggested <strong>@row.SuggestedQuantity</strong> · Requested <strong>@row.RequestedQuantity</strong></div>
+                            </td>
+                            <td>
+                                <div>@row.DestinationLocation</div>
+                                <div class="text-muted small">@(string.IsNullOrWhiteSpace(row.RelatedLocations) ? "—" : row.RelatedLocations)</div>
+                            </td>
+                            <td>
+                                <div>@row.RequestedByName</div>
+                                <div class="text-muted small">@row.DateRequested.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
+                            </td>
+                            <td>
+                                <span class="badge @(row.Status == OrderRequestStatus.Pending ? "text-bg-warning" : row.Status == OrderRequestStatus.Completed ? "text-bg-success" : "text-bg-secondary")">@row.Status</span>
+                                <div class="text-muted small mt-1">@(row.ReviewedByName ?? "—")</div>
+                                <div class="text-muted small">@(row.ReviewDecision ?? "No action")</div>
+                            </td>
+                            <td>
+                                <div>Requested: @row.DateRequested.ToLocalTime().ToString("yyyy-MM-dd")</div>
+                                <div>Reviewed: @(row.DateReviewed.HasValue ? row.DateReviewed.Value.ToLocalTime().ToString("yyyy-MM-dd") : "—")</div>
+                                <div>Fulfilled: @(row.DateFulfilled.HasValue ? row.DateFulfilled.Value.ToLocalTime().ToString("yyyy-MM-dd") : "—")</div>
+                            </td>
+                            <td class="small">@(!string.IsNullOrWhiteSpace(row.Notes) ? row.Notes : "—")</td>
+                            <td>
+                                @if (row.CanApprove)
+                                {
+                                    <form asp-action="Approve" method="post" class="mb-1">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@row.ID" /><button class="btn btn-sm btn-success w-100">Approve</button></form>
+                                    <form asp-action="Reject" method="post">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@row.ID" /><button class="btn btn-sm btn-outline-danger w-100">Reject</button></form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

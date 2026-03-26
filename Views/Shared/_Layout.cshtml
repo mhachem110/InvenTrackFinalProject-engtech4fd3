@@ -19,6 +19,7 @@
     bool canSeeUserAdmin = isAdmin;
     bool canSeeReports = signedIn;
     bool canUseChat = signedIn;
+    bool canUseOrders = signedIn;
 
     string roleLabel =
         isAdmin ? "Admin" :
@@ -28,6 +29,8 @@
         isEmployee ? "Employee" : "User";
 
     var assignedLocationName = User.FindFirst("AssignedLocationName")?.Value ?? "";
+    var displayName = User.FindFirst("DisplayName")?.Value ?? User.Identity?.Name ?? "User";
+    var titleName = User.FindFirst("JobTitle")?.Value ?? "";
     var isScopedUser = isManager || isSupervisor || isEmployee;
     var scopeLabel = isScopedUser
         ? (string.IsNullOrWhiteSpace(assignedLocationName) ? "Assigned location" : assignedLocationName)
@@ -119,12 +122,22 @@
                                title="Transfer request notifications">
                                 🔔
                                 <span id="transferRequestsBadgeTopMobile"
-                                      class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
-                                    0
-                                </span>
+                                      class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
                             </a>
                         }
-                        @if (!canUseChat && !canUseTransferRequests)
+                        @if (canUseOrders)
+                        {
+                            <a id="topOrderButtonMobile"
+                               class="btn btn-outline-secondary it-icon-btn position-relative"
+                               asp-controller="OrderRequests"
+                               asp-action="Index"
+                               title="Restock order notifications">
+                                🛒
+                                <span id="orderRequestsBadgeTopMobile"
+                                      class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark d-none">0</span>
+                            </a>
+                        }
+                        @if (!canUseChat && !canUseTransferRequests && !canUseOrders)
                         {
                             <div style="width:40px;"></div>
                         }
@@ -162,16 +175,17 @@
 
                             @if (canUseTransferRequests)
                             {
-                                <a class="it-nav-link @(IsActive("StockTransferRequests") ? "active" : "") d-flex justify-content-between align-items-center"
-                                   asp-controller="StockTransferRequests"
-                                   asp-action="Index">
-                                    <span class="d-inline-flex align-items-center gap-2">
-                                        <span class="it-nav-ico">🔁</span> Transfer Requests
-                                    </span>
-                                    <span id="transferRequestsBadgeDesktop"
-                                          class="badge bg-danger-subtle text-danger border it-badge d-none">
-                                        0
-                                    </span>
+                                <a class="it-nav-link @(IsActive("StockTransferRequests") ? "active" : "") d-flex justify-content-between align-items-center" asp-controller="StockTransferRequests" asp-action="Index">
+                                    <span class="d-inline-flex align-items-center gap-2"><span class="it-nav-ico">🔁</span> Transfer Requests</span>
+                                    <span id="transferRequestsBadgeDesktop" class="badge bg-danger-subtle text-danger border it-badge d-none">0</span>
+                                </a>
+                            }
+
+                            @if (canUseOrders)
+                            {
+                                <a class="it-nav-link @(IsActive("OrderRequests") ? "active" : "") d-flex justify-content-between align-items-center" asp-controller="OrderRequests" asp-action="Index">
+                                    <span class="d-inline-flex align-items-center gap-2"><span class="it-nav-ico">🛒</span> Restock Orders</span>
+                                    <span id="orderRequestsBadgeDesktop" class="badge bg-warning-subtle text-warning-emphasis border it-badge d-none">0</span>
                                 </a>
                             }
 
@@ -179,16 +193,6 @@
                             {
                                 <a class="it-nav-link @(IsActive("Reports") ? "active" : "")" asp-controller="Reports" asp-action="Index">
                                     <span class="it-nav-ico">📊</span> Reports
-                                </a>
-                            }
-
-                            @if (canUseChat)
-                            {
-                                <a class="it-nav-link @(IsActive("Chats") ? "active" : "") d-flex justify-content-between align-items-center" asp-controller="Chats" asp-action="Index">
-                                    <span class="d-inline-flex align-items-center gap-2">
-                                        <span class="it-nav-ico">💬</span> Chat
-                                    </span>
-                                    <span id="chatBadgeDesktop" class="badge bg-primary-subtle text-primary border it-badge d-none">0</span>
                                 </a>
                             }
 
@@ -237,7 +241,7 @@
 
                             <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
                                 <span class="badge bg-light text-dark border it-badge">
-                                    @roleLabel • @scopeLabel
+                                    @displayName@if (!string.IsNullOrWhiteSpace(titleName)) { <text> • @titleName</text> } • @scopeLabel
                                 </span>
 
                                 @if (canUseChat)
@@ -256,17 +260,15 @@
 
                                 @if (canUseTransferRequests)
                                 {
-                                    <a id="topTransferButtonDesktop"
-                                       class="btn btn-sm btn-outline-secondary position-relative"
-                                       asp-controller="StockTransferRequests"
-                                       asp-action="Index"
-                                       title="Transfer request notifications">
-                                        <span class="me-1">🔔</span>
-                                        <span class="d-none d-md-inline">Notifications</span>
-                                        <span id="transferRequestsBadgeTopDesktop"
-                                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
-                                            0
-                                        </span>
+                                    <a id="topTransferButtonDesktop" class="btn btn-sm btn-outline-secondary position-relative" asp-controller="StockTransferRequests" asp-action="Index" title="Transfer request notifications">
+                                        <span class="me-1">🔔</span><span class="d-none d-md-inline">Transfers</span><span id="transferRequestsBadgeTopDesktop" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
+                                    </a>
+                                }
+
+                                @if (canUseOrders)
+                                {
+                                    <a id="topOrderButtonDesktop" class="btn btn-sm btn-outline-secondary position-relative" asp-controller="OrderRequests" asp-action="Index" title="Restock order notifications">
+                                        <span class="me-1">🛒</span><span class="d-none d-md-inline">Orders</span><span id="orderRequestsBadgeTopDesktop" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark d-none">0</span>
                                     </a>
                                 }
 
@@ -330,16 +332,17 @@
 
                     @if (canUseTransferRequests)
                     {
-                        <a class="it-nav-link @(IsActive("StockTransferRequests") ? "active" : "") d-flex justify-content-between align-items-center"
-                           asp-controller="StockTransferRequests"
-                           asp-action="Index">
-                            <span class="d-inline-flex align-items-center gap-2">
-                                <span class="it-nav-ico">🔁</span> Transfer Requests
-                            </span>
-                            <span id="transferRequestsBadgeMobile"
-                                  class="badge bg-danger-subtle text-danger border it-badge d-none">
-                                0
-                            </span>
+                        <a class="it-nav-link @(IsActive("StockTransferRequests") ? "active" : "") d-flex justify-content-between align-items-center" asp-controller="StockTransferRequests" asp-action="Index">
+                            <span class="d-inline-flex align-items-center gap-2"><span class="it-nav-ico">🔁</span> Transfer Requests</span>
+                            <span id="transferRequestsBadgeMobile" class="badge bg-danger-subtle text-danger border it-badge d-none">0</span>
+                        </a>
+                    }
+
+                    @if (canUseOrders)
+                    {
+                        <a class="it-nav-link @(IsActive("OrderRequests") ? "active" : "") d-flex justify-content-between align-items-center" asp-controller="OrderRequests" asp-action="Index">
+                            <span class="d-inline-flex align-items-center gap-2"><span class="it-nav-ico">🛒</span> Restock Orders</span>
+                            <span id="orderRequestsBadgeMobile" class="badge bg-warning-subtle text-warning-emphasis border it-badge d-none">0</span>
                         </a>
                     }
 
@@ -347,16 +350,6 @@
                     {
                         <a class="it-nav-link @(IsActive("Reports") ? "active" : "")" asp-controller="Reports" asp-action="Index">
                             <span class="it-nav-ico">📊</span> Reports
-                        </a>
-                    }
-
-                    @if (canUseChat)
-                    {
-                        <a class="it-nav-link @(IsActive("Chats") ? "active" : "") d-flex justify-content-between align-items-center" asp-controller="Chats" asp-action="Index">
-                            <span class="d-inline-flex align-items-center gap-2">
-                                <span class="it-nav-ico">💬</span> Chat
-                            </span>
-                            <span id="chatBadgeMobile" class="badge bg-primary-subtle text-primary border it-badge d-none">0</span>
                         </a>
                     }
 
@@ -403,6 +396,8 @@
     {
         <script>
             (function () {
+                const orderBadgeIds = ['orderRequestsBadgeDesktop','orderRequestsBadgeMobile','orderRequestsBadgeTopDesktop','orderRequestsBadgeTopMobile'];
+
                 const transferBadgeIds = [
                     'transferRequestsBadgeDesktop',
                     'transferRequestsBadgeMobile',
@@ -522,6 +517,16 @@
                     }
                 }
 
+                async function refreshOrderBadge() {
+                    if (!@canUseOrders.ToString().ToLowerInvariant()) return;
+                    try {
+                        const response = await fetch('/OrderRequests/BadgeCount', { method: 'GET', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                        if (!response.ok) return;
+                        const data = await response.json();
+                        setBadgeCount(orderBadgeIds, data.count || 0);
+                    } catch { }
+                }
+
                 async function refreshChatBadge() {
                     if (!@canUseChat.ToString().ToLowerInvariant()) return;
                     try {
@@ -567,6 +572,7 @@
 
                 async function startNotifications() {
                     await refreshTransferBadge();
+                    await refreshOrderBadge();
                     await refreshChatBadge();
 
                     if (typeof signalR === 'undefined') return;
@@ -621,6 +627,7 @@
 
                     chatConnection.onreconnected(async function () {
                         await refreshTransferBadge();
+                        await refreshOrderBadge();
                         await refreshChatBadge();
                         if (window.invenTrackChat?.activeConversationId) {
                             try {
@@ -636,6 +643,13 @@
                             await chatConnection.invoke('JoinConversationGroup', String(window.invenTrackChat.activeConversationId));
                         }
                     } catch {
+                    }
+
+                    if (@canUseOrders.ToString().ToLowerInvariant()) {
+                        const orderConnection = new signalR.HubConnectionBuilder().withUrl('/hubs/order-requests').withAutomaticReconnect().build();
+                        orderConnection.on('OrderRequestsChanged', function (payload) { refreshOrderBadge(); if (payload && payload.message) { showToast('Restock Orders', payload.message); } });
+                        orderConnection.onreconnected(function () { refreshOrderBadge(); });
+                        try { await orderConnection.start(); } catch { }
                     }
 
                     if (@canUseTransferRequests.ToString().ToLowerInvariant()) {

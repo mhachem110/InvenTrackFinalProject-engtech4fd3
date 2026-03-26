@@ -173,7 +173,7 @@ namespace InvenTrack.Controllers
                 Notes = vm.Notes,
                 Status = TransferRequestStatus.Pending,
                 RequestedByUserId = currentUser.Id,
-                RequestedByName = currentUser.UserName ?? currentUser.Email ?? "Unknown",
+                RequestedByName = UserDisplayHelper.GetDisplayName(currentUser),
                 DateRequested = DateTime.UtcNow
             };
 
@@ -229,7 +229,7 @@ namespace InvenTrack.Controllers
                 fromLocationId: request.FromStorageLocationID,
                 toLocationId: request.ToStorageLocationID,
                 notes: $"Approved transfer request #{request.ID}. {request.Notes}",
-                performedBy: currentUser.UserName ?? currentUser.Email ?? "Unknown");
+                performedBy: UserDisplayHelper.GetDisplayName(currentUser));
 
             if (!ok)
             {
@@ -239,7 +239,7 @@ namespace InvenTrack.Controllers
 
             request.Status = TransferRequestStatus.Approved;
             request.ReviewedByUserId = currentUser.Id;
-            request.ReviewedByName = currentUser.UserName ?? currentUser.Email ?? "Unknown";
+            request.ReviewedByName = UserDisplayHelper.GetDisplayName(currentUser);
             request.DateReviewed = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -282,7 +282,7 @@ namespace InvenTrack.Controllers
 
             request.Status = TransferRequestStatus.Rejected;
             request.ReviewedByUserId = currentUser.Id;
-            request.ReviewedByName = currentUser.UserName ?? currentUser.Email ?? "Unknown";
+            request.ReviewedByName = UserDisplayHelper.GetDisplayName(currentUser);
             request.DateReviewed = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();

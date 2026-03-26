@@ -1,0 +1,43 @@
+@model InvenTrack.ViewModels.Orders.ReorderRequestCreateVM
+@{
+    ViewData["Title"] = Model.RequestModeLabel;
+}
+<div class="it-pagehead mb-3">
+    <div>
+        <h1 class="h3 mb-0 fw-bold">@Model.RequestModeLabel</h1>
+        <div class="text-muted small">AI-assisted reorder workflow for @Model.ItemName.</div>
+    </div>
+    <div>
+        <a asp-controller="InventoryItems" asp-action="Details" asp-route-id="@Model.InventoryItemID" class="btn btn-outline-secondary">Back</a>
+    </div>
+</div>
+
+<form method="post" class="it-panel">
+    @Html.AntiForgeryToken()
+    <div class="it-panel-body">
+        <input type="hidden" asp-for="InventoryItemID" />
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-lg-3 col-md-6"><div class="it-mini h-100"><div class="it-mini-title">Current Quantity</div><div class="fw-bold fs-3">@Model.CurrentVisibleQuantity</div><div class="text-muted small">Visible quantity</div></div></div>
+            <div class="col-lg-3 col-md-6"><div class="it-mini h-100"><div class="it-mini-title">Reorder Level</div><div class="fw-bold fs-3">@Model.ReorderLevel</div><div class="text-muted small">Minimum target</div></div></div>
+            <div class="col-lg-3 col-md-6"><div class="it-mini h-100"><div class="it-mini-title">Suggested Quantity</div><div class="fw-bold fs-3">@Model.SuggestedQuantity</div><div class="text-muted small">@Model.SuggestedByLabel</div></div></div>
+            <div class="col-lg-3 col-md-6"><div class="it-mini h-100"><div class="it-mini-title">AI Confidence</div><div class="fw-bold fs-5">@Model.AiConfidenceLabel</div><div class="text-muted small">Recommendation confidence</div></div></div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6"><label class="form-label">Item</label><input class="form-control" value="@Model.ItemName" readonly /></div>
+            <div class="col-md-6"><label class="form-label">SKU</label><input class="form-control" value="@Model.SKU" readonly /></div>
+            <div class="col-12"><div class="alert alert-primary-subtle border text-primary-emphasis mb-0">@Model.AiInsightSummary</div></div>
+            <div class="col-md-4"><label asp-for="RequestedQuantity" class="form-label"></label><input asp-for="RequestedQuantity" class="form-control" /><span asp-validation-for="RequestedQuantity" class="text-danger"></span></div>
+            <div class="col-md-8"><label asp-for="DestinationStorageLocationID" class="form-label"></label><select asp-for="DestinationStorageLocationID" class="form-select"><option value="">Select location</option>@foreach (var l in Model.AvailableLocations){<option value="@l.ID">@l.Name (@l.QuantityOnHand on hand)</option>}</select><div class="text-muted small mt-1">@Model.DestinationHint</div><span asp-validation-for="DestinationStorageLocationID" class="text-danger"></span></div>
+            <div class="col-12"><label asp-for="RelatedLocationIds" class="form-label"></label><select asp-for="RelatedLocationIds" class="form-select" multiple size="5">@foreach (var l in Model.AvailableLocations){<option value="@l.ID">@l.Name (@l.QuantityOnHand on hand)</option>}</select><div class="text-muted small mt-1">Select the locations that this order should cover.</div></div>
+            <div class="col-12"><label asp-for="Notes" class="form-label"></label><textarea asp-for="Notes" class="form-control" rows="3" placeholder="Optional supplier note, urgency, or reason"></textarea></div>
+        </div>
+    </div>
+    <div class="it-panel-footer d-flex justify-content-end gap-2 p-3">
+        <a asp-controller="InventoryItems" asp-action="Details" asp-route-id="@Model.InventoryItemID" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">@Model.RequestModeLabel</button>
+    </div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

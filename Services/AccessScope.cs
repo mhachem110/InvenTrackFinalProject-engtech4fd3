@@ -24,6 +24,9 @@
         public bool CanCreateDirectTransactions => IsAdmin || IsRegionalManager || IsManager || IsSupervisor;
         public bool CanConfirmTransfers => IsAdmin || IsRegionalManager || IsManager;
         public bool CanRequestTransfers => IsAdmin || IsRegionalManager || IsManager || IsSupervisor || IsEmployee;
+        public bool CanCreateDirectOrders => IsAdmin || IsRegionalManager || IsManager;
+        public bool CanRequestOrders => IsAdmin || IsRegionalManager || IsManager || IsSupervisor || IsEmployee;
+        public bool CanApproveOrders => IsAdmin || IsRegionalManager || IsManager;
 
         public bool IsScopedUser => !HasGlobalLocationAccess;
     }
