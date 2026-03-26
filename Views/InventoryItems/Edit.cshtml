@@ -46,6 +46,12 @@
                             <span asp-validation-for="SKU" class="text-danger small"></span>
                         </div>
 
+                        <div class="col-md-12">
+                            <label class="form-label">Barcode</label>
+                            <input class="form-control" value="Will be generated automatically when the item is saved." readonly />
+                            <div class="form-text">Every item receives a unique barcode for scanning and quick actions.</div>
+                        </div>
+
                         <div class="col-12">
                             <label asp-for="Description" class="form-label"></label>
                             <input asp-for="Description" class="form-control" />
@@ -64,6 +70,12 @@
                                 <option value="0">-- Select Category --</option>
                             </select>
                             <span asp-validation-for="CategoryID" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Barcode</label>
+                            <input class="form-control" value="@Model.Barcode" readonly />
+                            <div class="form-text">Barcode stays stable after creation.</div>
                         </div>
 
                         <div class="col-md-6">
@@ -132,6 +144,10 @@
             </div>
 
             <div class="it-panel mt-3">
+                <div class="it-panel-body text-center border-bottom">
+                    <img src="@Url.Action("BarcodeImage", "InventoryItems", new { id = Model.ID })" class="img-fluid border rounded p-2 bg-white" alt="Barcode for @Model.ItemName" />
+                    <div class="small fw-semibold mt-2">@Model.Barcode</div>
+                </div>
                 <div class="it-panel-body">
                     <div class="fw-semibold mb-1">Need to update stock?</div>
                     <div class="text-muted small mb-3">Use transactions for check in/out, adjustments, and partial transfers.</div>

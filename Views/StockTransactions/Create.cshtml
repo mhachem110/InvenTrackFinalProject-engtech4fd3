@@ -41,6 +41,24 @@
     </div>
 </div>
 
+<div class="it-panel mb-3">
+    <div class="it-panel-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-lg-6">
+                <label class="form-label">Scan barcode</label>
+                <form asp-controller="InventoryItems" asp-action="LookupByBarcode" method="get" class="d-flex gap-2">
+                    <input type="hidden" name="returnTo" value="/StockTransactions/Create" />
+                    <input class="form-control" name="barcode" placeholder="Scan or type barcode to load item" />
+                    <button class="btn btn-outline-primary" type="submit">Load Item</button>
+                </form>
+            </div>
+            <div class="col-lg-6 text-lg-end">
+                <a asp-controller="InventoryItems" asp-action="Scan" class="btn btn-outline-secondary">Open Scanner</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-3 g-lg-4">
     <div class="col-lg-8">
         <div class="it-panel">

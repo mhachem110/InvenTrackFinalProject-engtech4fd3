@@ -22,6 +22,10 @@ namespace InvenTrack.Models
         [StringLength(50, ErrorMessage = "SKU / Asset Tag cannot exceed 50 characters.")]
         public string SKU { get; set; } = string.Empty;
 
+        [Display(Name = "Barcode")]
+        [StringLength(40)]
+        public string Barcode { get; set; } = string.Empty;
+
         [Display(Name = "Description")]
         [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters.")]
         public string? Description { get; set; }

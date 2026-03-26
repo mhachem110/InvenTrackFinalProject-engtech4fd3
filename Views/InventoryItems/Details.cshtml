@@ -92,6 +92,19 @@
 }
 
 <div class="row g-3 g-lg-4">
+    <div class="col-lg-4">
+        <div class="it-panel">
+            <div class="it-panel-header"><div class="fw-bold">Barcode</div><div class="text-muted small">Unique identifier for scanning and quick lookup.</div></div>
+            <div class="it-panel-body text-center">
+                <img src="@Url.Action("BarcodeImage", new { id = Model.ID })" class="img-fluid border rounded p-2 bg-white" alt="Barcode for @Model.ItemName" />
+                <div class="fw-semibold mt-3">@Model.Barcode</div>
+                <div class="d-grid mt-3">
+                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#barcodeModalMain">Show Barcode</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Left: Photo + basics -->
     <div class="col-12 col-lg-4">
         <div class="it-panel h-100">
@@ -220,6 +233,7 @@
                 </div>
 
                 <div class="d-flex gap-2 flex-wrap">
+        <a asp-action="Scan" class="btn btn-outline-secondary">Scan Barcode</a>
                     @if (canCreateTransactions)
                     {
                         <a asp-controller="StockTransactions" asp-action="Create" asp-route-inventoryItemId="@Model.ID"
@@ -505,6 +519,18 @@
             </div>
         </div>
     </div>
+</div>
+
+<div class="modal fade" id="barcodeModalMain" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">@Model.ItemName barcode</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body text-center">
+        <img src="@Url.Action("BarcodeImage", new { id = Model.ID })" class="img-fluid border rounded p-2 bg-white" alt="Barcode for @Model.ItemName" />
+        <div class="fw-semibold mt-3">@Model.Barcode</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 @section Scripts {

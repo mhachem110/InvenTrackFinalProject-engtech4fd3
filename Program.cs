@@ -77,6 +77,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<AppAccessService>();
 builder.Services.AddScoped<InventoryAiService>();
+builder.Services.AddScoped<BarcodeService>();
 builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<OrderService>();
 

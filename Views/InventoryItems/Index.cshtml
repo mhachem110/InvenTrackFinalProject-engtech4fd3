@@ -44,6 +44,7 @@
     @if (User.CanManage())
     {
         <div class="d-flex gap-2">
+            <a asp-action="Scan" class="btn btn-outline-secondary">Scan Barcode</a>
             <a asp-action="Create" class="btn btn-primary">+ Add Item</a>
         </div>
     }
@@ -102,6 +103,7 @@
                         <th style="width:92px;">Photo</th>
                         <th>Item</th>
                         <th style="width:150px;">SKU</th>
+                        <th style="width:170px;">Barcode</th>
                         <th style="width:160px;">On Hand</th>
                         <th style="width:180px;">Category</th>
                         <th style="width:280px;">@(hasGlobalLocationAccess ? "Location Quantities" : "Your Location Quantity")</th>
@@ -114,7 +116,7 @@
                     @if (Model == null || !Model.Any())
                     {
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-5">
+                            <td colspan="9" class="text-center text-muted py-5">
                                 <div class="fw-semibold mb-1">No inventory items found</div>
                                 <div class="small mb-3">Try changing the filters or create a new inventory item.</div>
 
@@ -158,6 +160,22 @@
                                 </td>
 
                                 <td class="text-muted">@item.SKU</td>
+
+                                <td>
+                                    <div class="small fw-semibold">@item.Barcode</div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" data-bs-toggle="modal" data-bs-target="#barcodeModal-@item.ID">Show</button>
+                                    <div class="modal fade" id="barcodeModal-@item.ID" tabindex="-1" aria-hidden="true">
+                                      <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content">
+                                          <div class="modal-header"><h5 class="modal-title">@item.ItemName barcode</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                                          <div class="modal-body text-center">
+                                            <img src="@Url.Action("BarcodeImage", new { id = item.ID })" class="img-fluid border rounded p-2 bg-white" alt="Barcode for @item.ItemName" />
+                                            <div class="fw-semibold mt-3">@item.Barcode</div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                </td>
 
                                 <td>
                                     <span class="it-qty">@visibleQty</span>

@@ -73,6 +73,11 @@ namespace InvenTrack.Data
                 .HasIndex(i => i.SKU)
                 .IsUnique();
 
+            modelBuilder.Entity<InventoryItem>()
+                .HasIndex(i => i.Barcode)
+                .IsUnique()
+                .HasFilter("[Barcode] IS NOT NULL AND [Barcode] <> ''");
+
             modelBuilder.Entity<StockTransaction>()
                 .HasIndex(t => t.ReferenceNumber)
                 .IsUnique()

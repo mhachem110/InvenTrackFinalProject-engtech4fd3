@@ -22,17 +22,20 @@ namespace InvenTrack.Controllers
         private readonly AppAccessService _accessService;
         private readonly InventoryAiService _inventoryAiService;
         private readonly OrderService _orderService;
+        private readonly BarcodeService _barcodeService;
 
         public InventoryItemsController(
             InvenTrackContext context,
             AppAccessService accessService,
             InventoryAiService inventoryAiService,
-            OrderService orderService)
+            OrderService orderService,
+            BarcodeService barcodeService)
         {
             _context = context;
             _accessService = accessService;
             _inventoryAiService = inventoryAiService;
             _orderService = orderService;
+            _barcodeService = barcodeService;
         }
 
         private static string NormalizeSku(string? sku)
@@ -190,6 +193,7 @@ namespace InvenTrack.Controllers
                     i.ItemName.Contains(searchString) ||
                     i.SKU.Contains(searchString) ||
                     (i.Description != null && i.Description.Contains(searchString)) ||
+                    i.Barcode.Contains(searchString) ||
                     (i.Category != null && i.Category.Name.Contains(searchString)) ||
                     (i.StorageLocation != null && i.StorageLocation.Name.Contains(searchString)));
             }
@@ -417,6 +421,67 @@ namespace InvenTrack.Controllers
             return View(item);
         }
 
+
+        [HttpGet]
+        public async Task<IActionResult> LookupByBarcode(string barcode, string? returnTo = null)
+        {
+            var normalized = BarcodeService.NormalizeBarcode(barcode);
+            if (string.IsNullOrWhiteSpace(normalized))
+                return RedirectToAction(nameof(Index));
+
+            var scope = await _accessService.GetScopeAsync(User);
+            var query = ApplyInventoryScope(_context.InventoryItems.AsNoTracking(), scope);
+            var item = await query.FirstOrDefaultAsync(i => i.Barcode == normalized);
+            if (item == null)
+            {
+                TempData["ErrorMessage"] = $"Barcode '{normalized}' was not found.";
+                return Redirect(returnTo ?? Url.Action(nameof(Index))!);
+            }
+
+            if (!string.IsNullOrWhiteSpace(returnTo) && returnTo.Contains("StockTransactions", StringComparison.OrdinalIgnoreCase))
+                return RedirectToAction("Create", "StockTransactions", new { inventoryItemId = item.ID });
+
+            if (!string.IsNullOrWhiteSpace(returnTo) && returnTo.Contains("StockTransferRequests", StringComparison.OrdinalIgnoreCase))
+                return RedirectToAction("Create", "StockTransferRequests", new { inventoryItemId = item.ID });
+
+            return RedirectToAction(nameof(Details), new { id = item.ID });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ResolveByBarcode(string barcode)
+        {
+            var normalized = BarcodeService.NormalizeBarcode(barcode);
+            var scope = await _accessService.GetScopeAsync(User);
+            var item = await ApplyInventoryScope(_context.InventoryItems.AsNoTracking(), scope)
+                .Select(i => new { i.ID, i.ItemName, i.SKU, i.Barcode, i.QuantityOnHand })
+                .FirstOrDefaultAsync(i => i.Barcode == normalized);
+
+            if (item == null)
+                return NotFound(new { message = "Barcode not found." });
+
+            return Json(item);
+        }
+
+        [AllowAnonymous]
+        [HttpGet]
+        public async Task<IActionResult> BarcodeImage(int id)
+        {
+            var barcode = await _context.InventoryItems
+                .AsNoTracking()
+                .Where(i => i.ID == id)
+                .Select(i => i.Barcode)
+                .FirstOrDefaultAsync();
+
+            if (string.IsNullOrWhiteSpace(barcode))
+                return NotFound();
+
+            var bytes = _barcodeService.RenderCode39Png(barcode);
+            return File(bytes, "image/png");
+        }
+
+        [HttpGet]
+        public IActionResult Scan() => View();
+
         [Authorize(Roles =
             AppRoles.Admin + "," +
             AppRoles.RegionalManager + "," +
@@ -451,6 +516,9 @@ namespace InvenTrack.Controllers
 
             if (await SkuExistsAsync(item.SKU))
                 ModelState.AddModelError(nameof(InventoryItem.SKU), "SKU / Asset Tag must be unique. This value already exists.");
+
+            if (string.IsNullOrWhiteSpace(item.Barcode))
+                item.Barcode = await _barcodeService.GenerateUniqueBarcodeAsync();
 
             if (ModelState.IsValid)
             {

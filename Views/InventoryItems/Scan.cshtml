@@ -1,0 +1,78 @@
+@{
+    ViewData["Title"] = "Scan Barcode";
+}
+<div class="it-pagehead mb-3">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="it-page-dot"></div>
+            <h1 class="h3 mb-0 fw-bold">Scan Barcode</h1>
+        </div>
+        <div class="text-muted small">Scan a barcode to open the matching inventory item.</div>
+    </div>
+</div>
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="it-panel">
+            <div class="it-panel-header"><div class="fw-bold">Camera scanner</div><div class="text-muted small">Uses your device camera when supported.</div></div>
+            <div class="it-panel-body">
+                <video id="scanVideo" class="w-100 rounded border" autoplay playsinline muted style="max-height:420px;background:#111"></video>
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-primary" id="startScanBtn" type="button">Start Camera Scan</button>
+                    <button class="btn btn-outline-secondary" id="stopScanBtn" type="button">Stop</button>
+                </div>
+                <div class="text-muted small mt-2" id="scanStatus">Ready.</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="it-panel">
+            <div class="it-panel-header"><div class="fw-bold">Manual entry</div><div class="text-muted small">Also works with USB barcode scanners.</div></div>
+            <div class="it-panel-body">
+                <form asp-action="LookupByBarcode" method="get">
+                    <input type="hidden" name="returnTo" value="@Url.Action("Scan")" />
+                    <label class="form-label">Barcode</label>
+                    <input class="form-control" name="barcode" id="barcodeInput" placeholder="Scan or type barcode" autofocus />
+                    <div class="d-grid mt-3"><button class="btn btn-primary" type="submit">Open Item</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+@section Scripts {
+<script>
+(() => {
+  const video = document.getElementById('scanVideo');
+  const status = document.getElementById('scanStatus');
+  let stream = null;
+  let timer = null;
+  async function start() {
+    try {
+      if (!('BarcodeDetector' in window)) { status.textContent = 'Camera barcode scanning is not supported in this browser. Use manual entry or a USB scanner.'; return; }
+      const detector = new BarcodeDetector({ formats: ['code_39', 'code_128'] });
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+      status.textContent = 'Scanning...';
+      timer = setInterval(async () => {
+        try {
+          const codes = await detector.detect(video);
+          if (codes && codes.length) {
+            const raw = codes[0].rawValue || '';
+            window.location.href = '@Url.Action("LookupByBarcode")?barcode=' + encodeURIComponent(raw);
+          }
+        } catch {}
+      }, 600);
+    } catch (e) { status.textContent = 'Unable to access camera.'; }
+  }
+  function stop() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null;
+    if (video) video.srcObject = null;
+    status.textContent = 'Stopped.';
+  }
+  document.getElementById('startScanBtn')?.addEventListener('click', start);
+  document.getElementById('stopScanBtn')?.addEventListener('click', stop);
+})();
+</script>
+}

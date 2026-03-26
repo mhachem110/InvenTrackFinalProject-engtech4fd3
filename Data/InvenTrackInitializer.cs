@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using InvenTrack.Models;
+using InvenTrack.Services;
 
 namespace InvenTrack.Data
 {
@@ -9,8 +10,8 @@ namespace InvenTrack.Data
         {
             using var scope = applicationBuilder.ApplicationServices.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<InvenTrackContext>();
+            var barcodeService = scope.ServiceProvider.GetRequiredService<BarcodeService>();
 
-            // Use migrations so schema changes work without deleting DB
             context.Database.Migrate();
 
             if (!context.Categories.Any())
@@ -43,6 +44,7 @@ namespace InvenTrack.Data
                     {
                         ItemName = "Dell Laptop (Sample)",
                         SKU = "IT-0001",
+                        Barcode = barcodeService.GenerateUniqueBarcodeAsync().GetAwaiter().GetResult(),
                         Description = "Starter sample item for Stage 1",
                         QuantityOnHand = 3,
                         ReorderLevel = 1,
@@ -53,6 +55,7 @@ namespace InvenTrack.Data
                     {
                         ItemName = "Printer Paper (Sample)",
                         SKU = "SUP-0100",
+                        Barcode = barcodeService.GenerateUniqueBarcodeAsync().GetAwaiter().GetResult(),
                         Description = "A4 paper ream",
                         QuantityOnHand = 20,
                         ReorderLevel = 5,
@@ -88,6 +91,8 @@ namespace InvenTrack.Data
                 );
                 context.SaveChanges();
             }
+
+            barcodeService.BackfillMissingBarcodesAsync().GetAwaiter().GetResult();
         }
     }
 }
