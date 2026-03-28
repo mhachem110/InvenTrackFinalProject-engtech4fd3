@@ -1,136 +1,162 @@
-﻿@page
+@page
 @using Microsoft.AspNetCore.Http.Features
 @model TwoFactorAuthenticationModel
 @{
     ViewData["Title"] = "Two-factor authentication (2FA)";
     ViewData["ActivePage"] = ManageNavPages.TwoFactorAuthentication;
+
+    var consentFeature = HttpContext.Features.Get<ITrackingConsentFeature>();
+    var canTrack = (consentFeature?.CanTrack ?? true);
+    var enabledState = Model.Is2faEnabled ? "Enabled" : "Off";
+    var machineState = Model.IsMachineRemembered ? "Trusted" : "Standard";
 }
 
-<div class="it-pagehead mb-3">
-    <div>
-        <div class="d-flex align-items-center gap-2">
-            <div class="it-page-dot"></div>
-            <h1 class="h3 mb-0 fw-bold">Two-factor authentication</h1>
+<div class="it-account-shell">
+    <section class="it-subhero">
+        <div class="it-subhero__content">
+            <div class="it-subhero__kicker">Account Center</div>
+            <h1 class="it-subhero__title">Two-factor authentication</h1>
+            <p class="it-subhero__text">
+                Add an extra layer of protection to your account with an authenticator app and recovery code support.
+            </p>
         </div>
-        <div class="text-muted small">Add an extra layer of security to your account.</div>
-    </div>
-</div>
 
-<partial name="_StatusMessage" for="StatusMessage" />
+        <div class="it-subhero__stats">
+            <div class="it-subhero__stat">
+                <div class="it-subhero__stat-label">2FA status</div>
+                <div class="it-subhero__stat-value">@enabledState</div>
+                <div class="it-subhero__stat-text">Current protection level for sign-in.</div>
+            </div>
+            <div class="it-subhero__stat">
+                <div class="it-subhero__stat-label">Recovery codes</div>
+                <div class="it-subhero__stat-value">@(Model.Is2faEnabled ? Model.RecoveryCodesLeft.ToString() : "-")</div>
+                <div class="it-subhero__stat-text">Codes available if you lose access to your authenticator.</div>
+            </div>
+            <div class="it-subhero__stat">
+                <div class="it-subhero__stat-label">This browser</div>
+                <div class="it-subhero__stat-value">@machineState</div>
+                <div class="it-subhero__stat-text">Whether this device is currently remembered.</div>
+            </div>
+        </div>
+    </section>
 
-<div class="row g-3 g-lg-4">
-    <div class="col-12 col-lg-4">
-        <div class="it-panel">
+    <partial name="_StatusMessage" for="StatusMessage" />
+
+    <div class="it-account-grid">
+        <aside class="it-panel">
             <div class="it-panel-header">
-                <div>
-                    <div class="fw-bold">Account</div>
-                    <div class="text-muted small">Manage your account settings.</div>
-                </div>
+                <div class="fw-bold">Account settings</div>
+                <div class="text-muted small">Navigate between identity, password, security, and data pages.</div>
             </div>
             <div class="it-panel-body p-0">
                 <partial name="_ManageNav" />
             </div>
-        </div>
-    </div>
+        </aside>
 
-    <div class="col-12 col-lg-8">
-        <div class="it-panel">
-            <div class="it-panel-header">
-                <div>
+        <div class="it-account-main">
+            <section class="it-panel">
+                <div class="it-panel-header">
                     <div class="fw-bold">2FA settings</div>
-                    <div class="text-muted small">Configure authenticator app and recovery codes.</div>
+                    <div class="text-muted small">Configure your authenticator app, browser trust, and recovery codes.</div>
                 </div>
-            </div>
 
-            <div class="it-panel-body">
-                @{
-                    var consentFeature = HttpContext.Features.Get<ITrackingConsentFeature>();
-                    var canTrack = (consentFeature?.CanTrack ?? true);
-                }
-
-                @if (!canTrack)
-                {
-                    <div class="alert alert-danger">
-                        <div class="fw-semibold">Privacy and cookie policy not accepted.</div>
-                        <div class="small">Accept cookies before enabling 2FA.</div>
-                    </div>
-                }
-                else
-                {
-                    @if (Model.Is2faEnabled)
+                <div class="it-panel-body">
+                    @if (!canTrack)
                     {
-                        if (Model.RecoveryCodesLeft == 0)
-                        {
-                            <div class="alert alert-danger">
-                                <div class="fw-semibold">You have no recovery codes left.</div>
-                                <div class="small">
-                                    You should <a asp-page="./GenerateRecoveryCodes">generate a new set of recovery codes</a>.
-                                </div>
-                            </div>
-                        }
-                        else if (Model.RecoveryCodesLeft == 1)
-                        {
-                            <div class="alert alert-danger">
-                                <div class="fw-semibold">You have 1 recovery code left.</div>
-                                <div class="small">
-                                    You can <a asp-page="./GenerateRecoveryCodes">generate a new set of recovery codes</a>.
-                                </div>
-                            </div>
-                        }
-                        else if (Model.RecoveryCodesLeft <= 3)
-                        {
-                            <div class="alert alert-warning">
-                                <div class="fw-semibold">You have @Model.RecoveryCodesLeft recovery codes left.</div>
-                                <div class="small">
-                                    Consider <a asp-page="./GenerateRecoveryCodes">generating a new set of recovery codes</a>.
-                                </div>
-                            </div>
-                        }
-
-                        <div class="d-flex flex-wrap gap-2 mb-3">
-                            @if (Model.IsMachineRemembered)
-                            {
-                                <form method="post" class="d-inline">
-                                    <button type="submit" class="btn btn-outline-secondary">Forget this browser</button>
-                                </form>
-                            }
-
-                            <a asp-page="./Disable2fa" class="btn btn-outline-danger">Disable 2FA</a>
-                            <a asp-page="./GenerateRecoveryCodes" class="btn btn-outline-primary">Reset recovery codes</a>
+                        <div class="it-account-callout it-account-callout--danger">
+                            <div class="it-account-callout__title">Privacy and cookie policy not accepted</div>
+                            <div class="it-account-callout__text">Accept cookies before enabling two-factor authentication.</div>
                         </div>
                     }
                     else
                     {
-                        <div class="alert alert-info">
-                            <div class="fw-semibold">2FA is currently disabled.</div>
-                            <div class="small">Enable it to improve account security.</div>
+                        @if (Model.Is2faEnabled)
+                        {
+                            if (Model.RecoveryCodesLeft == 0)
+                            {
+                                <div class="it-account-callout it-account-callout--danger">
+                                    <div class="it-account-callout__title">You have no recovery codes left</div>
+                                    <div class="it-account-callout__text">
+                                        You should <a asp-page="./GenerateRecoveryCodes">generate a new set of recovery codes</a>.
+                                    </div>
+                                </div>
+                            }
+                            else if (Model.RecoveryCodesLeft == 1)
+                            {
+                                <div class="it-account-callout it-account-callout--danger">
+                                    <div class="it-account-callout__title">You have 1 recovery code left</div>
+                                    <div class="it-account-callout__text">
+                                        You can <a asp-page="./GenerateRecoveryCodes">generate a new set of recovery codes</a>.
+                                    </div>
+                                </div>
+                            }
+                            else if (Model.RecoveryCodesLeft <= 3)
+                            {
+                                <div class="it-account-callout it-account-callout--warn">
+                                    <div class="it-account-callout__title">Recovery codes are running low</div>
+                                    <div class="it-account-callout__text">
+                                        You have @Model.RecoveryCodesLeft recovery codes left. Consider <a asp-page="./GenerateRecoveryCodes">generating a new set</a>.
+                                    </div>
+                                </div>
+                            }
+
+                            <div class="it-account-actions mt-3">
+                                @if (Model.IsMachineRemembered)
+                                {
+                                    <form method="post" class="d-inline">
+                                        <button type="submit" class="btn btn-outline-secondary">Forget this browser</button>
+                                    </form>
+                                }
+
+                                <a asp-page="./Disable2fa" class="btn btn-outline-danger">Disable 2FA</a>
+                                <a asp-page="./GenerateRecoveryCodes" class="btn btn-outline-primary">Reset recovery codes</a>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="it-account-callout it-account-callout--info">
+                                <div class="it-account-callout__title">2FA is currently disabled</div>
+                                <div class="it-account-callout__text">Enable it to improve account security and reduce sign-in risk.</div>
+                            </div>
+                        }
+
+                        <div class="it-account-mini-card mt-3">
+                            <div class="it-account-mini-card__title">Authenticator app</div>
+                            <div class="it-account-mini-card__text mb-3">Use Google Authenticator, Microsoft Authenticator, or a compatible app.</div>
+
+                            <div class="it-account-actions">
+                                @if (!Model.HasAuthenticator)
+                                {
+                                    <a id="enable-authenticator" asp-page="./EnableAuthenticator" class="btn btn-primary">
+                                        Add authenticator app
+                                    </a>
+                                }
+                                else
+                                {
+                                    <a id="setup-authenticator" asp-page="./EnableAuthenticator" class="btn btn-outline-primary">
+                                        Set up authenticator app
+                                    </a>
+                                    <a id="reset-authenticator" asp-page="./ResetAuthenticator" class="btn btn-outline-warning">
+                                        Reset authenticator app
+                                    </a>
+                                }
+                            </div>
                         </div>
                     }
+                </div>
+            </section>
 
-                    <div class="it-panel p-3">
-                        <div class="fw-semibold mb-1">Authenticator app</div>
-                        <div class="text-muted small mb-3">Use Google Authenticator, Microsoft Authenticator, etc.</div>
+            <section class="it-account-card-grid">
+                <div class="it-account-mini-card">
+                    <div class="it-account-mini-card__title">Why enable 2FA?</div>
+                    <div class="it-account-mini-card__text">It protects your account even if someone learns your password.</div>
+                </div>
 
-                        <div class="d-flex flex-wrap gap-2">
-                            @if (!Model.HasAuthenticator)
-                            {
-                                <a id="enable-authenticator" asp-page="./EnableAuthenticator" class="btn btn-primary">
-                                    Add authenticator app
-                                </a>
-                            }
-                            else
-                            {
-                                <a id="setup-authenticator" asp-page="./EnableAuthenticator" class="btn btn-outline-primary">
-                                    Set up authenticator app
-                                </a>
-                                <a id="reset-authenticator" asp-page="./ResetAuthenticator" class="btn btn-outline-warning">
-                                    Reset authenticator app
-                                </a>
-                            }
-                        </div>
-                    </div>
-                }
-            </div>
+                <div class="it-account-mini-card">
+                    <div class="it-account-mini-card__title">Recovery planning</div>
+                    <div class="it-account-mini-card__text">Store recovery codes somewhere safe so you can still sign in if you lose your device.</div>
+                </div>
+            </section>
         </div>
     </div>
 </div>

@@ -1,50 +1,139 @@
 @model InvenTrack.ViewModels.Chat.ManageMembersVM
 @{
     ViewData["Title"] = "Manage Chat Members";
+    var availableCount = Model.AvailableUsers?.Count ?? 0;
+    var memberCount = Model.Members?.Count ?? 0;
+    var selectedIds = Model.SelectedUserIds ?? new List<string>();
 }
-<div class="row g-3">
-    <div class="col-12 col-lg-6">
-        <div class="card shadow-sm">
-            <div class="card-header fw-bold">Current Members</div>
-            <div class="card-body">
-                @foreach (var member in Model.Members)
-                {
-                    <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2">
-                        <div>@member.DisplayName @(member.IsAdmin ? "• Admin" : "")</div>
-                        @if (!member.IsAdmin)
-                        {
-                            <form asp-action="RemoveMember" method="post">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="conversationId" value="@Model.ConversationId" />
-                                <input type="hidden" name="memberUserId" value="@member.UserId" />
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
-                            </form>
-                        }
-                    </div>
-                }
+
+<div class="it-subpage">
+    <section class="it-subhero">
+        <div class="it-subhero__content">
+            <div class="it-subhero__kicker">Conversation Settings</div>
+            <h1 class="it-subhero__title">Manage members</h1>
+            <p class="it-subhero__text">
+                Update who can participate in <strong>@Model.ConversationName</strong> without affecting the chat history or message flow.
+            </p>
+        </div>
+
+        <div class="it-subhero__actions">
+            <a asp-action="Index" asp-route-id="@Model.ConversationId" class="btn btn-outline-secondary">Back to Chat</a>
+        </div>
+
+        <div class="it-subhero__stats">
+            <div class="it-subhero__stat">
+                <div class="it-subhero__stat-label">Current members</div>
+                <div class="it-subhero__stat-value">@memberCount</div>
+                <div class="it-subhero__stat-text">People already included in this conversation.</div>
+            </div>
+            <div class="it-subhero__stat">
+                <div class="it-subhero__stat-label">Available to add</div>
+                <div class="it-subhero__stat-value">@availableCount</div>
+                <div class="it-subhero__stat-text">Eligible teammates not yet in the chat.</div>
             </div>
         </div>
-    </div>
-    <div class="col-12 col-lg-6">
-        <div class="card shadow-sm">
-            <div class="card-header fw-bold">Add Members</div>
-            <div class="card-body">
-                <form asp-action="AddMembers" method="post">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" asp-for="ConversationId" />
-                    @foreach (var user in Model.AvailableUsers)
+    </section>
+
+    <div class="it-subgrid it-subgrid--equal">
+        <section class="it-panel">
+            <div class="it-panel-header">
+                <div class="fw-bold">Current members</div>
+                <div class="text-muted small">Admins stay in place, while standard members can be removed when needed.</div>
+            </div>
+
+            <div class="it-panel-body">
+                <div class="it-member-list">
+                    @foreach (var member in Model.Members)
                     {
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="checkbox" name="SelectedUserIds" value="@user.UserId" id="add_@user.UserId" />
-                            <label class="form-check-label" for="add_@user.UserId">@user.DisplayName <span class="text-muted">(@user.Email)</span></label>
+                        <div class="it-member-row">
+                            <div class="it-member-row__meta">
+                                <div class="it-member-row__avatar">
+                                    @(string.IsNullOrWhiteSpace(member.DisplayName) ? "U" : member.DisplayName.Substring(0, 1).ToUpperInvariant())
+                                </div>
+
+                                <div class="it-member-row__body">
+                                    <div class="it-member-row__title">@member.DisplayName</div>
+                                    <div class="it-member-row__text">@(member.IsAdmin ? "Conversation administrator" : "Conversation member")</div>
+                                </div>
+                            </div>
+
+                            @if (member.IsAdmin)
+                            {
+                                <span class="it-member-row__status">Admin</span>
+                            }
+                            else
+                            {
+                                <form asp-action="RemoveMember" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="conversationId" value="@Model.ConversationId" />
+                                    <input type="hidden" name="memberUserId" value="@member.UserId" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                </form>
+                            }
                         </div>
                     }
-                    <div class="d-flex gap-2 mt-3">
-                        <button type="submit" class="btn btn-primary">Add Selected</button>
-                        <a asp-action="Index" asp-route-id="@Model.ConversationId" class="btn btn-outline-secondary">Back to Chat</a>
-                    </div>
-                </form>
+                </div>
             </div>
-        </div>
+        </section>
+
+        <section class="it-panel">
+            <div class="it-panel-header">
+                <div class="fw-bold">Add members</div>
+                <div class="text-muted small">Select one or more users to bring into this conversation.</div>
+            </div>
+
+            <div class="it-panel-body">
+                @if (!Model.AvailableUsers.Any())
+                {
+                    <div class="it-empty-workspace py-4">
+                        <div class="it-empty-workspace__icon">+</div>
+                        <div class="it-empty-workspace__title">No available users</div>
+                        <div class="it-empty-workspace__text">Everyone eligible is already part of this conversation.</div>
+                    </div>
+                }
+                else
+                {
+                    <form asp-action="AddMembers" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="ConversationId" />
+                        <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+                        <div class="it-checkbox-grid">
+                            @foreach (var user in Model.AvailableUsers)
+                            {
+                                var checkboxId = $"add_{user.UserId}";
+                                var isChecked = selectedIds.Contains(user.UserId);
+
+                                <label class="it-check-tile" for="@checkboxId">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           name="SelectedUserIds"
+                                           value="@user.UserId"
+                                           id="@checkboxId"
+                                           checked="@(isChecked ? "checked" : null)" />
+                                    <span class="it-check-tile__body">
+                                        <span class="it-check-tile__title">@user.DisplayName</span>
+                                        <span class="it-check-tile__text">@user.Email</span>
+                                    </span>
+                                </label>
+                            }
+                        </div>
+
+                        <span asp-validation-for="SelectedUserIds" class="text-danger small d-block mt-3"></span>
+
+                        <div class="d-flex flex-wrap gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary">Add Selected</button>
+                            <a asp-action="Index" asp-route-id="@Model.ConversationId" class="btn btn-outline-secondary">Back to Chat</a>
+                        </div>
+                    </form>
+                }
+            </div>
+        </section>
     </div>
 </div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

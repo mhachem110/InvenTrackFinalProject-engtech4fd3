@@ -1,104 +1,117 @@
-﻿@page
+@page
 @model EmailModel
 @{
     ViewData["Title"] = "Manage Email";
     ViewData["ActivePage"] = ManageNavPages.Email;
+
+    var emailStatus = Model.IsEmailConfirmed ? "Confirmed" : "Unverified";
 }
 
-<div class="it-pagehead mb-3">
-    <div>
-        <div class="d-flex align-items-center gap-2">
-            <div class="it-page-dot"></div>
-            <h1 class="h3 mb-0 fw-bold">Manage Email</h1>
+<div class="it-account-shell">
+    <section class="it-subhero">
+        <div class="it-subhero__content">
+            <div class="it-subhero__kicker">Account Center</div>
+            <h1 class="it-subhero__title">Manage Email</h1>
+            <p class="it-subhero__text">
+                Update your account email and keep verification in sync so you continue receiving important alerts and confirmations.
+            </p>
         </div>
-        <div class="text-muted small">Update your email and verification status.</div>
-    </div>
-</div>
 
-<partial name="_StatusMessage" for="StatusMessage" />
+        <div class="it-subhero__stats it-account-hero-stats">
+            <div class="it-subhero__stat it-subhero__stat--wide">
+                <div class="it-subhero__stat-label">Current email</div>
+                <div class="it-subhero__stat-value">@Model.Email</div>
+                <div class="it-subhero__stat-text">Primary address linked to your identity account.</div>
+            </div>
+            <div class="it-subhero__stat">
+                <div class="it-subhero__stat-label">Verification</div>
+                <div class="it-subhero__stat-value">@emailStatus</div>
+                <div class="it-subhero__stat-text">Confirmed email improves recovery and notification reliability.</div>
+            </div>
+        </div>
+    </section>
 
-<div class="row g-3 g-lg-4">
-    <div class="col-12 col-lg-4">
-        <div class="it-panel">
+    <partial name="_StatusMessage" for="StatusMessage" />
+
+    <div class="it-account-grid">
+        <aside class="it-panel">
             <div class="it-panel-header">
-                <div>
-                    <div class="fw-bold">Account</div>
-                    <div class="text-muted small">Manage your account settings.</div>
-                </div>
+                <div class="fw-bold">Account settings</div>
+                <div class="text-muted small">Identity, password, authentication, and personal data.</div>
             </div>
             <div class="it-panel-body p-0">
                 <partial name="_ManageNav" />
             </div>
-        </div>
-    </div>
+        </aside>
 
-    <div class="col-12 col-lg-8">
-        <div class="it-panel">
-            <div class="it-panel-header">
-                <div>
+        <div class="it-account-main">
+            <section class="it-panel">
+                <div class="it-panel-header">
                     <div class="fw-bold">Email settings</div>
-                    <div class="text-muted small">Confirm your email to receive alerts and confirmations.</div>
+                    <div class="text-muted small">Confirm your email to receive alerts, resets, and account confirmations.</div>
                 </div>
-            </div>
 
-            <div class="it-panel-body">
-                <form id="email-form" method="post">
-                    <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+                <div class="it-panel-body">
+                    <form id="email-form" method="post">
+                        <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
 
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label asp-for="Email" class="form-label"></label>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label asp-for="Email" class="form-label"></label>
 
-                            @if (Model.IsEmailConfirmed)
-                            {
-                                <div class="input-group">
+                                @if (Model.IsEmailConfirmed)
+                                {
+                                    <div class="input-group">
+                                        <input asp-for="Email" class="form-control" disabled />
+                                        <span class="input-group-text text-success fw-bold">Verified</span>
+                                    </div>
+                                    <div class="it-account-note mt-2">Your email is confirmed and active for account notifications.</div>
+                                }
+                                else
+                                {
                                     <input asp-for="Email" class="form-control" disabled />
-                                    <span class="input-group-text text-success fw-bold">✓</span>
-                                </div>
-                                <div class="text-muted small mt-1">Your email is confirmed.</div>
-                            }
-                            else
-                            {
-                                <input asp-for="Email" class="form-control" disabled />
-                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2">
-                                    <div class="text-muted small">Your email is not confirmed.</div>
+                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2">
+                                        <div class="it-account-note">Your email is not confirmed yet.</div>
+                                        <button id="email-verification"
+                                                type="submit"
+                                                asp-page-handler="SendVerificationEmail"
+                                                class="btn btn-outline-primary btn-sm">
+                                            Send verification email
+                                        </button>
+                                    </div>
+                                }
+                            </div>
 
-                                    <button id="email-verification"
-                                            type="submit"
-                                            asp-page-handler="SendVerificationEmail"
-                                            class="btn btn-outline-primary btn-sm">
-                                        Send verification email
-                                    </button>
-                                </div>
-                            }
+                            <div class="col-12">
+                                <label asp-for="Input.NewEmail" class="form-label"></label>
+                                <input asp-for="Input.NewEmail"
+                                       class="form-control"
+                                       autocomplete="email"
+                                       aria-required="true"
+                                       placeholder="name@example.com" />
+                                <span asp-validation-for="Input.NewEmail" class="text-danger small"></span>
+                                <div class="it-account-note mt-2">Changing your email will require confirmation before it becomes active.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <button id="change-email-button"
+                                        type="submit"
+                                        asp-page-handler="ChangeEmail"
+                                        class="btn btn-primary w-100">
+                                    Change email
+                                </button>
+                            </div>
                         </div>
-
-                        <div class="col-12">
-                            <label asp-for="Input.NewEmail" class="form-label"></label>
-                            <input asp-for="Input.NewEmail"
-                                   class="form-control"
-                                   autocomplete="email"
-                                   aria-required="true"
-                                   placeholder="name@example.com" />
-                            <span asp-validation-for="Input.NewEmail" class="text-danger small"></span>
-                            <div class="text-muted small mt-1">Changing email will require confirmation.</div>
-                        </div>
-
-                        <div class="col-12">
-                            <button id="change-email-button"
-                                    type="submit"
-                                    asp-page-handler="ChangeEmail"
-                                    class="btn btn-primary w-100">
-                                Change email
-                            </button>
-                        </div>
-                    </div>
-                </form>
-
-                <div class="it-hint mt-3">
-                    Tip: Confirmed email is required for reorder alerts and account confirmations.
+                    </form>
                 </div>
-            </div>
+            </section>
+
+            <section class="it-account-callout @(Model.IsEmailConfirmed ? "it-account-callout--info" : "it-account-callout--warn")">
+                <div class="it-account-callout__title">Notification readiness</div>
+                <div class="it-account-callout__text">
+                    A confirmed email is the safest setup for password resets, account notices, and future alert workflows.
+                </div>
+            </section>
         </div>
     </div>
 </div>

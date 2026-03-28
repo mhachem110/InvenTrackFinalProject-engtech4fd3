@@ -1,271 +1,253 @@
-﻿@model InvenTrack.ViewModels.Reports.ReportIndexVM
+@model InvenTrack.ViewModels.Reports.ReportIndexVM
 
 @{
     ViewData["Title"] = "Reports";
     var aiPredictedIssuesCount = (ViewData["AiPredictedIssuesCount"] as int?) ?? 0;
     var aiUrgentIssuesCount = (ViewData["AiUrgentIssuesCount"] as int?) ?? 0;
+
+    var operationalReports = new[]
+    {
+        new { Icon = "LS", Title = "Low Stock", Value = Model.LowStockItemCount, Text = "Items currently at or below their reorder threshold.", OpenAction = "LowStock", ExportAction = "ExportLowStockCsv" },
+        new { Icon = "LO", Title = "Location Summary", Value = Model.StorageLocationCount, Text = "Active item counts and stock totals by storage location.", OpenAction = "LocationSummary", ExportAction = "ExportLocationSummaryCsv" },
+        new { Icon = "TX", Title = "Transactions", Value = Model.RecentTransactionCount, Text = "Audit-friendly movement history with search and filtering.", OpenAction = "RecentTransactions", ExportAction = "ExportRecentTransactionsCsv" },
+        new { Icon = "CT", Title = "Category Summary", Value = Model.CategoryCount, Text = "Inventory concentration, low stock counts, and totals by category.", OpenAction = "CategorySummary", ExportAction = "ExportCategorySummaryCsv" },
+        new { Icon = "MV", Title = "Movement Summary", Value = Model.MovementSummaryCount, Text = "Shows the busiest inventory items across recent stock activity.", OpenAction = "MovementSummary", ExportAction = "ExportMovementSummaryCsv" }
+    };
+
+    var exportLinks = new[]
+    {
+        new { Label = "Inventory CSV", Action = "ExportInventoryCsv" },
+        new { Label = "Low Stock CSV", Action = "ExportLowStockCsv" },
+        new { Label = "Location Summary CSV", Action = "ExportLocationSummaryCsv" },
+        new { Label = "Recent Transactions CSV", Action = "ExportRecentTransactionsCsv" },
+        new { Label = "Category Summary CSV", Action = "ExportCategorySummaryCsv" },
+        new { Label = "Movement Summary CSV", Action = "ExportMovementSummaryCsv" },
+        new { Label = "AI Insights CSV", Action = "ExportAiInsightsCsv" }
+    };
 }
 
-<div class="it-report-shell">
-
-    <div class="it-report-hero mb-4">
-        <div class="it-report-hero__left">
-            <div class="it-report-kicker">Reporting Workspace</div>
+<div class="it-report-shell it-report-center">
+    <section class="it-report-center__hero">
+        <div class="it-report-center__hero-main">
+            <div class="it-report-kicker">Report Center</div>
             <h1 class="it-report-title">Reports</h1>
             <p class="it-report-subtitle">
-                Review stock health, location coverage, movement history, and AI-based replenishment insights.
+                Review stock health, location coverage, movement history, and AI-based replenishment insights from one clean reporting workspace.
             </p>
+
+            <div class="it-report-center__hero-tags">
+                <span class="it-report-center__tag">Inventory oversight</span>
+                <span class="it-report-center__tag">CSV export ready</span>
+                <span class="it-report-center__tag">Final demo friendly</span>
+            </div>
         </div>
 
-        <div class="it-report-hero__right">
-            <div class="it-report-hero-stat">
+        <div class="it-report-center__hero-stats">
+            <div class="it-report-center__stat">
                 <span class="label">Available modules</span>
                 <span class="value">6</span>
+                <span class="meta">Operational views plus AI intelligence</span>
             </div>
-            <div class="it-report-hero-stat">
-                <span class="label">AI alerts</span>
+            <div class="it-report-center__stat">
+                <span class="label">Urgent AI alerts</span>
                 <span class="value">@aiUrgentIssuesCount</span>
+                <span class="meta">Immediate replenishment attention</span>
             </div>
-        
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="it-report-card">
-                <div class="it-report-card__icon">🗂️</div>
-                <div class="it-report-card__label">Category Summary</div>
-                <div class="it-report-card__value">@Model.CategoryCount</div>
-                <div class="it-report-card__text">Inventory concentration, low stock counts, and totals by category.</div>
-                <div class="it-report-card__actions">
-                    <a asp-action="CategorySummary" class="btn btn-primary btn-sm">Open Report</a>
-                    <a asp-action="ExportCategorySummaryCsv" class="btn btn-outline-secondary btn-sm">Export</a>
+            <div class="it-report-center__stat">
+                <span class="label">Predicted issues</span>
+                <span class="value">@aiPredictedIssuesCount</span>
+                <span class="meta">Items already low or expected to dip</span>
+            </div>
+            <div class="it-report-center__stat">
+                <span class="label">Export feeds</span>
+                <span class="value">@exportLinks.Length</span>
+                <span class="meta">Clean CSV outputs for review and demo</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="it-report-center__section">
+        <div class="it-report-center__section-head">
+            <div>
+                <div class="it-report-kicker mb-1">Operational Reports</div>
+                <h2 class="it-report-center__section-title">Core reporting modules</h2>
+                <p class="it-report-center__section-text mb-0">
+                    Balanced, action-ready report cards for the day-to-day views most useful in inventory management.
+                </p>
+            </div>
+        </div>
+
+        <div class="it-report-center__report-grid">
+            @foreach (var report in operationalReports)
+            {
+                <article class="it-report-center__report-card">
+                    <div class="it-report-center__report-top">
+                        <div class="it-report-card__icon">@report.Icon</div>
+                        <div class="it-report-center__report-value">@report.Value</div>
+                    </div>
+
+                    <div class="it-report-center__report-body">
+                        <div class="it-report-center__report-title">@report.Title</div>
+                        <div class="it-report-center__report-text">@report.Text</div>
+                    </div>
+
+                    <div class="it-report-card__actions mt-auto">
+                        <a asp-action="@report.OpenAction" class="btn btn-primary btn-sm">Open Report</a>
+                        <a asp-action="@report.ExportAction" class="btn btn-outline-secondary btn-sm">Export</a>
+                    </div>
+                </article>
+            }
+        </div>
+    </section>
+
+    <section class="it-report-center__workspace">
+        <div class="it-panel h-100">
+            <div class="it-panel-header d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                <div>
+                    <div class="fw-bold">AI Replenishment Intelligence</div>
+                    <div class="text-muted small">Forecast near-term stock risk using transaction history and reorder logic.</div>
+                </div>
+                <span class="badge bg-primary-subtle text-primary border it-badge">Live Analysis</span>
+            </div>
+
+            <div class="it-panel-body">
+                <div class="it-report-center__mini-grid mb-3">
+                    <div class="it-report-mini">
+                        <div class="it-report-mini__label">Predicted Issues</div>
+                        <div class="it-report-mini__value">@aiPredictedIssuesCount</div>
+                        <div class="it-report-mini__text">Items already low or expected to drop soon.</div>
+                    </div>
+
+                    <div class="it-report-mini">
+                        <div class="it-report-mini__label">Urgent Alerts</div>
+                        <div class="it-report-mini__value">@aiUrgentIssuesCount</div>
+                        <div class="it-report-mini__text">Items needing immediate replenishment attention.</div>
+                    </div>
+
+                    <div class="it-report-mini">
+                        <div class="it-report-mini__label">Signal Source</div>
+                        <div class="it-report-mini__value fs-6 mt-1">Usage History</div>
+                        <div class="it-report-mini__text">Based on check-outs and negative adjustments.</div>
+                    </div>
+                </div>
+
+                <div class="it-report-center__callout mb-3">
+                    <div class="it-report-center__callout-title">AI insight for managers and demo review</div>
+                    <div class="it-report-center__callout-text">
+                        This view builds on your existing transaction data and reorder logic, so it feels like a smart extension of the system instead of a disconnected feature.
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2">
+                    <a asp-action="AiInsights" class="btn btn-dark">Open AI Insights</a>
+                    <a asp-action="ExportAiInsightsCsv" class="btn btn-outline-dark">Export AI CSV</a>
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="it-report-card">
-                <div class="it-report-card__icon">📈</div>
-                <div class="it-report-card__label">Movement Summary</div>
-                <div class="it-report-card__value">@Model.MovementSummaryCount</div>
-                <div class="it-report-card__text">Shows the busiest inventory items across recent stock activity.</div>
-                <div class="it-report-card__actions">
-                    <a asp-action="MovementSummary" class="btn btn-primary btn-sm">Open Report</a>
-                    <a asp-action="ExportMovementSummaryCsv" class="btn btn-outline-secondary btn-sm">Export</a>
-                </div>
+        <div class="it-panel h-100">
+            <div class="it-panel-header">
+                <div class="fw-bold">Export Center</div>
+                <div class="text-muted small">Download clean CSV files for demos, Excel, and instructor review.</div>
             </div>
-        </div>
 
-    </div>
+            <div class="it-panel-body">
+                <div class="it-report-center__export-spotlight">
+                    <div class="it-report-card__icon">CSV</div>
+                    <div class="it-report-center__export-spotlight-body">
+                        <div class="it-report-center__report-title">Inventory Export</div>
+                        <div class="it-report-center__report-text">Complete inventory list prepared for export and review.</div>
+                    </div>
+                    <div class="it-report-center__export-spotlight-value">@Model.InventoryItemCount</div>
+                </div>
 
-    <div class="row g-3 g-xl-4 mb-4">
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="it-report-card">
-                <div class="it-report-card__icon">📦</div>
-                <div class="it-report-card__label">Inventory Export</div>
-                <div class="it-report-card__value">@Model.InventoryItemCount</div>
-                <div class="it-report-card__text">Complete inventory list prepared for export and review.</div>
-                <div class="it-report-card__actions">
+                <div class="it-report-card__actions mt-3 mb-3">
                     <a asp-action="ExportInventoryCsv" class="btn btn-primary btn-sm">Export CSV</a>
                 </div>
-            </div>
-        </div>
 
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="it-report-card">
-                <div class="it-report-card__icon">⚠️</div>
-                <div class="it-report-card__label">Low Stock</div>
-                <div class="it-report-card__value">@Model.LowStockItemCount</div>
-                <div class="it-report-card__text">Items currently at or below their reorder threshold.</div>
-                <div class="it-report-card__actions">
-                    <a asp-action="LowStock" class="btn btn-primary btn-sm">Open Report</a>
-                    <a asp-action="ExportLowStockCsv" class="btn btn-outline-secondary btn-sm">Export</a>
+                <div class="it-report-export-list">
+                    @foreach (var exportLink in exportLinks)
+                    {
+                        <a asp-action="@exportLink.Action" class="it-report-export-link">@exportLink.Label</a>
+                    }
+                </div>
+
+                <div class="it-hint mt-3">
+                    CSV remains the best demo-friendly export format because it opens easily in Excel and requires no extra setup.
                 </div>
             </div>
         </div>
+    </section>
 
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="it-report-card">
-                <div class="it-report-card__icon">📍</div>
-                <div class="it-report-card__label">Location Summary</div>
-                <div class="it-report-card__value">@Model.StorageLocationCount</div>
-                <div class="it-report-card__text">Active item counts and stock totals by storage location.</div>
-                <div class="it-report-card__actions">
-                    <a asp-action="LocationSummary" class="btn btn-primary btn-sm">Open Report</a>
-                    <a asp-action="ExportLocationSummaryCsv" class="btn btn-outline-secondary btn-sm">Export</a>
-                </div>
+    <section class="it-report-center__support-grid">
+        <div class="it-panel h-100">
+            <div class="it-panel-header">
+                <div class="fw-bold">Report Coverage</div>
+                <div class="text-muted small">What each major reporting area helps you review quickly.</div>
             </div>
-        </div>
 
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="it-report-card">
-                <div class="it-report-card__icon">🧾</div>
-                <div class="it-report-card__label">Transactions</div>
-                <div class="it-report-card__value">@Model.RecentTransactionCount</div>
-                <div class="it-report-card__text">Audit-friendly movement history with search and filtering.</div>
-                <div class="it-report-card__actions">
-                    <a asp-action="RecentTransactions" class="btn btn-primary btn-sm">Open Report</a>
-                    <a asp-action="ExportRecentTransactionsCsv" class="btn btn-outline-secondary btn-sm">Export</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row g-3 g-xl-4 mb-4">
-        <div class="col-12 col-xl-8">
-            <div class="it-panel h-100">
-                <div class="it-panel-header d-flex justify-content-between align-items-start gap-2 flex-wrap">
-                    <div>
-                        <div class="fw-bold">AI Replenishment Intelligence</div>
-                        <div class="text-muted small">Forecast near-term stock risk using transaction history and reorder logic.</div>
-                    </div>
-                    <span class="badge bg-primary-subtle text-primary border it-badge">Live Analysis</span>
-                </div>
-
-                <div class="it-panel-body">
-                    <div class="row g-3 mb-3">
-                        <div class="col-12 col-md-4">
-                            <div class="it-report-mini">
-                                <div class="it-report-mini__label">Predicted Issues</div>
-                                <div class="it-report-mini__value">@aiPredictedIssuesCount</div>
-                                <div class="it-report-mini__text">Items already low or expected to drop soon.</div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-md-4">
-                            <div class="it-report-mini">
-                                <div class="it-report-mini__label">Urgent Alerts</div>
-                                <div class="it-report-mini__value">@aiUrgentIssuesCount</div>
-                                <div class="it-report-mini__text">Items needing immediate replenishment attention.</div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-md-4">
-                            <div class="it-report-mini">
-                                <div class="it-report-mini__label">Signal Source</div>
-                                <div class="it-report-mini__value fs-6 mt-1">Usage History</div>
-                                <div class="it-report-mini__text">Based on check-outs and negative adjustments.</div>
-                            </div>
+            <div class="it-panel-body">
+                <div class="it-report-list">
+                    <div class="it-report-list__item">
+                        <div class="it-report-list__num">1</div>
+                        <div>
+                            <div class="fw-semibold">Stock health</div>
+                            <div class="text-muted small">Low Stock and AI Insights identify risk before it becomes a shortage.</div>
                         </div>
                     </div>
 
-                    <div class="it-hint mb-3">
-                        This AI view is designed for demo use and manager review. It builds on your current transaction data without needing a separate machine learning service.
-                    </div>
-
-                    <div class="d-flex flex-wrap gap-2">
-                        <a asp-action="AiInsights" class="btn btn-dark">Open AI Insights</a>
-                        <a asp-action="ExportAiInsightsCsv" class="btn btn-outline-dark">Export AI CSV</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12 col-xl-4">
-            <div class="it-panel h-100">
-                <div class="it-panel-header">
-                    <div class="fw-bold">Export Center</div>
-                    <div class="text-muted small">Download clean CSV files for demos, Excel, and instructor review.</div>
-                </div>
-
-                <div class="it-panel-body">
-                    <div class="it-report-export-list">
-                        <a asp-action="ExportInventoryCsv" class="it-report-export-link">Inventory CSV</a>
-                        <a asp-action="ExportLowStockCsv" class="it-report-export-link">Low Stock CSV</a>
-                        <a asp-action="ExportLocationSummaryCsv" class="it-report-export-link">Location Summary CSV</a>
-                        <a asp-action="ExportRecentTransactionsCsv" class="it-report-export-link">Recent Transactions CSV</a>
-                        <a asp-action="ExportCategorySummaryCsv" class="it-report-export-link">Category Summary CSV</a>
-                        <a asp-action="ExportMovementSummaryCsv" class="it-report-export-link">Movement Summary CSV</a>
-                        <a asp-action="ExportAiInsightsCsv" class="it-report-export-link">AI Insights CSV</a>
-                    </div>
-
-                    <div class="it-hint mt-3">
-                        CSV remains the best demo-friendly export format because it opens easily in Excel and requires no extra setup.
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row g-3 g-xl-4">
-        <div class="col-12 col-xl-6">
-            <div class="it-panel h-100">
-                <div class="it-panel-header">
-                    <div class="fw-bold">Available Report Views</div>
-                    <div class="text-muted small">Core reporting screens in the current system.</div>
-                </div>
-
-                <div class="it-panel-body">
-                    <div class="it-report-list">
-                        <div class="it-report-list__item">
-                            <div class="it-report-list__num">1</div>
-                            <div>
-                                <div class="fw-semibold">Low Stock</div>
-                                <div class="text-muted small">Shows items currently at or below reorder level.</div>
-                            </div>
+                    <div class="it-report-list__item">
+                        <div class="it-report-list__num">2</div>
+                        <div>
+                            <div class="fw-semibold">Location coverage</div>
+                            <div class="text-muted small">Location Summary shows where inventory is concentrated and where action is needed.</div>
                         </div>
+                    </div>
 
-                        <div class="it-report-list__item">
-                            <div class="it-report-list__num">2</div>
-                            <div>
-                                <div class="fw-semibold">Location Summary</div>
-                                <div class="text-muted small">Shows active item count and total units per location.</div>
-                            </div>
-                        </div>
-
-                        <div class="it-report-list__item">
-                            <div class="it-report-list__num">3</div>
-                            <div>
-                                <div class="fw-semibold">Recent Transactions</div>
-                                <div class="text-muted small">Shows filtered movement history for audit and review.</div>
-                            </div>
-                        </div>
-
-                        <div class="it-report-list__item">
-                            <div class="it-report-list__num">6</div>
-                            <div>
-                                <div class="fw-semibold">AI Insights</div>
-                                <div class="text-muted small">Shows forecasted inventory risk and suggested actions.</div>
-                            </div>
+                    <div class="it-report-list__item">
+                        <div class="it-report-list__num">3</div>
+                        <div>
+                            <div class="fw-semibold">Movement visibility</div>
+                            <div class="text-muted small">Transactions and Movement Summary make inventory flow easy to audit and explain.</div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-xl-6">
-            <div class="it-panel h-100">
-                <div class="it-panel-header">
-                    <div class="fw-bold">Why This Report Area Matters</div>
-                    <div class="text-muted small">Good talking points for presentation and demo.</div>
-                </div>
+        <div class="it-panel h-100">
+            <div class="it-panel-header">
+                <div class="fw-bold">Demo Talking Points</div>
+                <div class="text-muted small">A cleaner summary of why this report center matters in the final project.</div>
+            </div>
 
-                <div class="it-panel-body">
-                    <div class="it-report-list">
-                        <div class="it-report-list__item">
-                            <div class="it-report-list__num">A</div>
-                            <div>
-                                <div class="fw-semibold">Operational visibility</div>
-                                <div class="text-muted small">Managers can quickly review stock health and movement trends.</div>
-                            </div>
+            <div class="it-panel-body">
+                <div class="it-report-list">
+                    <div class="it-report-list__item">
+                        <div class="it-report-list__num">A</div>
+                        <div>
+                            <div class="fw-semibold">Professional workflow</div>
+                            <div class="text-muted small">The page groups monitoring, analysis, and exports like a real management dashboard.</div>
                         </div>
+                    </div>
 
-                        <div class="it-report-list__item">
-                            <div class="it-report-list__num">B</div>
-                            <div>
-                                <div class="fw-semibold">Audit support</div>
-                                <div class="text-muted small">Transactions and summaries are exportable for review and proof.</div>
-                            </div>
+                    <div class="it-report-list__item">
+                        <div class="it-report-list__num">B</div>
+                        <div>
+                            <div class="fw-semibold">Actionable outputs</div>
+                            <div class="text-muted small">Every module leads directly to a report view or export without making users hunt through the UI.</div>
                         </div>
+                    </div>
 
-                        <div class="it-report-list__item">
-                            <div class="it-report-list__num">C</div>
-                            <div>
-                                <div class="fw-semibold">Decision support</div>
-                                <div class="text-muted small">AI insights help move from static reporting to smarter replenishment planning.</div>
-                            </div>
+                    <div class="it-report-list__item">
+                        <div class="it-report-list__num">C</div>
+                        <div>
+                            <div class="fw-semibold">Balanced visual design</div>
+                            <div class="text-muted small">Consistent card sizing and stronger grouping make the page easier to scan under presentation pressure.</div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-
+    </section>
 </div>

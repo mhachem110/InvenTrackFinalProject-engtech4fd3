@@ -1,64 +1,253 @@
 @model InvenTrack.Utilities.PaginatedList<InvenTrack.ViewModels.Reports.InventoryMovementSummaryRowVM>
+@using System
+@using System.Linq
+
 @{
     ViewData["Title"] = "Movement Summary";
     var q = ViewData["CurrentFilter"]?.ToString() ?? "";
     var pageSize = (ViewData["CurrentPageSize"] as int?) ?? 10;
     var days = (ViewData["CurrentDays"] as int?) ?? 30;
+
+    var startItem = Model.TotalCount == 0 ? 0 : ((Model.PageIndex - 1) * Model.PageSize) + 1;
+    var endItem = Model.TotalCount == 0 ? 0 : Math.Min(Model.PageIndex * Model.PageSize, Model.TotalCount);
+    var firstPage = Math.Max(1, Model.PageIndex - 2);
+    var lastPage = Math.Min(Model.TotalPages, Model.PageIndex + 2);
+
+    var visibleActivity = Model.Any() ? Model.Sum(x => x.TotalActivityCount) : 0;
+    var visibleInbound = Model.Any() ? Model.Sum(x => x.CheckInUnits + x.TransferInUnits) : 0;
+    var visibleOutbound = Model.Any() ? Model.Sum(x => x.CheckOutUnits + x.TransferOutUnits) : 0;
+    var latestActivityUtc = Model.Where(x => x.LastActivityDateUtc.HasValue).Select(x => x.LastActivityDateUtc!.Value).DefaultIfEmpty().Max();
 }
-<div class="card shadow-sm">
-    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+
+<div class="it-report-page">
+    <div class="it-report-head mb-3">
         <div>
-            <div class="fw-bold">Movement Summary</div>
-            <div class="small text-muted">Recent item movement totals for the last @days day(s).</div>
+            <div class="it-report-kicker">Report</div>
+            <h1 class="it-report-page-title">Movement Summary</h1>
+            <div class="text-muted small">Recent item movement totals for the last @days day(s).</div>
         </div>
-        <a asp-action="ExportMovementSummaryCsv" asp-route-q="@q" asp-route-days="@days" class="btn btn-sm btn-outline-secondary">Export CSV</a>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-action="ExportMovementSummaryCsv" asp-route-q="@q" asp-route-days="@days" class="btn btn-primary">Export CSV</a>
+            <a asp-action="Index" class="btn btn-outline-secondary">Back to Reports</a>
+        </div>
     </div>
-    <div class="card-body">
-        <form method="get" class="row g-2 mb-3">
-            <div class="col-md-6">
-                <input type="text" name="q" value="@q" class="form-control" placeholder="Search item, SKU, category..." />
+
+    <div class="it-report-summary-grid">
+        <div class="it-report-summary-card">
+            <div class="it-report-summary-card__label">Items</div>
+            <div class="it-report-summary-card__value">@Model.TotalCount</div>
+            <div class="it-report-summary-card__text">Items matching the current movement filter.</div>
+        </div>
+        <div class="it-report-summary-card">
+            <div class="it-report-summary-card__label">Visible Activity</div>
+            <div class="it-report-summary-card__value">@visibleActivity</div>
+            <div class="it-report-summary-card__text">Total movement events shown on the current page.</div>
+        </div>
+        <div class="it-report-summary-card">
+            <div class="it-report-summary-card__label">Visible Inbound</div>
+            <div class="it-report-summary-card__value">@visibleInbound</div>
+            <div class="it-report-summary-card__text">Check-ins and transfer-ins in the visible results.</div>
+        </div>
+        <div class="it-report-summary-card">
+            <div class="it-report-summary-card__label">Last Activity</div>
+            <div class="it-report-summary-card__value">@(latestActivityUtc == default ? "-" : latestActivityUtc.ToLocalTime().ToString("MM-dd"))</div>
+            <div class="it-report-summary-card__text">Most recent visible movement date.</div>
+        </div>
+    </div>
+
+    <form method="get" class="it-panel">
+        <div class="it-panel-body">
+            <input type="hidden" id="pageNumber" name="page" value="1" />
+
+            <div class="row g-2 align-items-center">
+                <div class="col-lg-5">
+                    <div class="it-input">
+                        <span class="it-input-ico">&#128269;</span>
+                        <input type="text"
+                               name="q"
+                               value="@q"
+                               class="form-control it-input-field"
+                               placeholder="Search item, SKU, category..." />
+                    </div>
+                </div>
+
+                <div class="col-lg-2">
+                    <input type="number" name="days" value="@days" min="7" max="180" class="form-control" />
+                </div>
+
+                <div class="col-lg-2">
+                    <select id="pageSize" name="pageSize" class="form-select">
+                        <option value="10" selected="@(pageSize == 10 ? "selected" : null)">10 per page</option>
+                        <option value="25" selected="@(pageSize == 25 ? "selected" : null)">25 per page</option>
+                        <option value="50" selected="@(pageSize == 50 ? "selected" : null)">50 per page</option>
+                    </select>
+                </div>
+
+                <div class="col-lg-3 d-flex justify-content-lg-end gap-2">
+                    <button class="btn btn-primary" type="submit">Apply</button>
+                    <a asp-action="MovementSummary" class="btn btn-outline-secondary">Clear</a>
+                </div>
             </div>
-            <div class="col-md-2">
-                <input type="number" name="days" value="@days" min="7" max="180" class="form-control" />
+
+            <div class="mt-2 text-muted small">
+                Showing @startItem - @endItem of @Model.TotalCount items in the last @days day(s)
             </div>
-            <div class="col-md-2">
-                <select name="pageSize" class="form-select">
-                    <option value="10" selected="@(pageSize == 10)">10</option>
-                    <option value="25" selected="@(pageSize == 25)">25</option>
-                    <option value="50" selected="@(pageSize == 50)">50</option>
-                </select>
+        </div>
+    </form>
+
+    <div class="it-panel">
+        <div class="it-panel-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
+            <div>
+                <div class="fw-bold">Movement Totals</div>
+                <div class="text-muted small">Inbound, outbound, adjustment, and transfer activity by item.</div>
             </div>
-            <div class="col-md-2">
-                <button class="btn btn-primary w-100">Apply</button>
+            <span class="badge bg-primary-subtle text-primary border it-badge">@Model.TotalCount rows</span>
+        </div>
+
+        <div class="it-panel-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 it-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>SKU</th>
+                            <th>Category</th>
+                            <th class="text-end">In</th>
+                            <th class="text-end">Out</th>
+                            <th class="text-end">Adj Net</th>
+                            <th class="text-end">Transfer Out</th>
+                            <th class="text-end">Transfer In</th>
+                            <th class="text-end">Activity</th>
+                            <th>Last Activity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model == null || !Model.Any())
+                        {
+                            <tr>
+                                <td colspan="10" class="text-center text-muted py-5">
+                                    <div class="fw-semibold mb-1">No movement data found</div>
+                                    <div class="small">Try adjusting the date window or filters.</div>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var row in Model)
+                            {
+                                <tr>
+                                    <td>
+                                        <a asp-controller="InventoryItems" asp-action="Details" asp-route-id="@row.ItemId" class="fw-semibold text-decoration-none">
+                                            @row.ItemName
+                                        </a>
+                                    </td>
+                                    <td class="text-muted">@row.SKU</td>
+                                    <td class="text-muted">@row.CategoryName</td>
+                                    <td class="text-end">@row.CheckInUnits</td>
+                                    <td class="text-end">@row.CheckOutUnits</td>
+                                    <td class="text-end">@row.AdjustmentNetUnits</td>
+                                    <td class="text-end">@row.TransferOutUnits</td>
+                                    <td class="text-end">@row.TransferInUnits</td>
+                                    <td class="text-end"><span class="it-qty">@row.TotalActivityCount</span></td>
+                                    <td class="text-muted">@(row.LastActivityDateUtc.HasValue ? row.LastActivityDateUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-")</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
             </div>
-        </form>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th>Item</th><th>SKU</th><th>Category</th>
-                        <th class="text-end">In</th><th class="text-end">Out</th><th class="text-end">Adj Net</th>
-                        <th class="text-end">Transfer Out</th><th class="text-end">Transfer In</th><th class="text-end">Activity</th><th>Last Activity</th>
-                    </tr>
-                </thead>
-                <tbody>
-                @foreach (var row in Model)
-                {
-                    <tr>
-                        <td><a asp-controller="InventoryItems" asp-action="Details" asp-route-id="@row.ItemId">@row.ItemName</a></td>
-                        <td>@row.SKU</td>
-                        <td>@row.CategoryName</td>
-                        <td class="text-end">@row.CheckInUnits</td>
-                        <td class="text-end">@row.CheckOutUnits</td>
-                        <td class="text-end">@row.AdjustmentNetUnits</td>
-                        <td class="text-end">@row.TransferOutUnits</td>
-                        <td class="text-end">@row.TransferInUnits</td>
-                        <td class="text-end">@row.TotalActivityCount</td>
-                        <td>@row.LastActivityDateDisplay</td>
-                    </tr>
-                }
-                </tbody>
-            </table>
+
+            @if (Model.TotalPages > 1)
+            {
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 p-3 border-top">
+                    <div class="text-muted small">Page @Model.PageIndex of @Model.TotalPages</div>
+
+                    <nav aria-label="Movement summary pagination">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
+                                <a class="page-link"
+                                   asp-action="MovementSummary"
+                                   asp-route-page="@(Model.PageIndex - 1)"
+                                   asp-route-q="@q"
+                                   asp-route-days="@days"
+                                   asp-route-pageSize="@pageSize">Previous</a>
+                            </li>
+
+                            @if (firstPage > 1)
+                            {
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       asp-action="MovementSummary"
+                                       asp-route-page="1"
+                                       asp-route-q="@q"
+                                       asp-route-days="@days"
+                                       asp-route-pageSize="@pageSize">1</a>
+                                </li>
+
+                                @if (firstPage > 2)
+                                {
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                }
+                            }
+
+                            @for (var p = firstPage; p <= lastPage; p++)
+                            {
+                                <li class="page-item @(p == Model.PageIndex ? "active" : "")">
+                                    <a class="page-link"
+                                       asp-action="MovementSummary"
+                                       asp-route-page="@p"
+                                       asp-route-q="@q"
+                                       asp-route-days="@days"
+                                       asp-route-pageSize="@pageSize">@p</a>
+                                </li>
+                            }
+
+                            @if (lastPage < Model.TotalPages)
+                            {
+                                @if (lastPage < Model.TotalPages - 1)
+                                {
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                }
+
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       asp-action="MovementSummary"
+                                       asp-route-page="@Model.TotalPages"
+                                       asp-route-q="@q"
+                                       asp-route-days="@days"
+                                       asp-route-pageSize="@pageSize">@Model.TotalPages</a>
+                                </li>
+                            }
+
+                            <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
+                                <a class="page-link"
+                                   asp-action="MovementSummary"
+                                   asp-route-page="@(Model.PageIndex + 1)"
+                                   asp-route-q="@q"
+                                   asp-route-days="@days"
+                                   asp-route-pageSize="@pageSize">Next</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            }
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const pageSize = document.getElementById('pageSize');
+            const pageNumber = document.getElementById('pageNumber');
+
+            if (pageSize) {
+                pageSize.addEventListener('change', function () {
+                    if (pageNumber) pageNumber.value = 1;
+                    this.form.submit();
+                });
+            }
+        })();
+    </script>
+}

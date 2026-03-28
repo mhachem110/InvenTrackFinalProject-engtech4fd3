@@ -3,82 +3,122 @@
 @{
     ViewData["Title"] = "Profile";
     ViewData["ActivePage"] = ManageNavPages.Index;
+
+    var phoneValue = string.IsNullOrWhiteSpace(Model.Input?.PhoneNumber) ? "Not set" : "Saved";
+    var roleValue = string.IsNullOrWhiteSpace(Model.Input?.JobTitle) ? "Team member" : Model.Input.JobTitle;
 }
 
-<div class="it-pagehead mb-3">
-    <div>
-        <div class="d-flex align-items-center gap-2">
-            <div class="it-page-dot"></div>
-            <h1 class="h3 mb-0 fw-bold">Profile</h1>
+<div class="it-account-shell">
+    <section class="it-subhero">
+        <div class="it-subhero__content">
+            <div class="it-subhero__kicker">Account Center</div>
+            <h1 class="it-subhero__title">Profile</h1>
+            <p class="it-subhero__text">
+                Keep your visible profile aligned with how you appear across inventory operations, orders, chats, and approvals.
+            </p>
         </div>
-        <div class="text-muted small">Keep your visible profile aligned with how you appear across orders, chats, and approvals.</div>
-    </div>
-</div>
 
-<partial name="_StatusMessage" for="StatusMessage" />
+        <div class="it-subhero__stats it-account-hero-stats">
+            <div class="it-subhero__stat it-subhero__stat--wide">
+                <div class="it-subhero__stat-label">Username</div>
+                <div class="it-subhero__stat-value">@Model.Username</div>
+                <div class="it-subhero__stat-text">Primary sign-in identity for this account.</div>
+            </div>
+            <div class="it-subhero__stat">
+                <div class="it-subhero__stat-label">Role title</div>
+                <div class="it-subhero__stat-value">@roleValue</div>
+                <div class="it-subhero__stat-text">How your job function appears in the workspace.</div>
+            </div>
+            <div class="it-subhero__stat">
+                <div class="it-subhero__stat-label">Phone</div>
+                <div class="it-subhero__stat-value">@phoneValue</div>
+                <div class="it-subhero__stat-text">Optional contact detail for account recovery and coordination.</div>
+            </div>
+        </div>
+    </section>
 
-<div class="row g-3 g-lg-4">
-    <div class="col-12 col-lg-4">
-        <div class="it-panel">
+    <partial name="_StatusMessage" for="StatusMessage" />
+
+    <div class="it-account-grid">
+        <aside class="it-panel">
             <div class="it-panel-header">
-                <div>
-                    <div class="fw-bold">Account</div>
-                    <div class="text-muted small">Identity settings and navigation.</div>
-                </div>
+                <div class="fw-bold">Account settings</div>
+                <div class="text-muted small">Move between identity, security, and data options.</div>
             </div>
             <div class="it-panel-body p-0">
                 <partial name="_ManageNav" />
             </div>
-        </div>
-    </div>
+        </aside>
 
-    <div class="col-12 col-lg-8">
-        <div class="it-panel mb-3">
-            <div class="it-panel-header">
-                <div>
+        <div class="it-account-main">
+            <section class="it-panel">
+                <div class="it-panel-header">
                     <div class="fw-bold">Profile details</div>
-                    <div class="text-muted small">These values show throughout the app.</div>
+                    <div class="text-muted small">These values appear throughout the app.</div>
                 </div>
-            </div>
-            <div class="it-panel-body">
-                <form id="profile-form" method="post">
-                    <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
 
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label asp-for="Username" class="form-label"></label>
-                            <input asp-for="Username" class="form-control" disabled />
+                <div class="it-panel-body">
+                    <form id="profile-form" method="post">
+                        <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="Username" class="form-label"></label>
+                                <input asp-for="Username" class="form-control" disabled />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Assigned location</label>
+                                <input class="form-control" value="@Model.AssignedLocationName" disabled />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="Input.FullName" class="form-label"></label>
+                                <input asp-for="Input.FullName" class="form-control" />
+                                <span asp-validation-for="Input.FullName" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label asp-for="Input.JobTitle" class="form-label"></label>
+                                <input asp-for="Input.JobTitle" class="form-control" />
+                                <span asp-validation-for="Input.JobTitle" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label asp-for="Input.Department" class="form-label"></label>
+                                <input asp-for="Input.Department" class="form-control" />
+                                <span asp-validation-for="Input.Department" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-12">
+                                <label asp-for="Input.PhoneNumber" class="form-label"></label>
+                                <input asp-for="Input.PhoneNumber" class="form-control" placeholder="Optional" />
+                                <span asp-validation-for="Input.PhoneNumber" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-12">
+                                <button id="update-profile-button" type="submit" class="btn btn-primary w-100">Save changes</button>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Assigned location</label>
-                            <input class="form-control" value="@Model.AssignedLocationName" disabled />
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="Input.FullName" class="form-label"></label>
-                            <input asp-for="Input.FullName" class="form-control" />
-                            <span asp-validation-for="Input.FullName" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-3">
-                            <label asp-for="Input.JobTitle" class="form-label"></label>
-                            <input asp-for="Input.JobTitle" class="form-control" />
-                            <span asp-validation-for="Input.JobTitle" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-3">
-                            <label asp-for="Input.Department" class="form-label"></label>
-                            <input asp-for="Input.Department" class="form-control" />
-                            <span asp-validation-for="Input.Department" class="text-danger small"></span>
-                        </div>
-                        <div class="col-12">
-                            <label asp-for="Input.PhoneNumber" class="form-label"></label>
-                            <input asp-for="Input.PhoneNumber" class="form-control" placeholder="Optional" />
-                            <span asp-validation-for="Input.PhoneNumber" class="text-danger small"></span>
-                        </div>
-                        <div class="col-12">
-                            <button id="update-profile-button" type="submit" class="btn btn-primary w-100">Save changes</button>
-                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <section class="it-account-card-grid">
+                <div class="it-account-mini-card">
+                    <div class="it-account-mini-card__title">What shows in the app</div>
+                    <div class="it-account-mini-card__text">
+                        Your full name, job title, and department can appear in orders, approvals, and internal chat context.
                     </div>
-                </form>
-            </div>
+                </div>
+
+                <div class="it-account-mini-card">
+                    <div class="it-account-mini-card__title">Keep it current</div>
+                    <div class="it-account-mini-card__text">
+                        Accurate profile details make audits, approvals, and teammate coordination much clearer.
+                    </div>
+                </div>
+            </section>
         </div>
     </div>
 </div>

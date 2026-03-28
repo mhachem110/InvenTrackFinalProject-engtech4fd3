@@ -126,10 +126,6 @@
     });
 }
 
-<style>
-    
-</style>
-
 <div class="ai-page">
 
     <section class="ai-hero">
@@ -303,6 +299,25 @@
                 </details>
 
                 <input type="hidden" name="page" value="1" />
+
+                <div class="ai-filter-summary">
+                    <div class="ai-filter-summary__item">
+                        <span class="ai-filter-summary__label">Results</span>
+                        <strong>@Model.TotalFilteredItems</strong>
+                    </div>
+                    <div class="ai-filter-summary__item">
+                        <span class="ai-filter-summary__label">At Risk</span>
+                        <strong>@riskCount</strong>
+                    </div>
+                    <div class="ai-filter-summary__item">
+                        <span class="ai-filter-summary__label">Stable / Learning</span>
+                        <strong>@stableLearningCount</strong>
+                    </div>
+                    <div class="ai-filter-summary__item">
+                        <span class="ai-filter-summary__label">Sorted By</span>
+                        <strong>@Model.SortLabel</strong>
+                    </div>
+                </div>
 
                 <div class="ai-chip-row">
                     <a href="@allUrl" class="ai-chip-link @(string.Equals(Model.AlertFilter, "all", StringComparison.OrdinalIgnoreCase) ? "is-active" : "")">
@@ -509,13 +524,8 @@
         <div class="ai-panel-body">
             <div class="ai-results-top">
                 <div class="ai-results-summary">
-                    Showing <strong>@Model.StartItemNumber-@Model.EndItemNumber</strong> of <strong>@Model.TotalFilteredItems</strong> results
-                </div>
-
-                <div class="ai-chip-row">
-                    <span class="ai-chip">Sorted <strong>@Model.SortLabel</strong></span>
-                    <span class="ai-chip">Risk <strong>@riskCount</strong></span>
-                    <span class="ai-chip">Stable/Learning <strong>@stableLearningCount</strong></span>
+                    Showing <strong>@Model.StartItemNumber-@Model.EndItemNumber</strong> of <strong>@Model.TotalFilteredItems</strong> results.
+                    Sorted by <strong>@Model.SortLabel</strong> with <strong>@riskCount</strong> items currently in the risk band.
                 </div>
             </div>
 

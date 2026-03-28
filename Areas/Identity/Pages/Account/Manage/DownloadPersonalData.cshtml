@@ -1,72 +1,71 @@
-﻿@page
+@page
 @model DownloadPersonalDataModel
 @{
     ViewData["Title"] = "Download Your Data";
     ViewData["ActivePage"] = ManageNavPages.PersonalData;
 }
 
-<div class="it-pagehead mb-3">
-    <div>
-        <div class="d-flex align-items-center gap-2">
-            <div class="it-page-dot"></div>
-            <h1 class="h3 mb-0 fw-bold">Download Your Data</h1>
+<div class="it-account-shell">
+    <section class="it-subhero">
+        <div class="it-subhero__content">
+            <div class="it-subhero__kicker">Account Center</div>
+            <h1 class="it-subhero__title">Download Your Data</h1>
+            <p class="it-subhero__text">
+                Export the personal data associated with your Identity account as a file for backup or review.
+            </p>
         </div>
-        <div class="text-muted small">Export the personal data associated with your account.</div>
-    </div>
-</div>
 
-<div class="row g-3 g-lg-4">
-    <div class="col-12 col-lg-4">
-        <div class="it-panel">
+        <div class="it-subhero__stats">
+            <div class="it-subhero__stat">
+                <div class="it-subhero__stat-label">Export format</div>
+                <div class="it-subhero__stat-value">JSON</div>
+                <div class="it-subhero__stat-text">A downloadable file will open in your browser.</div>
+            </div>
+            <div class="it-subhero__stat">
+                <div class="it-subhero__stat-label">Best practice</div>
+                <div class="it-subhero__stat-value">Backup</div>
+                <div class="it-subhero__stat-text">Download your data before deleting or replacing the account.</div>
+            </div>
+        </div>
+    </section>
+
+    <div class="it-account-grid">
+        <aside class="it-panel">
             <div class="it-panel-header">
-                <div>
-                    <div class="fw-bold">Account</div>
-                    <div class="text-muted small">Manage your account settings.</div>
-                </div>
+                <div class="fw-bold">Account settings</div>
+                <div class="text-muted small">Profile, email, security, and personal data actions.</div>
             </div>
             <div class="it-panel-body p-0">
                 <partial name="_ManageNav" />
             </div>
-        </div>
-    </div>
+        </aside>
 
-    <div class="col-12 col-lg-8">
-        <div class="it-panel">
-            <div class="it-panel-header">
-                <div>
+        <div class="it-account-main">
+            <section class="it-panel">
+                <div class="it-panel-header">
                     <div class="fw-bold">Export</div>
-                    <div class="text-muted small">You’ll receive a JSON file download in your browser.</div>
-                </div>
-            </div>
-
-            <div class="it-panel-body">
-                <div class="alert alert-info mb-3">
-                    <div class="fw-semibold">What’s included?</div>
-                    <div class="small">
-                        This export contains the personal data stored in your Identity account (e.g., email, phone, claims, logins).
-                    </div>
+                    <div class="text-muted small">The download includes the personal data stored in your Identity account.</div>
                 </div>
 
-                <div class="it-panel p-3">
-                    <div class="fw-semibold mb-1">Download your data</div>
-                    <div class="text-muted small mb-3">
-                        Click the button below to download your personal data file.
+                <div class="it-panel-body">
+                    <div class="it-account-callout it-account-callout--info">
+                        <div class="it-account-callout__title">What's included?</div>
+                        <div class="it-account-callout__text">
+                            This export contains personal data associated with your Identity account, such as email, phone, claims, and login-related records.
+                        </div>
                     </div>
 
-                    <form method="post" class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            Download JSON
-                        </button>
-                        <a asp-page="./PersonalData" class="btn btn-outline-secondary">
-                            Back
-                        </a>
-                    </form>
-                </div>
+                    <div class="it-account-mini-card mt-3">
+                        <div class="it-account-mini-card__title">Download your data</div>
+                        <div class="it-account-mini-card__text mb-3">Click below to generate and download your personal data file.</div>
 
-                <div class="it-hint mt-3">
-                    Tip: If you plan to delete your account, download your data first.
+                        <form method="post" class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Download JSON</button>
+                            <a asp-page="./PersonalData" class="btn btn-outline-secondary">Back</a>
+                        </form>
+                    </div>
                 </div>
-            </div>
+            </section>
         </div>
     </div>
 </div>

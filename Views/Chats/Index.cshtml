@@ -2,89 +2,137 @@
 @{
     ViewData["Title"] = "Chat";
 }
-<div class="row g-3">
-    <div class="col-12 col-lg-4">
-        <div class="card shadow-sm">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span class="fw-bold">Conversations</span>
-                <div class="d-flex gap-2">
-                    <a asp-action="CreateDirect" class="btn btn-sm btn-outline-primary">Direct</a>
-                    <a asp-action="CreateGroup" class="btn btn-sm btn-primary">Group</a>
+
+<div class="it-chat-page">
+    <section class="it-chat-shell">
+        <aside class="it-chat-sidebar">
+            <div class="it-chat-panel it-chat-panel--sidebar">
+                <div class="it-chat-sidebar__head">
+                    <div>
+                        <div class="it-chat-kicker">Messaging</div>
+                        <h1 class="it-chat-title">Conversations</h1>
+                        <div class="it-chat-subtitle">Direct and group discussions for inventory coordination.</div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <a asp-action="CreateDirect" class="btn btn-sm btn-outline-primary">Direct</a>
+                        <a asp-action="CreateGroup" class="btn btn-sm btn-primary">Group</a>
+                    </div>
                 </div>
-            </div>
-            <div class="list-group list-group-flush" style="max-height:70vh;overflow:auto;">
-                @foreach (var c in Model.SidebarConversations)
-                {
-                    var isActive = c.ConversationId == Model.ConversationId;
-                    <a asp-action="Index" asp-route-id="@c.ConversationId" class="list-group-item list-group-item-action @(isActive ? "active" : "")">
-                        <div class="d-flex justify-content-between align-items-start gap-2">
-                            <div class="min-w-0 flex-grow-1">
-                                <div class="fw-semibold text-truncate d-flex align-items-center gap-2">
-                                    <span>@c.Name</span>
-                                    @if (c.UnreadCount > 0)
-                                    {
-                                        <span class="badge rounded-pill @(isActive ? "bg-light text-dark" : "bg-primary")">@c.UnreadCount</span>
-                                    }
+
+                <div class="it-chat-conversation-list">
+                    @foreach (var c in Model.SidebarConversations)
+                    {
+                        var isActive = c.ConversationId == Model.ConversationId;
+                        var initial = !string.IsNullOrWhiteSpace(c.Name) ? c.Name.Substring(0, 1).ToUpperInvariant() : "C";
+
+                        <a asp-action="Index"
+                           asp-route-id="@c.ConversationId"
+                           class="it-chat-conversation @(isActive ? "is-active" : "")">
+                            <div class="it-chat-conversation__avatar">@initial</div>
+
+                            <div class="it-chat-conversation__body">
+                                <div class="it-chat-conversation__top">
+                                    <div class="it-chat-conversation__name">@c.Name</div>
+                                    <div class="it-chat-conversation__time">@((c.LastMessageAt?.ToLocalTime().ToString("MM-dd HH:mm")) ?? "")</div>
                                 </div>
-                                <div class="small @(isActive ? "text-white-50" : "text-muted") text-truncate">@c.LastMessagePreview</div>
+
+                                <div class="it-chat-conversation__preview">@c.LastMessagePreview</div>
                             </div>
-                            <small class="@(isActive ? "text-white-50" : "text-muted")">@((c.LastMessageAt?.ToLocalTime().ToString("MM-dd HH:mm")) ?? "")</small>
-                        </div>
-                    </a>
-                }
-            </div>
-        </div>
-    </div>
 
-    <div class="col-12 col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
-                <div>
-                    <div class="fw-bold">@Model.ConversationName</div>
-                    <div class="small text-muted">@Model.CurrentUserMemberCount member(s)</div>
+                            @if (c.UnreadCount > 0)
+                            {
+                                <span class="it-chat-conversation__badge">@c.UnreadCount</span>
+                            }
+                        </a>
+                    }
                 </div>
-                @if (Model.CurrentUserCanManageMembers)
-                {
-                    <a asp-action="ManageMembers" asp-route-id="@Model.ConversationId" class="btn btn-sm btn-outline-secondary">Manage Members</a>
-                }
             </div>
+        </aside>
 
-            <div id="chatMessages" class="card-body" style="height:55vh;overflow:auto;">
-                @foreach (var m in Model.Messages)
-                {
-                    var align = m.IsMine ? "justify-content-end" : "justify-content-start";
-                    var bubble = m.IsMine ? "bg-primary text-white" : (m.IsSystemMessage ? "bg-light border" : "bg-body-tertiary");
-                    <div class="d-flex @align mb-3">
-                        <div class="rounded-4 px-3 py-2 @bubble" style="max-width:80%;">
-                            <div class="small fw-semibold mb-1">@m.SenderDisplayName</div>
-                            <div style="white-space:pre-wrap;">@m.Body</div>
-                            <div class="small mt-1 @(m.IsMine ? "text-white-50" : "text-muted")">@m.DateSentDisplay</div>
+        <main class="it-chat-main">
+            <section class="it-chat-panel it-chat-panel--main">
+                <header class="it-chat-thread-head">
+                    <div class="it-chat-thread-head__identity">
+                        <div class="it-chat-thread-head__avatar">
+                            @(string.IsNullOrWhiteSpace(Model.ConversationName) ? "C" : Model.ConversationName.Substring(0, 1).ToUpperInvariant())
+                        </div>
+                        <div>
+                            <div class="it-chat-thread-head__title">@Model.ConversationName</div>
+                            <div class="it-chat-thread-head__meta">@Model.CurrentUserMemberCount member(s) in this conversation</div>
                         </div>
                     </div>
-                }
-            </div>
 
-            <div class="card-footer">
-                <div id="chatAlert" class="alert alert-info py-2 px-3 d-none mb-3"></div>
-                <form asp-action="SendMessage" method="post" class="d-flex gap-2">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="conversationId" value="@Model.ConversationId" />
-                    <textarea name="body" class="form-control" rows="2" placeholder="Type your message..." required></textarea>
-                    <button type="submit" class="btn btn-primary">Send</button>
-                </form>
-            </div>
-        </div>
+                    @if (Model.CurrentUserCanManageMembers)
+                    {
+                        <a asp-action="ManageMembers" asp-route-id="@Model.ConversationId" class="btn btn-sm btn-outline-secondary">Manage Members</a>
+                    }
+                </header>
 
-        <div class="card shadow-sm mt-3">
-            <div class="card-header fw-bold">Members</div>
-            <div class="card-body d-flex flex-wrap gap-2">
-                @foreach (var member in Model.Members)
-                {
-                    <span class="badge bg-light text-dark border">@member.DisplayName @(member.IsAdmin ? "• Admin" : "")</span>
-                }
-            </div>
-        </div>
-    </div>
+                <div id="chatMessages" class="it-chat-messages">
+                    @foreach (var m in Model.Messages)
+                    {
+                        var alignClass = m.IsMine ? "is-mine" : "is-theirs";
+                        var toneClass = m.IsSystemMessage ? "is-system" : (m.IsMine ? "is-mine" : "is-theirs");
+                        var senderInitial = !string.IsNullOrWhiteSpace(m.SenderDisplayName) ? m.SenderDisplayName.Substring(0, 1).ToUpperInvariant() : "U";
+
+                        <div class="it-chat-message-row @alignClass">
+                            @if (!m.IsMine)
+                            {
+                                <div class="it-chat-message__avatar">@senderInitial</div>
+                            }
+
+                            <article class="it-chat-bubble @toneClass">
+                                <div class="it-chat-bubble__sender">@m.SenderDisplayName</div>
+                                <div class="it-chat-bubble__body">@m.Body</div>
+                                <div class="it-chat-bubble__meta">@m.DateSentDisplay</div>
+                            </article>
+                        </div>
+                    }
+                </div>
+
+                <footer class="it-chat-composer">
+                    <div id="chatAlert" class="alert alert-info py-2 px-3 d-none mb-3"></div>
+
+                    <form asp-action="SendMessage" method="post" class="it-chat-composer__form">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="conversationId" value="@Model.ConversationId" />
+
+                        <div class="it-chat-composer__field">
+                            <label class="it-chat-composer__label" for="chatBody">Message</label>
+                            <textarea id="chatBody"
+                                      name="body"
+                                      class="form-control it-chat-composer__textarea"
+                                      rows="2"
+                                      placeholder="Type your message..."
+                                      required></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary it-chat-composer__button">Send</button>
+                    </form>
+                </footer>
+            </section>
+
+            <section class="it-chat-panel it-chat-panel--members">
+                <div class="it-chat-members__head">
+                    <div class="fw-bold">Members</div>
+                    <div class="text-muted small">People currently in this conversation.</div>
+                </div>
+
+                <div class="it-chat-members">
+                    @foreach (var member in Model.Members)
+                    {
+                        var memberInitial = !string.IsNullOrWhiteSpace(member.DisplayName) ? member.DisplayName.Substring(0, 1).ToUpperInvariant() : "U";
+
+                        <div class="it-chat-member-chip">
+                            <span class="it-chat-member-chip__avatar">@memberInitial</span>
+                            <span class="it-chat-member-chip__name">@member.DisplayName@(member.IsAdmin ? " - Admin" : "")</span>
+                        </div>
+                    }
+                </div>
+            </section>
+        </main>
+    </section>
 </div>
 
 @section Scripts {
@@ -106,24 +154,27 @@
         if (messages) messages.scrollTop = messages.scrollHeight;
     }
 
+    function getInitial(text) {
+        const value = (text || '').trim();
+        return value ? value.substring(0, 1).toUpperCase() : 'U';
+    }
+
     function appendMessage(payload) {
         if (!messages || !payload) return;
 
         const wrap = document.createElement('div');
-        wrap.className = `d-flex ${payload.isMine ? 'justify-content-end' : 'justify-content-start'} mb-3`;
+        const rowClass = payload.isMine ? 'is-mine' : 'is-theirs';
+        const bubbleClass = payload.isSystemMessage ? 'is-system' : (payload.isMine ? 'is-mine' : 'is-theirs');
 
-        const bubbleClass = payload.isMine
-            ? 'bg-primary text-white'
-            : (payload.isSystemMessage ? 'bg-light border' : 'bg-body-tertiary');
-
-        const timeClass = payload.isMine ? 'text-white-50' : 'text-muted';
+        wrap.className = `it-chat-message-row ${rowClass}`;
 
         wrap.innerHTML = `
-            <div class="rounded-4 px-3 py-2 ${bubbleClass}" style="max-width:80%;">
-                <div class="small fw-semibold mb-1">${escapeHtml(payload.senderDisplayName)}</div>
-                <div style="white-space:pre-wrap;">${escapeHtml(payload.body)}</div>
-                <div class="small mt-1 ${timeClass}">${escapeHtml(payload.dateSent)}</div>
-            </div>`;
+            ${payload.isMine ? '' : `<div class="it-chat-message__avatar">${escapeHtml(getInitial(payload.senderDisplayName))}</div>`}
+            <article class="it-chat-bubble ${bubbleClass}">
+                <div class="it-chat-bubble__sender">${escapeHtml(payload.senderDisplayName)}</div>
+                <div class="it-chat-bubble__body">${escapeHtml(payload.body)}</div>
+                <div class="it-chat-bubble__meta">${escapeHtml(payload.dateSent)}</div>
+            </article>`;
 
         messages.appendChild(wrap);
         scrollToBottom();

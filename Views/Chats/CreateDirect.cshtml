@@ -1,23 +1,91 @@
 @model InvenTrack.ViewModels.Chat.CreateDirectChatVM
 @{
     ViewData["Title"] = "New Direct Chat";
+    var availableUsers = Model.Users?.Count ?? 0;
 }
-<div class="card shadow-sm mx-auto" style="max-width:700px;">
-    <div class="card-header fw-bold">Create Direct Chat</div>
-    <div class="card-body">
-        <form method="post">
-            @Html.AntiForgeryToken()
-            <div class="mb-3">
-                <label class="form-label">Choose user</label>
-                <select asp-for="SelectedUserId" class="form-select" asp-items="@(new SelectList(Model.Users, "UserId", "DisplayName"))">
-                    <option value="">Select a user</option>
-                </select>
-                <span asp-validation-for="SelectedUserId" class="text-danger"></span>
+
+<div class="it-subpage">
+    <section class="it-subhero">
+        <div class="it-subhero__content">
+            <div class="it-subhero__kicker">Chat Workspace</div>
+            <h1 class="it-subhero__title">Start a direct conversation</h1>
+            <p class="it-subhero__text">
+                Open a one-to-one chat for quick stock coordination, approvals, and follow-up with a teammate.
+            </p>
+        </div>
+
+        <div class="it-subhero__actions">
+            <a asp-action="Index" class="btn btn-outline-secondary">Back to Chat</a>
+        </div>
+
+        <div class="it-subhero__stats">
+            <div class="it-subhero__stat">
+                <div class="it-subhero__stat-label">Available teammates</div>
+                <div class="it-subhero__stat-value">@availableUsers</div>
+                <div class="it-subhero__stat-text">Users available for a new direct thread.</div>
             </div>
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Create Chat</button>
-                <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
+        </div>
+    </section>
+
+    <div class="it-subgrid">
+        <section class="it-panel">
+            <div class="it-panel-header">
+                <div class="fw-bold">Create direct chat</div>
+                <div class="text-muted small">Choose one user and create the conversation instantly.</div>
             </div>
-        </form>
+
+            <div class="it-panel-body">
+                <form method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Choose user</label>
+                        <select asp-for="SelectedUserId" class="form-select" asp-items="@(new SelectList(Model.Users, "UserId", "DisplayName"))">
+                            <option value="">Select a user</option>
+                        </select>
+                        <span asp-validation-for="SelectedUserId" class="text-danger small"></span>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">Create Chat</button>
+                        <a asp-action="CreateGroup" class="btn btn-outline-primary">Switch to Group Chat</a>
+                        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <aside class="it-substack">
+            <section class="it-panel">
+                <div class="it-panel-header">
+                    <div class="fw-bold">Best use</div>
+                    <div class="text-muted small">When a direct thread makes the most sense.</div>
+                </div>
+
+                <div class="it-panel-body">
+                    <div class="it-tip-list">
+                        <div class="it-tip-card">
+                            <div class="it-tip-card__title">Quick approvals</div>
+                            <div class="it-tip-card__text">Use a direct chat when one manager or teammate needs to respond fast.</div>
+                        </div>
+                        <div class="it-tip-card">
+                            <div class="it-tip-card__title">Item-specific follow-up</div>
+                            <div class="it-tip-card__text">Keep short conversations focused on one request, stock issue, or handoff.</div>
+                        </div>
+                        <div class="it-tip-card">
+                            <div class="it-tip-card__title">Lower noise</div>
+                            <div class="it-tip-card__text">Avoid pulling a whole group into messages that only involve one other person.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </aside>
     </div>
 </div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

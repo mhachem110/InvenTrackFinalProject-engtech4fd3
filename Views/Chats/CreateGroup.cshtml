@@ -1,32 +1,115 @@
 @model InvenTrack.ViewModels.Chat.CreateGroupChatVM
 @{
     ViewData["Title"] = "New Group Chat";
+    var selectedIds = Model.SelectedUserIds ?? new List<string>();
+    var availableUsers = Model.Users?.Count ?? 0;
 }
-<div class="card shadow-sm mx-auto" style="max-width:800px;">
-    <div class="card-header fw-bold">Create Group Chat</div>
-    <div class="card-body">
-        <form method="post">
-            @Html.AntiForgeryToken()
-            <div class="mb-3">
-                <label asp-for="GroupName" class="form-label"></label>
-                <input asp-for="GroupName" class="form-control" />
-                <span asp-validation-for="GroupName" class="text-danger"></span>
+
+<div class="it-subpage">
+    <section class="it-subhero">
+        <div class="it-subhero__content">
+            <div class="it-subhero__kicker">Chat Workspace</div>
+            <h1 class="it-subhero__title">Create a group chat</h1>
+            <p class="it-subhero__text">
+                Start a shared conversation for inventory planning, transfer coordination, and team updates.
+            </p>
+        </div>
+
+        <div class="it-subhero__actions">
+            <a asp-action="Index" class="btn btn-outline-secondary">Back to Chat</a>
+        </div>
+
+        <div class="it-subhero__stats">
+            <div class="it-subhero__stat">
+                <div class="it-subhero__stat-label">Available members</div>
+                <div class="it-subhero__stat-value">@availableUsers</div>
+                <div class="it-subhero__stat-text">Select one or more teammates for the group.</div>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Members</label>
-                @foreach (var user in Model.Users)
-                {
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="SelectedUserIds" value="@user.UserId" id="user_@user.UserId" />
-                        <label class="form-check-label" for="user_@user.UserId">@user.DisplayName <span class="text-muted">(@user.Email)</span></label>
+        </div>
+    </section>
+
+    <div class="it-subgrid">
+        <section class="it-panel">
+            <div class="it-panel-header">
+                <div class="fw-bold">Group setup</div>
+                <div class="text-muted small">Name the room, then choose the members who should join it.</div>
+            </div>
+
+            <div class="it-panel-body">
+                <form method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+                    <div class="mb-4">
+                        <label asp-for="GroupName" class="form-label"></label>
+                        <input asp-for="GroupName" class="form-control" placeholder="e.g., Warehouse Managers" />
+                        <span asp-validation-for="GroupName" class="text-danger small"></span>
                     </div>
-                }
-                <span asp-validation-for="SelectedUserIds" class="text-danger"></span>
+
+                    <div class="mb-3">
+                        <label class="form-label">Members</label>
+                        <div class="it-checkbox-grid mt-2">
+                            @foreach (var user in Model.Users)
+                            {
+                                var checkboxId = $"user_{user.UserId}";
+                                var isChecked = selectedIds.Contains(user.UserId);
+
+                                <label class="it-check-tile" for="@checkboxId">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           name="SelectedUserIds"
+                                           value="@user.UserId"
+                                           id="@checkboxId"
+                                           checked="@(isChecked ? "checked" : null)" />
+                                    <span class="it-check-tile__body">
+                                        <span class="it-check-tile__title">@user.DisplayName</span>
+                                        <span class="it-check-tile__text">@user.Email</span>
+                                    </span>
+                                </label>
+                            }
+                        </div>
+                        <span asp-validation-for="SelectedUserIds" class="text-danger small d-block mt-2"></span>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">Create Group</button>
+                        <a asp-action="CreateDirect" class="btn btn-outline-primary">Direct Instead</a>
+                        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
             </div>
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Create Group</button>
-                <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
-            </div>
-        </form>
+        </section>
+
+        <aside class="it-substack">
+            <section class="it-panel">
+                <div class="it-panel-header">
+                    <div class="fw-bold">Recommended structure</div>
+                    <div class="text-muted small">Useful patterns for team conversations.</div>
+                </div>
+
+                <div class="it-panel-body">
+                    <div class="it-tip-list">
+                        <div class="it-tip-card">
+                            <div class="it-tip-card__title">Role-based rooms</div>
+                            <div class="it-tip-card__text">Create focused groups like Store Managers, Warehouse Staff, or Audit Review.</div>
+                        </div>
+                        <div class="it-tip-card">
+                            <div class="it-tip-card__title">Task-based rooms</div>
+                            <div class="it-tip-card__text">Use group chats for transfer coordination, restock planning, or project-specific updates.</div>
+                        </div>
+                        <div class="it-tip-card">
+                            <div class="it-tip-card__title">Clear naming</div>
+                            <div class="it-tip-card__text">Pick names that make the purpose obvious so teammates can scan the chat list quickly.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </aside>
     </div>
 </div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

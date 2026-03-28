@@ -42,89 +42,225 @@
     bool isLowStock = Model.QuantityOnHand <= Model.ReorderLevel;
 }
 
-<div class="it-pagehead mb-3">
-    <div class="min-w-0">
-        <div class="d-flex align-items-center gap-2">
-            <div class="it-page-dot"></div>
-            <h1 class="h3 mb-0 fw-bold text-truncate">Item Details</h1>
+<style>
+    .it-item-details-page {
+        display: grid;
+        gap: 1.25rem;
+    }
+
+    .it-item-details-hero {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(15,23,42,.08);
+        border-radius: 24px;
+        padding: 1.25rem;
+        background:
+            radial-gradient(circle at top right, rgba(13,110,253,.12), transparent 30%),
+            linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef5ff 100%);
+        box-shadow: 0 14px 32px rgba(15,23,42,.06);
+    }
+
+    .it-item-details-hero .it-pagehead {
+        align-items: flex-start;
+    }
+
+    .it-item-details-subtitle {
+        margin-top: .5rem;
+        color: #64748b;
+        max-width: 52rem;
+        line-height: 1.55;
+    }
+
+    .it-item-details-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        margin-top: .9rem;
+    }
+
+    .it-item-details-meta span {
+        display: inline-flex;
+        align-items: center;
+        padding: .45rem .75rem;
+        border-radius: 999px;
+        border: 1px solid rgba(15,23,42,.08);
+        background: rgba(255,255,255,.78);
+        color: #475569;
+        font-size: .82rem;
+        font-weight: 600;
+    }
+
+    .it-item-sidebar {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .it-item-sidebar .it-panel,
+    .it-item-main .it-panel,
+    .it-item-main .it-mini {
+        border-radius: 22px;
+    }
+
+    .it-item-sidebar .it-panel-body,
+    .it-item-main .it-panel-body {
+        padding: 1.1rem;
+    }
+
+    .it-item-photo-wrap {
+        border: 1px solid rgba(15,23,42,.08);
+        border-radius: 20px;
+        overflow: hidden;
+        background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    }
+
+    .it-item-photo-wrap img {
+        display: block;
+        width: 100%;
+        max-height: 280px;
+        object-fit: cover;
+    }
+
+    .it-item-sidebar .it-field {
+        height: 100%;
+        padding: .9rem 1rem;
+        border: 1px solid rgba(15,23,42,.08);
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.92));
+    }
+
+    .it-item-main .it-mini {
+        padding: 1rem 1.05rem;
+        background:
+            radial-gradient(circle at top right, rgba(13,110,253,.08), transparent 36%),
+            linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        border-color: rgba(15,23,42,.08);
+        box-shadow: 0 10px 24px rgba(15,23,42,.05);
+    }
+
+    .it-item-main .nav-pills .nav-link {
+        border-radius: 999px;
+        border: 1px solid rgba(15,23,42,.08);
+        background: #f8fafc;
+        color: #475569;
+        font-weight: 700;
+        padding: .55rem .95rem;
+    }
+
+    .it-item-main .nav-pills .nav-link.active {
+        background: #0d6efd;
+        border-color: #0d6efd;
+        color: #fff;
+        box-shadow: 0 10px 20px rgba(13,110,253,.22);
+    }
+
+    .it-item-description {
+        font-size: .95rem;
+        line-height: 1.7;
+        color: #475569;
+        white-space: pre-line;
+    }
+
+    .it-barcode-preview {
+        border-radius: 18px;
+        border: 1px solid rgba(15,23,42,.10);
+        background: #fff;
+        padding: .85rem;
+    }
+
+   
+    }
+</style>
+
+<div class="it-item-details-page">
+    <section class="it-item-details-hero">
+        <div class="it-pagehead mb-0">
+            <div class="min-w-0">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="it-page-dot"></div>
+                    <h1 class="h3 mb-0 fw-bold text-truncate">Item Details</h1>
+                </div>
+                <div class="it-item-details-subtitle">
+                    Review inventory status, barcode access, movement history, and reorder insight for <span class="fw-semibold text-dark">@Model.ItemName</span>.
+                </div>
+                <div class="it-item-details-meta">
+                    <span>SKU: @(string.IsNullOrWhiteSpace(Model.SKU) ? "—" : Model.SKU)</span>
+                    <span>Category: @(Model.Category?.Name ?? "—")</span>
+                    <span>Primary Location: @(Model.StorageLocation?.Name ?? "—")</span>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap justify-content-end">
+                @if (Model.IsActive)
+                {
+                    <span class="badge bg-success-subtle text-success border it-badge align-self-center">Active</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary-subtle text-secondary border it-badge align-self-center">Inactive</span>
+                }
+
+                @if (isLowStock)
+                {
+                    <span class="badge text-bg-warning it-badge align-self-center">Low Stock</span>
+                }
+
+                @if (canCreateEditInventory)
+                {
+                    <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-outline-primary">Edit</a>
+                }
+
+                @if (showRequestTransfer)
+                {
+                    <a asp-controller="StockTransferRequests" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-outline-dark">Request Transfer</a>
+                }
+                @if (canRequestOrders)
+                {
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#reorderModal">@(canApproveOrders ? "Restock" : "Request Restock")</button>
+                }
+
+                <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
+            </div>
         </div>
-        <div class="text-muted small text-truncate">
-            @Model.ItemName
-        </div>
-    </div>
-
-    <div class="d-flex gap-2 flex-wrap justify-content-end">
-        @if (Model.IsActive)
-        {
-            <span class="badge bg-success-subtle text-success border it-badge align-self-center">Active</span>
-        }
-        else
-        {
-            <span class="badge bg-secondary-subtle text-secondary border it-badge align-self-center">Inactive</span>
-        }
-
-        @if (isLowStock)
-        {
-            <span class="badge text-bg-warning it-badge align-self-center">Low Stock</span>
-        }
-
-        @if (canCreateEditInventory)
-        {
-            <a asp-action="Edit" asp-route-id="@Model.ID" class="btn btn-outline-primary">Edit</a>
-        }
-
-        @if (showRequestTransfer)
-        {
-            <a asp-controller="StockTransferRequests" asp-action="Create" asp-route-inventoryItemId="@Model.ID" class="btn btn-outline-dark">Request Transfer</a>
-        }
-        @if (canRequestOrders)
-        {
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#reorderModal">@(canApproveOrders ? "Restock" : "Request Restock")</button>
-        }
-
-        <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
-    </div>
-</div>
+    </section>
 
 @if (TempData["OrderMsg"] != null)
 {
     <div class="alert alert-info">@TempData["OrderMsg"]</div>
 }
 
-<div class="row g-3 g-lg-4">
-    <div class="col-lg-4">
+<div class="row g-3 g-lg-4 align-items-start">
+    <div class="col-12 col-xl-4">
+        <div class="it-item-sidebar">
         <div class="it-panel">
             <div class="it-panel-header"><div class="fw-bold">Barcode</div><div class="text-muted small">Unique identifier for scanning and quick lookup.</div></div>
             <div class="it-panel-body text-center">
-                <img src="@Url.Action("BarcodeImage", new { id = Model.ID })" class="img-fluid border rounded p-2 bg-white" alt="Barcode for @Model.ItemName" />
+                <img src="@Url.Action("BarcodeImage", new { id = Model.ID })" class="img-fluid it-barcode-preview" alt="Barcode for @Model.ItemName" />
                 <div class="fw-semibold mt-3">@Model.Barcode</div>
                 <div class="d-grid mt-3">
                     <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#barcodeModalMain">Show Barcode</button>
                 </div>
             </div>
         </div>
-    </div>
 
     <!-- Left: Photo + basics -->
-    <div class="col-12 col-lg-4">
-        <div class="it-panel h-100">
+        <div class="it-panel">
             <div class="it-panel-header">
                 <div class="fw-bold">Overview</div>
                 <div class="text-muted small">Photo and key identifiers.</div>
             </div>
 
             <div class="it-panel-body">
-                <div class="mb-3">
+                <div class="it-item-photo-wrap mb-3">
                     @if (!string.IsNullOrWhiteSpace(imgSrc))
                     {
                         <img src="@imgSrc"
-                             class="img-fluid rounded-4 border w-100"
+                             class="img-fluid w-100"
                              alt="Photo of @Model.ItemName"
                              style="max-height:260px;object-fit:cover;" />
                     }
                     else
                     {
-                        <div class="it-empty-photo rounded-4 border w-100" style="min-height:260px;">
+                        <div class="it-empty-photo w-100" style="min-height:260px;">
                             📦
                             <div class="small text-muted mt-2">No photo</div>
                         </div>
@@ -137,14 +273,14 @@
                 </div>
 
                 <div class="row g-2">
-                    <div class="col-12">
+                    <div class="col-12 col-md-6 col-xl-12">
                         <div class="it-field">
                             <div class="label">SKU</div>
-                            <div class="value">@Model.SKU</div>
+                            <div class="value">@(string.IsNullOrWhiteSpace(Model.SKU) ? "—" : Model.SKU)</div>
                         </div>
                     </div>
 
-                    <div class="col-12">
+                    <div class="col-12 col-md-6 col-xl-12">
                         <div class="it-field">
                             <div class="label">Category</div>
                             <div class="value">@(Model.Category?.Name ?? "—")</div>
@@ -179,10 +315,12 @@
                 </div>
             </div>
         </div>
+        </div>
     </div>
 
     <!-- Right: KPI + Description + Tabs -->
-    <div class="col-12 col-lg-8">
+    <div class="col-12 col-xl-8">
+        <div class="it-item-main">
         <!-- KPIs -->
         <div class="row g-3 mb-3">
             <div class="col-12 col-md-4">
@@ -216,8 +354,8 @@
                         <div class="text-muted small">Notes and usage details.</div>
                     </div>
                     <div class="it-panel-body">
-                        <div class="text-muted">
-                            @(!string.IsNullOrWhiteSpace(Model.Description) ? Model.Description : "—")
+                        <div class="it-item-description">
+                            @(!string.IsNullOrWhiteSpace(Model.Description) ? Model.Description : "No description provided for this item.")
                         </div>
                     </div>
                 </div>
@@ -518,7 +656,9 @@
                 </div>
             </div>
         </div>
+        </div>
     </div>
+</div>
 </div>
 
 <div class="modal fade" id="barcodeModalMain" tabindex="-1" aria-hidden="true">
