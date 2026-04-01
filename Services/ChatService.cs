@@ -283,6 +283,33 @@ namespace InvenTrack.Services
             };
         }
 
+        public async Task<List<ChatMessageVM>> GetMessagesAfterAsync(int conversationId, string userId, int afterMessageId)
+        {
+            var isMember = await _context.ChatConversationMembers
+                .AsNoTracking()
+                .AnyAsync(m => m.ChatConversationID == conversationId && m.UserId == userId && m.LeftAt == null);
+
+            if (!isMember)
+                throw new InvalidOperationException("You are not a member of this conversation.");
+
+            return await _context.ChatMessages
+                .AsNoTracking()
+                .Where(m => m.ChatConversationID == conversationId && m.ID > afterMessageId)
+                .OrderBy(m => m.DateSent)
+                .ThenBy(m => m.ID)
+                .Select(m => new ChatMessageVM
+                {
+                    MessageId = m.ID,
+                    SenderUserId = m.SenderUserId,
+                    SenderDisplayName = m.SenderDisplayName,
+                    Body = m.Body,
+                    DateSent = m.DateSent,
+                    IsMine = m.SenderUserId == userId,
+                    IsSystemMessage = m.IsSystemMessage
+                })
+                .ToListAsync();
+        }
+
         public async Task AddMembersAsync(int conversationId, ApplicationUser actingUser, IEnumerable<string> userIds)
         {
             var convo = await _context.ChatConversations

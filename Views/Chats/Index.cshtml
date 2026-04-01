@@ -76,7 +76,7 @@
                         var toneClass = m.IsSystemMessage ? "is-system" : (m.IsMine ? "is-mine" : "is-theirs");
                         var senderInitial = !string.IsNullOrWhiteSpace(m.SenderDisplayName) ? m.SenderDisplayName.Substring(0, 1).ToUpperInvariant() : "U";
 
-                        <div class="it-chat-message-row @alignClass">
+                        <div class="it-chat-message-row @alignClass" data-message-id="@m.MessageId">
                             @if (!m.IsMine)
                             {
                                 <div class="it-chat-message__avatar">@senderInitial</div>
@@ -138,8 +138,18 @@
 @section Scripts {
 <script>
 (() => {
+    const conversationId = @Model.ConversationId;
+    const currentUserId = '@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value';
     const messages = document.getElementById('chatMessages');
     const alertBox = document.getElementById('chatAlert');
+    const seenMessageIds = new Set(
+        Array.from(document.querySelectorAll('.it-chat-message-row[data-message-id]'))
+            .map((node) => Number(node.getAttribute('data-message-id')))
+            .filter((value) => Number.isFinite(value) && value > 0)
+    );
+    let lastMessageId = seenMessageIds.size ? Math.max(...seenMessageIds) : 0;
+    let isSending = false;
+    let isPolling = false;
 
     function escapeHtml(text) {
         return (text || '')
@@ -161,12 +171,19 @@
 
     function appendMessage(payload) {
         if (!messages || !payload) return;
+        const messageId = Number(payload.messageId || 0);
+        if (messageId > 0 && seenMessageIds.has(messageId)) return;
 
         const wrap = document.createElement('div');
         const rowClass = payload.isMine ? 'is-mine' : 'is-theirs';
         const bubbleClass = payload.isSystemMessage ? 'is-system' : (payload.isMine ? 'is-mine' : 'is-theirs');
 
         wrap.className = `it-chat-message-row ${rowClass}`;
+        if (messageId > 0) {
+            wrap.dataset.messageId = String(messageId);
+            seenMessageIds.add(messageId);
+            lastMessageId = Math.max(lastMessageId, messageId);
+        }
 
         wrap.innerHTML = `
             ${payload.isMine ? '' : `<div class="it-chat-message__avatar">${escapeHtml(getInitial(payload.senderDisplayName))}</div>`}
@@ -190,33 +207,30 @@
     scrollToBottom();
 
     if (window.invenTrackChat && typeof window.invenTrackChat.registerActiveConversation === 'function') {
-        window.invenTrackChat.registerActiveConversation(@Model.ConversationId);
+        window.invenTrackChat.registerActiveConversation(conversationId);
     }
+
+    syncMessages();
 
     document.addEventListener('inventrack:chat-message', async (event) => {
         const payload = event.detail;
-        if (!payload || Number(payload.conversationId) !== @Model.ConversationId) return;
+        if (!payload || Number(payload.conversationId) !== conversationId) return;
 
         appendMessage({
+            messageId: payload.messageId,
             senderDisplayName: payload.senderDisplayName,
             body: payload.body,
             dateSent: payload.dateSent,
-            isMine: payload.senderUserId === '@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value',
+            isMine: payload.senderUserId === currentUserId,
             isSystemMessage: payload.isSystemMessage
         });
 
-        try {
-            await fetch(`/Chats/MarkRead?conversationId=@Model.ConversationId`, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            });
-        } catch {
-        }
+        await markConversationRead();
     });
 
     document.addEventListener('inventrack:chat-members-changed', (event) => {
         const payload = event.detail;
-        if (!payload || Number(payload.conversationId) !== @Model.ConversationId) return;
+        if (!payload || Number(payload.conversationId) !== conversationId) return;
         showAlert('Conversation members were updated. Refreshing chat...');
         setTimeout(() => window.location.reload(), 800);
     });
@@ -225,18 +239,70 @@
     const textarea = document.getElementById('chatBody');
     const sendBtn = form?.querySelector('button[type="submit"]');
 
+    async function markConversationRead() {
+        try {
+            await fetch(`/Chats/MarkRead?conversationId=${conversationId}`, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+        } catch {
+        }
+    }
+
+    async function syncMessages() {
+        if (isPolling) return;
+
+        isPolling = true;
+        try {
+            const res = await fetch(`/Chats/MessagesAfter?conversationId=${conversationId}&afterMessageId=${lastMessageId}`, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (!res.ok) return;
+
+            const data = await res.json();
+            const newMessages = Array.isArray(data?.messages) ? data.messages : [];
+            let receivedOtherUserMessage = false;
+
+            newMessages.forEach((message) => {
+                const isMine = message.senderUserId === currentUserId;
+                appendMessage({
+                    messageId: message.messageId,
+                    senderDisplayName: message.senderDisplayName,
+                    body: message.body,
+                    dateSent: message.dateSent,
+                    isMine,
+                    isSystemMessage: message.isSystemMessage
+                });
+
+                if (!isMine && !message.isSystemMessage) {
+                    receivedOtherUserMessage = true;
+                }
+            });
+
+            if (receivedOtherUserMessage) {
+                await markConversationRead();
+            }
+        } catch {
+        } finally {
+            isPolling = false;
+        }
+    }
+
     async function sendMessage() {
-        if (!form || !textarea) return;
+        if (!form || !textarea || isSending) return;
         const body = textarea.value.trim();
         if (!body) return;
 
         const token = form.querySelector('input[name="__RequestVerificationToken"]')?.value;
-        const conversationId = form.querySelector('input[name="conversationId"]')?.value;
+        const activeConversationId = form.querySelector('input[name="conversationId"]')?.value;
 
+        isSending = true;
         if (sendBtn) sendBtn.disabled = true;
         try {
             const formData = new FormData();
-            formData.append('conversationId', conversationId);
+            formData.append('conversationId', activeConversationId);
             formData.append('body', body);
             if (token) formData.append('__RequestVerificationToken', token);
 
@@ -247,8 +313,20 @@
             });
 
             if (res.ok) {
+                const data = await res.json();
+                if (data?.message) {
+                    appendMessage({
+                        messageId: data.message.messageId,
+                        senderDisplayName: data.message.senderDisplayName,
+                        body: data.message.body,
+                        dateSent: data.message.dateSent,
+                        isMine: true,
+                        isSystemMessage: data.message.isSystemMessage
+                    });
+                }
                 textarea.value = '';
                 textarea.focus();
+                await markConversationRead();
             } else {
                 showAlert('Failed to send message. Please try again.');
             }
@@ -256,6 +334,7 @@
             showAlert('Connection error. Please try again.');
         } finally {
             if (sendBtn) sendBtn.disabled = false;
+            isSending = false;
         }
     }
 
@@ -274,6 +353,18 @@
             }
         });
     }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            syncMessages();
+        }
+    });
+
+    window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+            syncMessages();
+        }
+    }, 1500);
 })();
 </script>
 }

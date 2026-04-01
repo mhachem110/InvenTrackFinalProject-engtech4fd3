@@ -406,8 +406,6 @@
                 ];
 
                 const chatBadgeIds = [
-                    'chatBadgeDesktop',
-                    'chatBadgeMobile',
                     'chatBadgeTopDesktop',
                     'chatBadgeTopMobile'
                 ];
@@ -554,6 +552,31 @@
                     }
                 }
 
+                async function joinActiveConversationGroup(connection) {
+                    if (!window.invenTrackChat?.activeConversationId || !connection || connection.state !== 'Connected') {
+                        return;
+                    }
+
+                    try {
+                        await connection.invoke('JoinConversationGroup', String(window.invenTrackChat.activeConversationId));
+                    } catch {
+                    }
+                }
+
+                async function startConnectionWithRetry(connection, onStarted) {
+                    while (true) {
+                        try {
+                            await connection.start();
+                            if (typeof onStarted === 'function') {
+                                await onStarted();
+                            }
+                            return;
+                        } catch {
+                            await new Promise(resolve => window.setTimeout(resolve, 3000));
+                        }
+                    }
+                }
+
                 window.invenTrackChat = window.invenTrackChat || {
                     activeConversationId: null,
                     connection: null,
@@ -561,12 +584,7 @@
                         this.activeConversationId = conversationId;
                         await markActiveConversationRead();
                         await refreshChatBadge();
-                        if (this.connection && this.connection.state === 'Connected') {
-                            try {
-                                await this.connection.invoke('JoinConversationGroup', String(conversationId));
-                            } catch {
-                            }
-                        }
+                        await joinActiveConversationGroup(this.connection);
                     }
                 };
 
@@ -629,27 +647,18 @@
                         await refreshTransferBadge();
                         await refreshOrderBadge();
                         await refreshChatBadge();
-                        if (window.invenTrackChat?.activeConversationId) {
-                            try {
-                                await chatConnection.invoke('JoinConversationGroup', String(window.invenTrackChat.activeConversationId));
-                            } catch {
-                            }
-                        }
+                        await joinActiveConversationGroup(chatConnection);
                     });
 
-                    try {
-                        await chatConnection.start();
-                        if (window.invenTrackChat?.activeConversationId) {
-                            await chatConnection.invoke('JoinConversationGroup', String(window.invenTrackChat.activeConversationId));
-                        }
-                    } catch {
-                    }
+                    await startConnectionWithRetry(chatConnection, async function () {
+                        await joinActiveConversationGroup(chatConnection);
+                    });
 
                     if (@canUseOrders.ToString().ToLowerInvariant()) {
                         const orderConnection = new signalR.HubConnectionBuilder().withUrl('/hubs/order-requests').withAutomaticReconnect().build();
                         orderConnection.on('OrderRequestsChanged', function (payload) { refreshOrderBadge(); if (payload && payload.message) { showToast('Restock Orders', payload.message); } });
                         orderConnection.onreconnected(function () { refreshOrderBadge(); });
-                        try { await orderConnection.start(); } catch { }
+                        await startConnectionWithRetry(orderConnection);
                     }
 
                     if (@canUseTransferRequests.ToString().ToLowerInvariant()) {
@@ -669,10 +678,7 @@
                             refreshTransferBadge();
                         });
 
-                        try {
-                            await transferConnection.start();
-                        } catch {
-                        }
+                        await startConnectionWithRetry(transferConnection);
                     }
                 }
 
@@ -684,5 +690,4 @@
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
-
 
