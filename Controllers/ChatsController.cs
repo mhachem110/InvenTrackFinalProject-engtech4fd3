@@ -153,6 +153,7 @@ namespace InvenTrack.Controllers
             }
 
             var message = await _chatService.SendMessageAsync(conversationId, currentUser, body);
+            var broadcastPayload = CreateMessagePayload(message, conversationId);
             var recipientIds = await _context.ChatConversationMembers
                 .AsNoTracking()
                 .Where(m => m.ChatConversationID == conversationId && m.LeftAt == null && m.UserId != currentUser.Id)
@@ -166,18 +167,8 @@ namespace InvenTrack.Controllers
                 .Select(c => c.Name)
                 .FirstAsync();
 
-            await _chatHub.Clients.Group($"chat-{conversationId}")
-                .SendAsync("ReceiveMessage", new
-                {
-                    conversationId,
-                    senderDisplayName = message.SenderDisplayName,
-                    senderUserId = message.SenderUserId,
-                    body = message.Body,
-                    dateSent = message.DateSentDisplay,
-                    isoDateSent = message.DateSent,
-                    isMine = false,
-                    isSystemMessage = false
-                });
+            await _chatHub.Clients.Group(ChatHub.GetConversationGroup(conversationId))
+                .SendAsync("ReceiveMessage", broadcastPayload);
 
             foreach (var recipientId in recipientIds)
             {
@@ -194,8 +185,28 @@ namespace InvenTrack.Controllers
             }
 
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-                return Ok(new { ok = true });
+            {
+                return Ok(new
+                {
+                    ok = true,
+                    message = CreateMessagePayload(message, conversationId, isMineOverride: true)
+                });
+            }
             return RedirectToAction(nameof(Index), new { id = conversationId });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> MessagesAfter(int conversationId, int afterMessageId = 0)
+        {
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null) return Challenge();
+
+            var messages = await _chatService.GetMessagesAfterAsync(conversationId, currentUser.Id, afterMessageId);
+
+            return Json(new
+            {
+                messages = messages.Select(message => CreateMessagePayload(message, conversationId))
+            });
         }
 
         [HttpGet]
@@ -288,6 +299,22 @@ namespace InvenTrack.Controllers
                 });
 
             return RedirectToAction(nameof(ManageMembers), new { id = conversationId });
+        }
+
+        private static object CreateMessagePayload(ChatMessageVM message, int conversationId, bool? isMineOverride = null)
+        {
+            return new
+            {
+                messageId = message.MessageId,
+                conversationId,
+                senderDisplayName = message.SenderDisplayName,
+                senderUserId = message.SenderUserId,
+                body = message.Body,
+                dateSent = message.DateSentDisplay,
+                isoDateSent = message.DateSent,
+                isMine = isMineOverride ?? message.IsMine,
+                isSystemMessage = message.IsSystemMessage
+            };
         }
     }
 }

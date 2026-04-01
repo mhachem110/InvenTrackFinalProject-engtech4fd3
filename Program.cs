@@ -81,7 +81,12 @@ builder.Services.AddScoped<BarcodeService>();
 builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<OrderService>();
 
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+});
 builder.Services.AddScoped<TransferRequestNotificationService>();
 builder.Services.AddScoped<OrderRequestNotificationService>();
 
