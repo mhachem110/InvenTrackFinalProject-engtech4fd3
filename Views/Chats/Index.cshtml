@@ -220,6 +220,60 @@
         showAlert('Conversation members were updated. Refreshing chat...');
         setTimeout(() => window.location.reload(), 800);
     });
+
+    const form = document.querySelector('.it-chat-composer__form');
+    const textarea = document.getElementById('chatBody');
+    const sendBtn = form?.querySelector('button[type="submit"]');
+
+    async function sendMessage() {
+        if (!form || !textarea) return;
+        const body = textarea.value.trim();
+        if (!body) return;
+
+        const token = form.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        const conversationId = form.querySelector('input[name="conversationId"]')?.value;
+
+        if (sendBtn) sendBtn.disabled = true;
+        try {
+            const formData = new FormData();
+            formData.append('conversationId', conversationId);
+            formData.append('body', body);
+            if (token) formData.append('__RequestVerificationToken', token);
+
+            const res = await fetch('/Chats/SendMessage', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+
+            if (res.ok) {
+                textarea.value = '';
+                textarea.focus();
+            } else {
+                showAlert('Failed to send message. Please try again.');
+            }
+        } catch {
+            showAlert('Connection error. Please try again.');
+        } finally {
+            if (sendBtn) sendBtn.disabled = false;
+        }
+    }
+
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            sendMessage();
+        });
+    }
+
+    if (textarea) {
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    }
 })();
 </script>
 }

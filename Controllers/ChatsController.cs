@@ -146,7 +146,11 @@ namespace InvenTrack.Controllers
             if (currentUser == null) return Challenge();
 
             if (string.IsNullOrWhiteSpace(body))
+            {
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    return BadRequest(new { error = "Empty message" });
                 return RedirectToAction(nameof(Index), new { id = conversationId });
+            }
 
             var message = await _chatService.SendMessageAsync(conversationId, currentUser, body);
             var recipientIds = await _context.ChatConversationMembers
@@ -189,6 +193,8 @@ namespace InvenTrack.Controllers
                     });
             }
 
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return Ok(new { ok = true });
             return RedirectToAction(nameof(Index), new { id = conversationId });
         }
 
